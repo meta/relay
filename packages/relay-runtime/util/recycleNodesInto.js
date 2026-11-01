@@ -43,7 +43,7 @@ function recycleNodesIntoImpl<T>(
   if (prevArray && nextArray) {
     const canMutateNext = canMutate && !Object.isFrozen(nextArray);
     canRecycle =
-      nextArray.reduce((wasEqual, nextItem, ii) => {
+      nextArray.reduce<boolean>((wasEqual, nextItem, ii) => {
         const prevValue = prevArray[ii];
         const nextValue = recycleNodesIntoImpl(
           prevValue,
