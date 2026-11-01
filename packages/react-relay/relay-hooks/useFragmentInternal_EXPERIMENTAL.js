@@ -459,8 +459,7 @@ hook useFragmentInternal_EXPERIMENTAL(
   const environment = useRelayEnvironment();
   let loggerContext;
   if (RelayFeatureFlags.ENABLE_UI_CONTEXT_ON_RELAY_LOGGER) {
-    // $FlowFixMe[react-rule-hook] - the condition is static
-    // $FlowFixMe[react-rule-hook-conditional]
+    // $FlowFixMe[react-rule-hook-conditional] - the condition is static
     loggerContext = useRelayLoggingContext();
   }
   const [_state, setState] = useState<FragmentState>(() =>
@@ -503,7 +502,6 @@ hook useFragmentInternal_EXPERIMENTAL(
     // a static (constant) property of the fragment. In practice, this effect will
     // always or never run for a given invocation of this hook.
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    // $FlowFixMe[react-rule-hook]
     // $FlowFixMe[react-rule-hook-conditional]
     const [clientEdgeQueries, activeRequestPromises] = useMemo(() => {
       const missingClientEdges = getMissingClientEdges(state);
@@ -552,7 +550,6 @@ hook useFragmentInternal_EXPERIMENTAL(
 
     // See above note
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    // $FlowFixMe[react-rule-hook]
     // $FlowFixMe[react-rule-hook-conditional]
     useEffect(() => {
       const QueryResource = getQueryResourceForEnvironment(environment);
@@ -677,7 +674,6 @@ hook useFragmentInternal_EXPERIMENTAL(
     | {kind: 'missed-updates'}
     | {kind: 'uninitialized'},
   >({kind: 'uninitialized'});
-  // $FlowFixMe[react-rule-hook] - the condition is static
   useEffect(() => {
     const storeSubscription = storeSubscriptionRef.current;
     if (storeSubscription.kind === 'initialized') {
@@ -736,7 +732,6 @@ hook useFragmentInternal_EXPERIMENTAL(
       selector: state.selector,
     };
   }, [state]);
-  // $FlowFixMe[react-rule-hook] - the condition is static
   useEffect(() => {
     if (
       storeSubscriptionRef.current.kind === 'uninitialized' &&
@@ -769,7 +764,6 @@ hook useFragmentInternal_EXPERIMENTAL(
     // for a particular useFragment invocation site
     const fragmentRefIsNullish = fragmentRef == null; // for less sensitive memoization
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    // $FlowFixMe[react-rule-hook]
     // $FlowFixMe[react-rule-hook-conditional]
     data = useMemo(() => {
       if (state.kind === 'bailout') {
@@ -821,7 +815,6 @@ hook useFragmentInternal_EXPERIMENTAL(
 
   if (__DEV__) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    // $FlowFixMe[react-rule-hook]
     // $FlowFixMe[react-rule-hook-conditional]
     useDebugValue({data, fragment: fragmentNode.name});
   }

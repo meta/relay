@@ -316,7 +316,6 @@ it('renders synchronously when the query and component are already loaded', asyn
 it('re-renders without reloading when non-prefetch props change', async () => {
   // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   const Component = jest.fn(props => {
-    // $FlowFixMe[react-rule-hook]
     const data = usePreloadedQuery(query, props.queries.prefetched);
     return data.node?.name;
   });
@@ -365,7 +364,6 @@ it('re-renders without reloading when non-prefetch props change', async () => {
 it.skip('re-renders and reloads when prefetch params change', async () => {
   // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   const Component = jest.fn(props => {
-    // $FlowFixMe[react-rule-hook]
     const data = usePreloadedQuery(query, props.queries.prefetched);
     return data.node?.name;
   });

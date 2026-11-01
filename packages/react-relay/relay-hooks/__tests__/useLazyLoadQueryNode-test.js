@@ -154,9 +154,7 @@ beforeEach(() => {
   };
 
   Container = function TestContainer(props: Props, key?: number) {
-    // $FlowFixMe[react-rule-hook]
     const [nextProps, setNextProps] = React.useState(props);
-    // $FlowFixMe[react-rule-hook]
     const [nextKey, setNextKey] = React.useState(key);
     setProps = setNextProps;
     setKey = setNextKey;
