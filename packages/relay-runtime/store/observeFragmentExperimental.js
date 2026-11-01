@@ -84,11 +84,7 @@ function observeFragment<TFragmentType extends FragmentType, TData>(
     case 'SingularReaderSelector':
       return observeSingularSelector(environment, fragment, fragmentSelector);
     case 'PluralReaderSelector': {
-      return observePluralSelector(
-        environment,
-        fragment as $FlowFixMe,
-        fragmentSelector,
-      );
+      return observePluralSelector(environment, fragment, fragmentSelector);
     }
   }
   invariant(false, 'Unsupported fragment selector kind');
@@ -148,14 +144,11 @@ function observeSingularSelector<TFragmentType extends FragmentType, TData>(
   });
 }
 
-function observePluralSelector<
-  TFragmentType extends FragmentType,
-  TData extends Array<unknown>,
->(
+function observePluralSelector<TFragmentType extends FragmentType, TData>(
   environment: IEnvironment,
   fragmentNode: Fragment<TFragmentType, TData>,
   fragmentSelector: PluralReaderSelector,
-): Observable<FragmentState<TData>> {
+): Observable<FragmentState<Array<TData>>> {
   const snapshots = fragmentSelector.selectors.map(selector =>
     environment.lookup(selector),
   );
@@ -171,7 +164,7 @@ function observePluralSelector<
       ),
     );
 
-    sink.next(mergeFragmentStates(states) as $FlowFixMe);
+    sink.next(mergeFragmentStates(states));
 
     const subscriptions = snapshots.map((snapshot, index) =>
       environment.subscribe(snapshot, latestSnapshot => {
@@ -183,7 +176,7 @@ function observePluralSelector<
         );
         // This doesn't batch updates, so it will notify the subscriber multiple times
         // if a store update impacting multiple items in the list is published.
-        sink.next(mergeFragmentStates(states) as $FlowFixMe);
+        sink.next(mergeFragmentStates(states));
       }),
     );
 
