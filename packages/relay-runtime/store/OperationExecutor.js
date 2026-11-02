@@ -71,10 +71,15 @@ const {ROOT_TYPE, TYPENAME_KEY, getStorageKey} = require('./RelayStoreUtils');
 const invariant = require('invariant');
 const warning = require('warning');
 
-// A network response OR a pre-normalized payload from the network layer.
-// RelayObservable<+T> is covariant, so Observable<GraphQLResponse> is
-// assignable to Observable<NetworkResponse> automatically.
-type NetworkResponse = GraphQLResponse | RelayResponsePayload;
+// A network response, a pre-normalized payload from the network layer, or
+// pre-normalized payloads published together, optionally followed by the
+// network response that completes them. RelayObservable<+T> is covariant, so
+// Observable<GraphQLResponse> is assignable to Observable<NetworkResponse>
+// automatically.
+type NetworkResponse =
+  | GraphQLResponse
+  | RelayResponsePayload
+  | ReadonlyArray<RelayResponsePayload | GraphQLSingularResponse>;
 
 export type ExecuteConfig<TMutation extends MutationParameters> = {
   readonly actorIdentifier: ActorIdentifier,
@@ -410,14 +415,18 @@ class Executor<TMutation extends MutationParameters> {
     this._schedule(() => {
       // Pre-normalized payloads from the network layer have isPreNormalized
       // set by NormalizationEngine. Route them to a dedicated handler that
-      // commits directly to the store, bypassing normalizeResponse().
+      // commits directly to the store, bypassing normalizeResponse(). An
+      // array of them is published together.
+      const first = Array.isArray(response) ? response[0] : response;
       if (
-        !Array.isArray(response) &&
+        first != null &&
         // $FlowFixMe[prop-missing] isPreNormalized exists on RelayResponsePayload branch
-        response.isPreNormalized === true
+        first.isPreNormalized === true
       ) {
-        // $FlowFixMe[incompatible-type] narrowed by isPreNormalized check
-        this._handlePreNormalizedPayload(response);
+        this._handlePreNormalizedPayloads(
+          // $FlowFixMe[incompatible-type] narrowed by isPreNormalized check
+          Array.isArray(response) ? response : [response],
+        );
         return;
       }
       // After the pre-normalized early return, response is a standard
@@ -425,21 +434,25 @@ class Executor<TMutation extends MutationParameters> {
       // isPreNormalized is optional, so we cast once here at the boundary).
       // $FlowFixMe[incompatible-type] narrowed by isPreNormalized check above
       const graphQLResponse: GraphQLResponse = response;
-      this._log({
-        executeId: this._executeId,
-        name: 'execute.next.start',
-        operation: this._operation,
-        response: graphQLResponse,
-      });
-      this._handleNext(graphQLResponse);
-      this._maybeCompleteSubscriptionOperationTracking();
-      this._log({
-        executeId: this._executeId,
-        name: 'execute.next.end',
-        operation: this._operation,
-        response: graphQLResponse,
-      });
+      this._handleNetworkResponse(graphQLResponse);
     }, priority);
+  }
+
+  _handleNetworkResponse(response: GraphQLResponse): void {
+    this._log({
+      executeId: this._executeId,
+      name: 'execute.next.start',
+      operation: this._operation,
+      response,
+    });
+    this._handleNext(response);
+    this._maybeCompleteSubscriptionOperationTracking();
+    this._log({
+      executeId: this._executeId,
+      name: 'execute.next.end',
+      operation: this._operation,
+      response,
+    });
   }
 
   _handleErrorResponse(
@@ -530,7 +543,9 @@ class Executor<TMutation extends MutationParameters> {
     return false;
   }
 
-  _handlePreNormalizedPayload(payload: RelayResponsePayload): void {
+  _handlePreNormalizedPayloads(
+    payloads: ReadonlyArray<RelayResponsePayload | GraphQLSingularResponse>,
+  ): void {
     // NOTE: This path intentionally skips _maybeCompleteSubscriptionOperationTracking
     // and the execute.next.start/end log events. Pre-normalized payloads come from
     // the network-normalization path (NormalizationEngine via executeWithNetwork),
@@ -548,15 +563,36 @@ class Executor<TMutation extends MutationParameters> {
       );
       this._optimisticUpdates = null;
     }
-    this._getPublishQueueAndSaveActor().commitPayload(
-      this._operation,
-      payload,
-      payload.storeUpdater ?? this._updater,
-    );
-    if (payload.isFinal) {
+    // Committed in order and published by one run of the queue: one store
+    // notification for all of them, each payload's updater seeing the store
+    // as the payloads before it leave it.
+    const publishQueue = this._getPublishQueueAndSaveActor();
+    let isFinal = false;
+    let response: ?GraphQLSingularResponse = null;
+    for (let i = 0; i < payloads.length; i++) {
+      const payload = payloads[i];
+      if (!('source' in payload)) {
+        // The network response that completes them, sent last.
+        response = payload;
+        continue;
+      }
+      publishQueue.commitPayload(
+        this._operation,
+        payload,
+        payload.storeUpdater ?? this._updater,
+      );
+      isFinal = isFinal || payload.isFinal;
+    }
+    if (isFinal) {
       this._state = 'loading_final';
     } else if (this._state === 'started') {
       this._state = 'loading_incremental';
+    }
+    if (response != null && response.data != null) {
+      // Handled as any network response, whose one run of the queue also
+      // publishes the payloads committed above.
+      this._handleNetworkResponse(response);
+      return;
     }
     // Both reads are confined to this method on purpose. Detecting the
     // transition inside `_updateActiveState` would be tidier, but that runs on
@@ -577,10 +613,14 @@ class Executor<TMutation extends MutationParameters> {
     // a response lands on the sink. Ending the request without emitting leaves
     // that consumer waiting on a state change it can never observe.
     //
-    // The payload carries no data — `commitPayload` already normalized it into
+    // It carries no data — `commitPayload` already normalized the payloads into
     // the store — so this is a liveness signal, not a second delivery.
     if (wasActive && this._operationExecutions.get(identifier) === 'inactive') {
       this._sink.next({data: null, extensions: {is_final: true}});
+    }
+    if (response != null) {
+      // Carries no data: it only updates the request's state.
+      this._handleNetworkResponse(response);
     }
   }
 

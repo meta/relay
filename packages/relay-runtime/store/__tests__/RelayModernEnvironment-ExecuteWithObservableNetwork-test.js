@@ -11,7 +11,13 @@
 
 'use strict';
 import type {GraphQLResponse} from '../../network/RelayNetworkTypes';
-import type {RecordSourceSelectorProxy, Snapshot} from '../RelayStoreTypes';
+import type {
+  RecordSourceJSON,
+  RecordSourceProxy,
+  RecordSourceSelectorProxy,
+  RelayResponsePayload,
+  Snapshot,
+} from '../RelayStoreTypes';
 
 const {
   MultiActorEnvironment,
@@ -256,6 +262,169 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         expect(next.mock.calls.length).toBe(1);
         const response2 = next.mock.calls[0][0];
         expect(response2).toBe(payload2);
+      });
+
+      describe('with pre-normalized payloads sent together', () => {
+        function preNormalized(
+          records: RecordSourceJSON,
+          isFinal: boolean,
+          storeUpdater?: (store: RecordSourceProxy) => void,
+        ): RelayResponsePayload {
+          return {
+            errors: null,
+            fieldPayloads: null,
+            followupPayloads: null,
+            incrementalPlaceholders: null,
+            isFinal,
+            isPreNormalized: true,
+            source: RelayRecordSource.create(records),
+            storeUpdater,
+          };
+        }
+        const me: RecordSourceJSON = {
+          [ROOT_ID]: {
+            __id: ROOT_ID,
+            __typename: '__Root',
+            me: {__ref: '842472'},
+          },
+          '842472': {
+            __id: '842472',
+            __typename: 'User',
+            id: '842472',
+            name: 'Joe',
+          },
+        };
+
+        it('publishes them in order with one store notification', () => {
+          const selector = createReaderSelector(
+            query.fragment,
+            ROOT_ID,
+            variables,
+            operation.request,
+          );
+          const callback = jest.fn<[Snapshot], void>();
+          environment.subscribe(environment.lookup(selector), callback);
+          environment.execute({operation}).subscribe(callbacks);
+          subject.next([
+            preNormalized(me, false),
+            preNormalized(
+              {'842472': {__id: '842472', __typename: 'User', name: 'Zuck'}},
+              false,
+            ),
+          ]);
+          jest.runAllTimers();
+          expect(error).not.toBeCalled();
+          expect(callback.mock.calls.length).toBe(1);
+          expect(callback.mock.calls[0][0].data).toEqual({me: {name: 'Zuck'}});
+        });
+
+        it('runs each store updater over the payloads before it', () => {
+          let seen;
+          environment.execute({operation}).subscribe(callbacks);
+          subject.next([
+            preNormalized(me, false),
+            preNormalized({}, false, store => {
+              seen = store.get('842472')?.getValue('name');
+            }),
+          ]);
+          jest.runAllTimers();
+          expect(error).not.toBeCalled();
+          expect(seen).toBe('Joe');
+        });
+
+        it('publishes the network response sent after them in the same store update', () => {
+          const selector = createReaderSelector(
+            query.fragment,
+            ROOT_ID,
+            variables,
+            operation.request,
+          );
+          const callback = jest.fn<[Snapshot], void>();
+          environment.subscribe(environment.lookup(selector), callback);
+          environment.execute({operation}).subscribe(callbacks);
+          const response = {
+            data: {
+              '842472': {__id: '842472', __typename: 'User', name: 'Zuck'},
+            },
+            extensions: {is_final: true, is_normalized: true},
+          };
+          subject.next([preNormalized(me, false), response]);
+          jest.runAllTimers();
+          expect(error).not.toBeCalled();
+          expect(callback.mock.calls.length).toBe(1);
+          expect(callback.mock.calls[0][0].data).toEqual({me: {name: 'Zuck'}});
+          expect(next.mock.calls).toEqual([[response]]);
+        });
+
+        it('publishes them before a network response without data', () => {
+          const selector = createReaderSelector(
+            query.fragment,
+            ROOT_ID,
+            variables,
+            operation.request,
+          );
+          const callback = jest.fn<[Snapshot], void>();
+          environment.subscribe(environment.lookup(selector), callback);
+          environment.execute({operation}).subscribe(callbacks);
+          const response = {data: null, extensions: {is_final: true}};
+          subject.next([preNormalized(me, true), response]);
+          jest.runAllTimers();
+          expect(error).not.toBeCalled();
+          expect(callback.mock.calls.length).toBe(1);
+          expect(callback.mock.calls[0][0].data).toEqual({me: {name: 'Joe'}});
+          expect(next).toBeCalledWith(response);
+        });
+
+        it('publishes them beneath an optimistic update in flight', () => {
+          const selector = createReaderSelector(
+            query.fragment,
+            ROOT_ID,
+            variables,
+            operation.request,
+          );
+          const optimistic = environment.applyUpdate({
+            storeUpdater: store => {
+              const user =
+                store.get('842472') ?? store.create('842472', 'User');
+              user.setValue('Optimistic', 'name');
+              store.getRoot().setLinkedRecord(user, 'me');
+            },
+          });
+          environment.execute({operation}).subscribe(callbacks);
+          subject.next([
+            preNormalized(me, false),
+            {
+              data: {
+                '842472': {__id: '842472', __typename: 'User', name: 'Zuck'},
+              },
+              extensions: {is_final: true, is_normalized: true},
+            },
+          ]);
+          jest.runAllTimers();
+          expect(error).not.toBeCalled();
+          // The optimistic update stays on top of what they publish...
+          expect(environment.lookup(selector).data).toEqual({
+            me: {name: 'Optimistic'},
+          });
+          optimistic.dispose();
+          // ...which is in the store beneath it.
+          expect(environment.lookup(selector).data).toEqual({
+            me: {name: 'Zuck'},
+          });
+        });
+
+        it('ends the request when any of them is final', () => {
+          environment.execute({operation}).subscribe(callbacks);
+          expect(
+            environment.isRequestActive(operation.request.identifier),
+          ).toBe(true);
+          subject.next([preNormalized(me, true), preNormalized({}, false)]);
+          jest.runAllTimers();
+          expect(error).not.toBeCalled();
+          expect(
+            environment.isRequestActive(operation.request.identifier),
+          ).toBe(false);
+        });
       });
     });
   },
