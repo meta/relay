@@ -13,7 +13,6 @@ export interface FeatureFlags {
     ENABLE_DO_NOT_WRAP_LIVE_QUERY: boolean;
     ENABLE_NOTIFY_SUBSCRIPTION: boolean;
     BATCH_ASYNC_MODULE_UPDATES_FN: null | undefined | ((callback: () => void) => Disposable);
-    ENABLE_CONTAINERS_SUBSCRIBE_ON_COMMIT: boolean;
     MAX_DATA_ID_LENGTH: number | null | undefined;
     STRING_INTERN_LEVEL: number;
     LOG_MISSING_RECORDS_IN_PROD: boolean;
@@ -27,7 +26,6 @@ export interface FeatureFlags {
     ENABLE_CYLE_DETECTION_IN_VARIABLES: boolean;
     ENABLE_ACTIVITY_COMPATIBILITY: boolean;
     ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX: boolean;
-    ENABLE_USE_PAGINATION_IS_LOADING_FIX: boolean;
     ENABLE_STORE_ID_COLLISION_LOGGING: boolean;
     DISALLOW_NESTED_UPDATES: boolean;
     CHECK_ALL_FRAGMENTS_FOR_MISSING_CLIENT_EDGES: boolean;

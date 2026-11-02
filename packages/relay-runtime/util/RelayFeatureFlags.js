@@ -19,9 +19,6 @@ export type FeatureFlags = {
   ENABLE_DO_NOT_WRAP_LIVE_QUERY: boolean,
   ENABLE_NOTIFY_SUBSCRIPTION: boolean,
   BATCH_ASYNC_MODULE_UPDATES_FN: ?(() => void) => Disposable,
-  // @deprecated No longer read: containers always subscribe on commit. Kept
-  // until callers stop setting it; will be removed.
-  ENABLE_CONTAINERS_SUBSCRIBE_ON_COMMIT: boolean,
   MAX_DATA_ID_LENGTH: ?number,
   STRING_INTERN_LEVEL: number,
   LOG_MISSING_RECORDS_IN_PROD: boolean,
@@ -59,10 +56,6 @@ export type FeatureFlags = {
   // Adds a prefix to the storage key of read time resolvers. This is used to
   // disambiguate the same resolver being used at both read time and exec time.
   ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX: boolean,
-
-  // @deprecated No longer read: the usePaginationFragment isLoading fix is
-  // always on. Kept until callers stop setting it; will be removed.
-  ENABLE_USE_PAGINATION_IS_LOADING_FIX: boolean,
 
   // Enable logging an ID collision in the Relay store
   ENABLE_STORE_ID_COLLISION_LOGGING: boolean,
@@ -141,7 +134,6 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_DO_NOT_WRAP_LIVE_QUERY: false,
   ENABLE_NOTIFY_SUBSCRIPTION: false,
   BATCH_ASYNC_MODULE_UPDATES_FN: null,
-  ENABLE_CONTAINERS_SUBSCRIBE_ON_COMMIT: false,
   MAX_DATA_ID_LENGTH: null,
   STRING_INTERN_LEVEL: 0,
   LOG_MISSING_RECORDS_IN_PROD: false,
@@ -155,7 +147,6 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_CYLE_DETECTION_IN_VARIABLES: false,
   ENABLE_ACTIVITY_COMPATIBILITY: true,
   ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX: true,
-  ENABLE_USE_PAGINATION_IS_LOADING_FIX: false,
   DISALLOW_NESTED_UPDATES: false,
   ENABLE_UI_CONTEXT_ON_RELAY_LOGGER: false,
   CHECK_ALL_FRAGMENTS_FOR_MISSING_CLIENT_EDGES: false,
