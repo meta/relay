@@ -47,6 +47,11 @@ export type MutationConfig<TMutation extends MutationParameters> = Readonly<{
   ) => void,
   onError?: ?(error: Error) => void,
   onNext?: ?() => void,
+  onSettled?: ?(
+    response: TMutation['response'] | null,
+    errors: ?Array<PayloadError>,
+    error: ?Error,
+  ) => void,
   onUnsubscribe?: ?() => void,
   optimisticResponse?: {
     readonly rawResponse?: {...},
@@ -66,6 +71,11 @@ export type CommitMutationConfig<TVariables, TData, TRawResponse> = Readonly<{
   onCompleted?: ?(response: TData, errors: ?Array<PayloadError>) => void,
   onError?: ?(error: Error) => void,
   onNext?: ?() => void,
+  onSettled?: ?(
+    response: TData | null,
+    errors: ?Array<PayloadError>,
+    error: ?Error,
+  ) => void,
   onUnsubscribe?: ?() => void,
   optimisticResponse?: TRawResponse,
   optimisticUpdater?: ?SelectorStoreUpdater<TData>,
@@ -99,8 +109,7 @@ function commitMutation<
     throw new Error('commitMutation: Expected mutation to be of type request');
   }
   let {optimisticResponse, optimisticUpdater, updater} = config;
-  const {configs, cacheConfig, onError, onUnsubscribe, variables, uploadables} =
-    config;
+  const {configs, cacheConfig, onUnsubscribe, variables, uploadables} = config;
   const operation = createOperationDescriptor(
     mutation,
     variables,
@@ -147,16 +156,19 @@ function commitMutation<
     })
     .subscribe({
       complete: () => {
-        const {onCompleted} = config;
-        if (onCompleted) {
+        const {onCompleted, onSettled} = config;
+        const payloadErrors = errors.length !== 0 ? errors : null;
+        if (onCompleted != null || onSettled != null) {
           const snapshot = environment.lookup(operation.fragment);
-          onCompleted(
-            snapshot.data as $FlowFixMe,
-            errors.length !== 0 ? errors : null,
-          );
+          onCompleted?.(snapshot.data as $FlowFixMe, payloadErrors);
+          onSettled?.(snapshot.data as $FlowFixMe, payloadErrors, null);
         }
       },
-      error: onError,
+      error: (err: Error) => {
+        const {onError, onSettled} = config;
+        onError?.(err);
+        onSettled?.(null, null, err);
+      },
       next: payload => {
         if (Array.isArray(payload)) {
           payload.forEach(item => {
