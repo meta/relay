@@ -196,9 +196,7 @@ function getReadTimeResolverStorageKey(
     return getReadTimeResolverStorageKeyPerf(field, variables);
   }
   const storageKey = getStorageKey(field, variables);
-  return RelayFeatureFlags.ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX
-    ? '$r:' + storageKey // Using inlined string to test the performance impact
-    : storageKey;
+  return '$r:' + storageKey;
 }
 
 /**
@@ -712,9 +710,6 @@ function getReadTimeResolverStorageKeyPerf(
     | NormalizationLiveResolverField,
   variables: Variables,
 ): string {
-  if (!RelayFeatureFlags.ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX) {
-    return getStorageKey(field, variables);
-  }
   const cached = staticReadTimeResolverStorageKeys.get(field);
   if (cached != null) {
     return cached;

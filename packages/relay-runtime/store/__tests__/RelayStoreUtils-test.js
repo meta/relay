@@ -221,21 +221,6 @@ describe('RelayStoreUtils', () => {
         RelayStoreUtils.getReadTimeResolverStorageKey(field, {id: '2'}),
       ).toBe('$r:greeting(ids:["2"])');
     });
-
-    it('does not prefix when the prefix flag is off', () => {
-      const field = resolverField(null);
-      expect(RelayStoreUtils.getReadTimeResolverStorageKey(field, {})).toBe(
-        '$r:greeting',
-      );
-      RelayFeatureFlags.ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX = false;
-      try {
-        expect(RelayStoreUtils.getReadTimeResolverStorageKey(field, {})).toBe(
-          'greeting',
-        );
-      } finally {
-        RelayFeatureFlags.ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX = true;
-      }
-    });
   });
 
   describe('getStorageKey() caching', () => {

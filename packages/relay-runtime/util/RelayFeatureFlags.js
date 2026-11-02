@@ -53,8 +53,8 @@ export type FeatureFlags = {
   // Temporary flag to experiment to enable compatibility with React's unstable <Activity> API
   ENABLE_ACTIVITY_COMPATIBILITY: boolean,
 
-  // Adds a prefix to the storage key of read time resolvers. This is used to
-  // disambiguate the same resolver being used at both read time and exec time.
+  // @deprecated No longer read: read time resolver storage keys are always
+  // prefixed. Kept until callers stop setting it; will be removed.
   ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX: boolean,
 
   // Enable logging an ID collision in the Relay store
