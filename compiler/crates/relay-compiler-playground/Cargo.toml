@@ -39,6 +39,3 @@ wasm-bindgen-test = "0.3.78"
 
 [features]
 default = ["console_error_panic_hook"]
-
-[profile.release]
-opt-level = "s"
