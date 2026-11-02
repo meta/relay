@@ -42,12 +42,15 @@ import type {
   TaskScheduler,
 } from '../store/RelayStoreTypes';
 import type {
+  NormalizationDefer,
   NormalizationLinkedField,
   NormalizationOperation,
   NormalizationRootNode,
   NormalizationSelectableNode,
+  NormalizationSelection,
   NormalizationSplitOperation,
 } from '../util/NormalizationNode';
+import type {NormalizationSelector} from './RelayStoreTypes';
 import type {DataID, Disposable, Variables} from '../util/RelayRuntimeTypes';
 import type {GetDataID} from './RelayResponseNormalizer';
 import type {NormalizeResponseFunction} from './RelayStoreTypes';
@@ -67,6 +70,7 @@ const {
   createReaderSelector,
 } = require('./RelayModernSelector');
 const RelayRecordSource = require('./RelayRecordSource');
+const resolveDeferSubPathChunk = require('./resolveDeferSubPathChunk');
 const {ROOT_TYPE, TYPENAME_KEY, getStorageKey} = require('./RelayStoreUtils');
 const invariant = require('invariant');
 const warning = require('warning');
@@ -1288,6 +1292,13 @@ class Executor<TMutation extends MutationParameters> {
         : null;
     resultForLabel.set(pathKey, {kind: 'placeholder', placeholder});
 
+    // If the parent has no data of its own (only inner @defers), the
+    // server never emits a parent chunk — register inner placeholders
+    // here so their chunks find a home.
+    if (placeholder.kind === 'defer') {
+      this._registerInnerDeferPlaceholders(placeholder);
+    }
+
     // Store references to the parent node to allow detecting concurrent
     // modifications to the parent before items arrive and to replay
     // handle field payloads to account for new information on source records.
@@ -1383,6 +1394,14 @@ class Executor<TMutation extends MutationParameters> {
       if (label.indexOf('$defer$') !== -1) {
         const pathKey = path.map(String).join('.');
         let resultForPath = resultForLabel.get(pathKey);
+        let deferSubPath: ?ReadonlyArray<unknown> = null;
+        if (resultForPath == null || resultForPath.kind !== 'placeholder') {
+          const prefix = findDeferPlaceholderByPrefix(resultForLabel, path);
+          if (prefix != null) {
+            resultForPath = prefix.placeholder;
+            deferSubPath = prefix.subPath;
+          }
+        }
         if (resultForPath == null) {
           resultForPath = {kind: 'response', responses: [incrementalResponse]};
           resultForLabel.set(pathKey, resultForPath);
@@ -1400,8 +1419,15 @@ class Executor<TMutation extends MutationParameters> {
           label,
           placeholder.kind,
         );
+        this._registerInnerDeferPlaceholders(placeholder);
         relayPayloads.push(
-          this._processDeferResponse(label, path, placeholder, response),
+          this._processDeferResponse(
+            label,
+            path,
+            placeholder,
+            response,
+            deferSubPath,
+          ),
         );
       } else {
         // @stream payload path values end in the field name and item index,
@@ -1435,20 +1461,89 @@ class Executor<TMutation extends MutationParameters> {
     return relayPayloads;
   }
 
+  /**
+   * Register placeholders for any top-level Defer selections inside a parent
+   * defer's fragment. Called from two sites so both failure modes are covered:
+   *   - `_processIncrementalPlaceholder`, when the parent placeholder is
+   *     created from the initial payload — needed if the parent has no data
+   *     of its own (only inner @defers), because in that case the server
+   *     never emits a chunk for the parent label.
+   *   - `_processIncrementalResponses`, when a chunk arrives that matches
+   *     the parent placeholder — needed when the parent streams as sub-path
+   *     chunks only (per-item, single sub-record), so the fragment root is
+   *     never normalized and inner @defer AST nodes are never encountered.
+   * Without either registration, inner chunks arrive with an unregistered
+   * label and get silently queued forever. Idempotent, recurses so multiple
+   * levels of nesting are handled, and drains any responses that queued
+   * before the placeholder existed.
+   */
+  _registerInnerDeferPlaceholders(parentPlaceholder: DeferPlaceholder): void {
+    const parentPathKey = parentPlaceholder.path.map(String).join('.');
+    forEachInnerDefer(parentPlaceholder.selector, defer => {
+      let resultForLabel = this._incrementalResults.get(defer.label);
+      if (resultForLabel == null) {
+        resultForLabel = new Map();
+        this._incrementalResults.set(defer.label, resultForLabel);
+      }
+      const existing = resultForLabel.get(parentPathKey);
+      if (existing != null && existing.kind === 'placeholder') {
+        return;
+      }
+      const innerPlaceholder = buildInnerDeferPlaceholder(
+        parentPlaceholder,
+        defer,
+      );
+      resultForLabel.set(parentPathKey, {
+        kind: 'placeholder',
+        placeholder: innerPlaceholder,
+      });
+      this._registerInnerDeferPlaceholders(innerPlaceholder);
+      if (existing != null && existing.kind === 'response') {
+        const payloadFollowups = this._processIncrementalResponses(
+          existing.responses,
+        );
+        this._processPayloadFollowups(payloadFollowups);
+      }
+    });
+  }
+
   _processDeferResponse(
     label: string,
     path: ReadonlyArray<unknown>,
     placeholder: DeferPlaceholder,
     response: GraphQLResponseWithData,
+    subPath?: ?ReadonlyArray<unknown>,
   ): RelayResponsePayload {
     const {dataID: parentID} = placeholder.selector;
     const prevActorIdentifier = this._actorIdentifier;
     this._actorIdentifier =
       placeholder.actorIdentifier ?? this._actorIdentifier;
+    const activeSubPath =
+      subPath != null && subPath.length > 0 ? subPath : null;
+    const recovery =
+      activeSubPath != null
+        ? resolveDeferSubPathChunk(
+            placeholder,
+            response,
+            activeSubPath,
+            this._getStore(this._actorIdentifier).getSource(),
+          )
+        : null;
+    if (activeSubPath != null && recovery == null) {
+      this._actorIdentifier = prevActorIdentifier;
+      return {
+        errors: response.errors ?? null,
+        fieldPayloads: [],
+        followupPayloads: null,
+        incrementalPlaceholders: null,
+        isFinal: false,
+        source: RelayRecordSource.create(),
+      };
+    }
     const relayPayload = this._normalizeResponse(
-      response,
-      placeholder.selector,
-      placeholder.typeName,
+      recovery?.response ?? response,
+      recovery?.selector ?? placeholder.selector,
+      recovery?.typeName ?? placeholder.typeName,
       {
         actorIdentifier: this._actorIdentifier,
         deferDeduplicatedFields: this._deferDeduplicatedFields,
@@ -1458,6 +1553,7 @@ class Executor<TMutation extends MutationParameters> {
         treatMissingFieldsAsNull: this._treatMissingFieldsAsNull,
       },
       this._useExecTimeResolvers,
+      recovery?.existingRootRecord,
     );
     this._getPublishQueueAndSaveActor().commitPayload(
       this._operation,
@@ -1841,6 +1937,78 @@ function validateOptimisticResponsePayload(
         '@stream, and @stream_connection).',
     );
   }
+}
+
+function findDeferPlaceholderByPrefix(
+  resultForLabel: Map<PathKey, IncrementalResults>,
+  path: ReadonlyArray<unknown>,
+): ?{
+  placeholder: IncrementalResults,
+  subPath: ReadonlyArray<unknown>,
+} {
+  for (let prefixLen = path.length - 1; prefixLen > 0; prefixLen--) {
+    const prefixKey = path.slice(0, prefixLen).map(String).join('.');
+    const result = resultForLabel.get(prefixKey);
+    if (result != null && result.kind === 'placeholder') {
+      return {placeholder: result, subPath: path.slice(prefixLen)};
+    }
+  }
+  return null;
+}
+
+/**
+ * Walk the top-level selections of a placeholder's fragment for Defer nodes,
+ * descending through wrapper selections that don't change the record scope
+ * (InlineFragment, ClientExtension, Condition). Conditional defers are
+ * skipped when their `if` variable resolves to false at the placeholder's
+ * variables — matching `_normalizeDefer`'s behavior.
+ */
+function forEachInnerDefer(
+  selector: NormalizationSelector,
+  visit: (defer: NormalizationDefer) => void,
+): void {
+  const walk = (selections: ReadonlyArray<NormalizationSelection>) => {
+    for (const sel of selections) {
+      switch (sel.kind) {
+        case 'Defer':
+          if (
+            sel.if === null ||
+            Boolean(selector.variables[sel.if])
+          ) {
+            visit(sel);
+          }
+          break;
+        case 'InlineFragment':
+        case 'ClientExtension':
+        case 'Condition':
+          walk(sel.selections);
+          break;
+      }
+    }
+  };
+  const selections = selector.node.selections;
+  if (selections != null) {
+    walk(selections);
+  }
+}
+
+function buildInnerDeferPlaceholder(
+  parent: DeferPlaceholder,
+  defer: NormalizationDefer,
+): DeferPlaceholder {
+  return {
+    actorIdentifier: parent.actorIdentifier,
+    data: {},
+    kind: 'defer',
+    label: defer.label,
+    path: parent.path,
+    selector: {
+      dataID: parent.selector.dataID,
+      node: defer,
+      variables: parent.selector.variables,
+    },
+    typeName: parent.typeName,
+  };
 }
 
 module.exports = {
