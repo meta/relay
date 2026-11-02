@@ -707,17 +707,17 @@
           }
         },
         "emit_nogrep_annotation": {
-          "description": "When enabled, the `@nogrep` annotation is included in the docblock\nheader of generated artifacts. This annotation was historically always\nemitted but is no longer needed. This flag allows incremental removal\nacross projects using the rollout variant keyed on the artifact name.",
+          "description": "Deprecated: has no effect. Generated artifacts no longer include the\n`@nogrep` annotation. Still accepted so existing configs parse; it\nwill be removed in a future version of Relay.",
           "$ref": "#/$defs/FeatureFlag",
           "default": {
             "kind": "disabled"
           }
         },
         "emit_nogrep_annotation_hack": {
-          "description": "Mirror of `emit_nogrep_annotation` for the fb-only Hack artifacts\n(query preloaders and text artifacts). Kept separate so the Hack and\nJavaScript corpora can be migrated independently; the Hack corpus is\nroughly four times the size and needs its own rollout schedule.",
+          "description": "Deprecated: has no effect. Generated Hack artifacts no longer include\nthe `@nogrep` annotation. Still accepted so existing configs parse; it\nwill be removed once no config sets it.",
           "$ref": "#/$defs/FeatureFlag",
           "default": {
-            "kind": "enabled"
+            "kind": "disabled"
           }
         },
         "enable_3d_branch_arg_generation": {
@@ -1055,7 +1055,7 @@
               "kind": "disabled"
             },
             "emit_nogrep_annotation_hack": {
-              "kind": "enabled"
+              "kind": "disabled"
             },
             "enable_3d_branch_arg_generation": false,
             "enable_exec_time_resolvers_directive": false,

@@ -240,18 +240,16 @@ pub struct FeatureFlags {
     #[serde(default)]
     pub enforce_module_name_prefix_for_non_haste: bool,
 
-    /// When enabled, the `@nogrep` annotation is included in the docblock
-    /// header of generated artifacts. This annotation was historically always
-    /// emitted but is no longer needed. This flag allows incremental removal
-    /// across projects using the rollout variant keyed on the artifact name.
+    /// Deprecated: has no effect. Generated artifacts no longer include the
+    /// `@nogrep` annotation. Still accepted so existing configs parse; it
+    /// will be removed in a future version of Relay.
     #[serde(default)]
     pub emit_nogrep_annotation: FeatureFlag,
 
-    /// Mirror of `emit_nogrep_annotation` for the fb-only Hack artifacts
-    /// (query preloaders and text artifacts). Kept separate so the Hack and
-    /// JavaScript corpora can be migrated independently; the Hack corpus is
-    /// roughly four times the size and needs its own rollout schedule.
-    #[serde(default = "enabled_feature_flag")]
+    /// Deprecated: has no effect. Generated Hack artifacts no longer include
+    /// the `@nogrep` annotation. Still accepted so existing configs parse; it
+    /// will be removed once no config sets it.
+    #[serde(default)]
     pub emit_nogrep_annotation_hack: FeatureFlag,
 
     /// Disable the generation of a more precise raw response type
@@ -343,6 +341,7 @@ impl Default for FeatureFlags {
             allow_legacy_relay_resolver_tag: Default::default(),
             enforce_module_name_prefix_for_non_haste: Default::default(),
             emit_nogrep_annotation: Default::default(),
+            emit_nogrep_annotation_hack: Default::default(),
             disable_more_precise_abstract_selection_raw_response_type: Default::default(),
             enable_typename_discriminated_unions: Default::default(),
             emit_document_type_registry: Default::default(),
@@ -351,7 +350,6 @@ impl Default for FeatureFlags {
 
             // enabled-by-default
             enforce_fragment_alias_where_ambiguous: FeatureFlag::Enabled,
-            emit_nogrep_annotation_hack: FeatureFlag::Enabled,
         }
     }
 }
