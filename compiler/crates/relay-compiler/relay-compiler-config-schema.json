@@ -216,7 +216,7 @@
           "default": null
         },
         "rscNodeType": {
-          "description": "The consumer-visible type of a Resolver-authored `RelayRscValue`.\nFor example: \"unknown\" or {\"name\": \"ReactNode\", \"path\": \"react\"}.\nDefaults to `ReactNode` imported from `react` when omitted.",
+          "description": "The consumer-visible type of a Resolver-authored `RelayRscValue`.\nFor example: \"unknown\" or {\"name\": \"ReactNode\", \"path\": \"react\"}.\nDefaults to `ReactNode` imported from `react` when omitted; Flow output\nuses the equivalent global `React$Node` for that default.",
           "anyOf": [
             {
               "$ref": "#/$defs/CustomType"
@@ -1780,7 +1780,7 @@
           "default": null
         },
         "rscNodeType": {
-          "description": "The consumer-visible type of a Resolver-authored `RelayRscValue`.\nFor example: \"unknown\" or {\"name\": \"ReactNode\", \"path\": \"react\"}.\nDefaults to `ReactNode` imported from `react` when omitted.",
+          "description": "The consumer-visible type of a Resolver-authored `RelayRscValue`.\nFor example: \"unknown\" or {\"name\": \"ReactNode\", \"path\": \"react\"}.\nDefaults to `ReactNode` imported from `react` when omitted; Flow output\nuses the equivalent global `React$Node` for that default.",
           "anyOf": [
             {
               "$ref": "#/$defs/CustomType"

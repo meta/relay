@@ -23,11 +23,10 @@ extend type User {
     )
 }
 ==================================== OUTPUT ===================================
-import type { ReactNode } from "react";
 export type RelayRscResolverFieldQuery$variables = {};
 export type RelayRscResolverFieldQuery$data = {
   readonly me: ?{
-    readonly displayName: ReactNode,
+    readonly displayName: React$Node,
   },
 };
 export type RelayRscResolverFieldQuery = {

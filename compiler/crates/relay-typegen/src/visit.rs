@@ -356,8 +356,18 @@ pub(crate) fn rsc_node_type(
     typegen_context: &'_ TypegenContext<'_>,
     custom_scalars: &mut CustomScalarsImports,
 ) -> AST {
-    match &typegen_context.project_config.typegen_config.rsc_node_type {
+    let typegen_config = &typegen_context.project_config.typegen_config;
+    match &typegen_config.rsc_node_type {
         Some(CustomType::Name(type_name)) => AST::RawType(*type_name),
+        // The default names React's TypeScript export. Flow's React type
+        // definitions do not export `ReactNode`; they declare `React$Node`.
+        Some(CustomType::Path(custom_type))
+            if typegen_config.language == TypegenLanguage::Flow
+                && custom_type.name == intern!("ReactNode")
+                && custom_type.path.as_os_str() == "react" =>
+        {
+            AST::RawType(intern!("React$Node"))
+        }
         Some(CustomType::Path(custom_type)) => {
             custom_scalars.insert((custom_type.name, custom_type.path.clone()));
             AST::RawType(custom_type.name)

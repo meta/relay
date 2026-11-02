@@ -165,7 +165,7 @@ async fn server_rsc_resolver_signature_flow() {
         "@relayRscResolverSignature",
         "import typeof {RscPanel as __RelayRscComponent} from \"../RscPanel\";",
         "import type { RscPanel_user$key } from \"./RscPanel_user.graphql\";",
-        "import type { ReactNode } from \"react\";",
+        "=> React$Node | Promise<React$Node>;",
         "export type __RelayRscResolverSignature",
     ] {
         assert!(
@@ -173,6 +173,10 @@ async fn server_rsc_resolver_signature_flow() {
             "missing `{expected}` in:\n{output}"
         );
     }
+    assert!(
+        !output.contains("ReactNode"),
+        "Flow output must not import `ReactNode`, which React's Flow types do not export:\n{output}"
+    );
 }
 
 #[tokio::test]

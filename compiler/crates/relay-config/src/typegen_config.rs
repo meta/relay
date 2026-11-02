@@ -182,7 +182,8 @@ pub struct TypegenConfig {
 
     /// The consumer-visible type of a Resolver-authored `RelayRscValue`.
     /// For example: "unknown" or {"name": "ReactNode", "path": "react"}.
-    /// Defaults to `ReactNode` imported from `react` when omitted.
+    /// Defaults to `ReactNode` imported from `react` when omitted; Flow output
+    /// uses the equivalent global `React$Node` for that default.
     #[serde(default = "default_rsc_node_type")]
     pub rsc_node_type: Option<CustomType>,
 
