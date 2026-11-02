@@ -369,7 +369,9 @@ class QueryResourceImpl {
   }
 
   _clearCacheEntry = (cacheEntry: QueryResourceCacheEntry): void => {
-    this._cache.delete(cacheEntry.cacheIdentifier);
+    if (this._cache.get(cacheEntry.cacheIdentifier) === cacheEntry) {
+      this._cache.delete(cacheEntry.cacheIdentifier);
+    }
   };
 
   _getOrCreateCacheEntry(
