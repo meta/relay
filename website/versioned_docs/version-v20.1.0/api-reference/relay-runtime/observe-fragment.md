@@ -29,10 +29,11 @@ When using `observeFragment` with a plural fragment, the current implementation 
 ```ts
 import {observeFragment} from "relay-runtime/experimental";
 import { useEffect } from "react";
-import { useFragment } from "react-relay";
+import { useFragment, useRelayEnvironment } from "react-relay";
 import { graphql } from "relay-runtime";
 
 function MyComponent({ key }) {
+  const env = useRelayEnvironment()
   const user = useFragment(
     graphql`
       fragment UserFragment on User {
@@ -45,6 +46,7 @@ function MyComponent({ key }) {
   // Update the title as the user's name changes without triggering rerenders.
   useEffect(() => {
     const subscription = observeFragment(
+      env,
       graphql`
         fragment TitleFragment on User {
           name
