@@ -3725,6 +3725,40 @@ describe.each([
         );
       }
 
+      it('forwards networkCacheConfig metadata to the network layer on refetch', () => {
+        renderFragment();
+        expectFragmentResults([
+          {
+            data: initialUser,
+            hasNext: true,
+            hasPrevious: false,
+            isLoadingNext: false,
+            isLoadingPrevious: false,
+          },
+        ]);
+
+        const networkCacheConfig = {
+          force: true,
+          metadata: {latestWinsKey: 'capacity-planning:work-table:1'},
+        };
+
+        TestRenderer.act(() => {
+          refetch(
+            {id: '1'},
+            {
+              fetchPolicy: 'network-only',
+              networkCacheConfig,
+            },
+          );
+        });
+
+        expect(fetch).toBeCalledTimes(1);
+        expect(fetch.mock.calls[0][2]).toEqual({
+          force: true,
+          metadata: {latestWinsKey: 'capacity-planning:work-table:1'},
+        });
+      });
+
       it('refetches new variables correctly when refetching new id', () => {
         const renderer = renderFragment();
         expectFragmentResults([

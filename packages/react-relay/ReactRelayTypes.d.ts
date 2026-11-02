@@ -338,6 +338,7 @@ export interface ReturnTypeNode<
 
 export interface RefetchableOptions {
     fetchPolicy?: FetchPolicy | undefined;
+    networkCacheConfig?: CacheConfig | null | undefined;
     onComplete?: ((arg: Error | null) => void) | undefined;
     UNSTABLE_renderPolicy?: RenderPolicy | undefined;
 }

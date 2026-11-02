@@ -13,6 +13,7 @@
 
 import type {LoaderFn} from './useQueryLoader';
 import type {
+  CacheConfig,
   ConcreteRequest,
   Disposable,
   FetchPolicy,
@@ -76,6 +77,7 @@ export type ReturnType<
 
 export type Options = {
   fetchPolicy?: FetchPolicy,
+  networkCacheConfig?: CacheConfig,
   onComplete?: (Error | null) => void,
   UNSTABLE_renderPolicy?: RenderPolicy,
 };
@@ -434,6 +436,10 @@ hook useRefetchFunction<TQuery extends OperationType>(
       const fetchPolicy = options?.fetchPolicy;
       const renderPolicy = options?.UNSTABLE_renderPolicy;
       const onComplete = options?.onComplete;
+      const networkCacheConfig = {
+        ...options?.networkCacheConfig,
+        force: true,
+      };
       const fragmentSelector = getSelector(fragmentNode, parentFragmentRef);
       let parentVariables: Variables;
       let fragmentVariables: Variables;
@@ -486,9 +492,7 @@ hook useRefetchFunction<TQuery extends OperationType>(
       const refetchQuery = createOperationDescriptor(
         refetchableRequest,
         refetchVariables,
-        {
-          force: true,
-        },
+        networkCacheConfig,
       );
 
       // We call loadQuery which will start a network request if necessary
@@ -502,6 +506,7 @@ hook useRefetchFunction<TQuery extends OperationType>(
         __environment: refetchEnvironment,
         __nameForWarning: 'refetch',
         fetchPolicy,
+        networkCacheConfig,
       });
 
       dispatch({
