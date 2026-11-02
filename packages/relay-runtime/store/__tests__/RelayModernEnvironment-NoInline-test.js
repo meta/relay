@@ -33,6 +33,7 @@ const {
 const RelayNetwork = require('../../network/RelayNetwork');
 const RelayObservable = require('../../network/RelayObservable');
 const {graphql} = require('../../query/GraphQLTag');
+const RelayFeatureFlags = require('../../util/RelayFeatureFlags');
 const NormalizationEngine = require('../NormalizationEngine');
 const normalizeResponse = require('../normalizeResponse');
 const RelayModernEnvironment = require('../RelayModernEnvironment');
@@ -489,6 +490,84 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
       });
 
       describe('with arguments', () => {
+        it('passes an explicit null argument, not the default', () => {
+          const QueryWithNullArgument = graphql`
+            query RelayModernEnvironmentNoInlineTestNullArgumentQuery(
+              $preset: PhotoSize
+            ) {
+              me {
+                ...RelayModernEnvironmentNoInlineTestNullArgument_user
+                  @arguments(preset: $preset)
+              }
+            }
+          `;
+          const NoInlineFragmentWithNullArgument = graphql`
+            fragment RelayModernEnvironmentNoInlineTestNullArgument_user on User
+            @no_inline
+            @argumentDefinitions(
+              preset: {type: "PhotoSize", defaultValue: SMALL}
+            ) {
+              profilePicture2(preset: $preset) {
+                uri
+              }
+            }
+          `;
+          operation = createOperationDescriptor(QueryWithNullArgument, {
+            preset: null,
+          });
+          environment.commitPayload(operation, {
+            me: {
+              __typename: 'User',
+              id: '1',
+              profilePicture2: {uri: 'https://default-size.png'},
+            },
+          });
+          const queryData = environment.lookup(operation.fragment);
+          const snapshot = environment.lookup(
+            nullthrows(
+              getSingularSelector(
+                NoInlineFragmentWithNullArgument,
+                (queryData.data as $FlowFixMe).me,
+              ),
+            ),
+          );
+          expect(snapshot.isMissingData).toBe(false);
+          expect(snapshot.data).toEqual({
+            profilePicture2: {uri: 'https://default-size.png'},
+          });
+        });
+
+        it('passes the default for an explicit null argument with ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS off', () => {
+          RelayFeatureFlags.ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS = false;
+          try {
+            const QueryWithNullArgument = require('./__generated__/RelayModernEnvironmentNoInlineTestNullArgumentQuery.graphql');
+            const NoInlineFragmentWithNullArgument = require('./__generated__/RelayModernEnvironmentNoInlineTestNullArgument_user.graphql');
+            operation = createOperationDescriptor(QueryWithNullArgument, {
+              preset: null,
+            });
+            environment.commitPayload(operation, {
+              me: {
+                __typename: 'User',
+                id: '1',
+                profilePicture2: {uri: 'https://default-size.png'},
+              },
+            });
+            const queryData = environment.lookup(operation.fragment);
+            const snapshot = environment.lookup(
+              nullthrows(
+                getSingularSelector(
+                  NoInlineFragmentWithNullArgument,
+                  (queryData.data as $FlowFixMe).me,
+                ),
+              ),
+            );
+            // The response was written under the default's key.
+            expect(snapshot.isMissingData).toBe(true);
+          } finally {
+            RelayFeatureFlags.ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS = true;
+          }
+        });
+
         it('executes and reads back results with no-inline fragments on the same level', () => {
           const QueryWithArgs = graphql`
             query RelayModernEnvironmentNoInlineTestWithArgsQuery(

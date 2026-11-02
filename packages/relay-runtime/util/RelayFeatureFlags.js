@@ -112,6 +112,14 @@ export type FeatureFlags = {
   // orphaned and runs to completion, matching prior behavior.
   ENABLE_IF_EMPTY_CANCELLATION: boolean,
 
+  // When enabled (the default), an explicitly passed `null` fragment argument
+  // is the argument's value when the Store binds a non-inlined fragment's
+  // arguments (`@no_inline`, `@module`), as it is for the Reader and the
+  // server. When disabled, it is replaced by the argument's default value, as
+  // before, so the response is written under a key the Reader never reads.
+  // Relay RSC requires it.
+  ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS: boolean,
+
   // Temporary flag for the rollout of a useFragment fix: a store update that a
   // subscription delivers keeps the store epoch it was read at.
   ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX: boolean,
@@ -157,6 +165,7 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_READER_FRAGMENTS_LOGGING: false,
   ENABLE_CATCH_IGNORE_HANDLED_FIELD_ERRORS: false,
   ENABLE_IF_EMPTY_CANCELLATION: false,
+  ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS: true,
   ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX: false,
   ENABLE_PERF_STORAGE_KEYS: false,
   ENABLE_PERF_READER: false,

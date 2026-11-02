@@ -23,6 +23,7 @@ import type {
 import type {ProvidedVariablesType} from '../util/RelayConcreteNode';
 import type {Variables} from '../util/RelayRuntimeTypes';
 
+const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const {getArgumentValues} = require('./RelayStoreUtils');
 const invariant = require('invariant');
 
@@ -124,9 +125,15 @@ function getLocalVariables(
   const nextVariables = {...currentVariables};
   const nextArgs = args ? getArgumentValues(args, currentVariables) : {};
   argumentDefinitions.forEach(def => {
+    // An explicit null is a value, as in `getFragmentVariables`.
     // $FlowFixMe[invalid-computed-prop]
-    const value = nextArgs[def.name] ?? def.defaultValue;
-    nextVariables[def.name] = value;
+    const value = nextArgs[def.name];
+    nextVariables[def.name] =
+      value !== undefined &&
+      (value !== null ||
+        RelayFeatureFlags.ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS)
+        ? value
+        : def.defaultValue;
   });
   return nextVariables;
 }
