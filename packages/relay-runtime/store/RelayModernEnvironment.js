@@ -100,6 +100,10 @@ class RelayModernEnvironment implements IEnvironment {
   _treatMissingFieldsAsNull: boolean;
   _deferDeduplicatedFields: boolean;
   _operationExecutions: Map<string, ActiveState>;
+  _inFlightOperationCompletions: Map<
+    string,
+    {promise: Promise<void>, resolve: () => void},
+  >;
   readonly options: unknown;
   readonly _isServer: boolean;
   relayFieldLogger: RelayFieldLogger;
@@ -136,6 +140,7 @@ class RelayModernEnvironment implements IEnvironment {
       config.UNSTABLE_defaultRenderPolicy ?? 'partial';
     this._operationLoader = operationLoader;
     this._operationExecutions = new Map();
+    this._inFlightOperationCompletions = new Map();
     this._network = wrapNetworkWithLogObserver(this, config.network);
     this._getDataID = config.getDataID ?? defaultGetDataID;
     this._missingFieldHandlers = config.missingFieldHandlers ?? [];
@@ -187,6 +192,13 @@ class RelayModernEnvironment implements IEnvironment {
   isRequestActive(requestIdentifier: string): boolean {
     const activeState = this._operationExecutions.get(requestIdentifier);
     return activeState === 'active';
+  }
+
+  getPromiseForInFlightOperation(
+    requestIdentifier: string,
+  ): Promise<void> | null {
+    const entry = this._inFlightOperationCompletions.get(requestIdentifier);
+    return entry?.promise ?? null;
   }
 
   UNSTABLE_getDefaultRenderPolicy(): RenderPolicy {
@@ -535,6 +547,7 @@ class RelayModernEnvironment implements IEnvironment {
         normalizeResponse: this._normalizeResponse,
         operation,
         operationExecutions: this._operationExecutions,
+        inFlightOperationCompletions: this._inFlightOperationCompletions,
         operationLoader: this._operationLoader,
         operationTracker: this._operationTracker,
         optimisticConfig,

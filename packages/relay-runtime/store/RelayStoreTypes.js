@@ -1111,6 +1111,16 @@ export interface IEnvironment {
   isRequestActive(requestIdentifier: string): boolean;
 
   /**
+   * Returns a Promise that resolves when the operation with this identifier
+   * completes, or null if no such operation is currently in flight. Backs
+   * fragment-to-owner correlation across render passes that momentarily
+   * drop the underlying request-cache subject.
+   */
+  getPromiseForInFlightOperation(
+    requestIdentifier: string,
+  ): Promise<void> | null;
+
+  /**
    * Returns true if the environment is for use during server side rendering.
    * functions like getQueryResource key off of this in order to determine
    * whether we need to set up certain caches and timeout's.

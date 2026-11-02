@@ -15,6 +15,7 @@ import type {IEnvironment, RequestDescriptor} from '../store/RelayStoreTypes';
 import type {ReaderFragment} from './ReaderNode';
 
 const {getPromiseForActiveRequest} = require('../query/fetchQueryInternal');
+const RelayFeatureFlags = require('./RelayFeatureFlags');
 
 function getPendingOperationsForFragment(
   environment: IEnvironment,
@@ -36,6 +37,19 @@ function getPendingOperationsForFragment(
 
     pendingOperations = result?.pendingOperations ?? [];
     promise = result?.promise ?? null;
+  }
+
+  if (
+    promise == null &&
+    RelayFeatureFlags.ENABLE_IN_FLIGHT_OPERATION_CORRELATION
+  ) {
+    const inFlightPromise = environment.getPromiseForInFlightOperation(
+      fragmentOwner.identifier,
+    );
+    if (inFlightPromise != null) {
+      promise = inFlightPromise;
+      pendingOperations = [fragmentOwner];
+    }
   }
 
   if (!promise) {

@@ -1226,3 +1226,45 @@ describe('getObservableForActiveRequest', () => {
     });
   });
 });
+
+describe('environment.getPromiseForInFlightOperation', () => {
+  it('returns null before any fetch has started', () => {
+    expect(
+      environment.getPromiseForInFlightOperation(query.request.identifier),
+    ).toEqual(null);
+  });
+
+  it('returns a promise while the operation is in flight and resolves on completion', async () => {
+    const observer = {
+      complete: jest.fn<[], unknown>(),
+      error: jest.fn<[Error], unknown>(),
+      next: jest.fn<[GraphQLResponse], unknown>(),
+      unsubscribe: jest.fn<[Subscription], unknown>(),
+    };
+    fetchQuery(environment, query).subscribe(observer);
+
+    const inFlightPromise = environment.getPromiseForInFlightOperation(
+      query.request.identifier,
+    );
+    expect(inFlightPromise).not.toEqual(null);
+
+    environment.mock.resolve(gqlQuery, response);
+
+    await expect(inFlightPromise).resolves.toBeUndefined();
+  });
+
+  it('returns null after the operation has completed', () => {
+    const observer = {
+      complete: jest.fn<[], unknown>(),
+      error: jest.fn<[Error], unknown>(),
+      next: jest.fn<[GraphQLResponse], unknown>(),
+      unsubscribe: jest.fn<[Subscription], unknown>(),
+    };
+    fetchQuery(environment, query).subscribe(observer);
+    environment.mock.resolve(gqlQuery, response);
+
+    expect(
+      environment.getPromiseForInFlightOperation(query.request.identifier),
+    ).toEqual(null);
+  });
+});

@@ -85,6 +85,10 @@ export type ExecuteConfig<TMutation extends MutationParameters> = {
   readonly isClientPayload?: boolean,
   readonly operation: OperationDescriptor,
   readonly operationExecutions: Map<string, ActiveState>,
+  readonly inFlightOperationCompletions: Map<
+    string,
+    {promise: Promise<void>, resolve: () => void},
+  >,
   readonly operationLoader: ?OperationLoader,
   readonly operationTracker: OperationTracker,
   readonly optimisticConfig: ?OptimisticResponseConfig<TMutation>,
@@ -140,6 +144,10 @@ class Executor<TMutation extends MutationParameters> {
   _nextSubscriptionId: number;
   _operation: OperationDescriptor;
   _operationExecutions: Map<string, ActiveState>;
+  _inFlightOperationCompletions: Map<
+    string,
+    {promise: Promise<void>, resolve: () => void},
+  >;
   _operationLoader: ?OperationLoader;
   _operationTracker: OperationTracker;
   _operationUpdateEpochs: Map<string, number>;
@@ -178,6 +186,7 @@ class Executor<TMutation extends MutationParameters> {
     isClientPayload,
     operation,
     operationExecutions,
+    inFlightOperationCompletions,
     operationLoader,
     operationTracker,
     optimisticConfig,
@@ -201,6 +210,17 @@ class Executor<TMutation extends MutationParameters> {
     this._nextSubscriptionId = 0;
     this._operation = operation;
     this._operationExecutions = operationExecutions;
+    this._inFlightOperationCompletions = inFlightOperationCompletions;
+    if (!inFlightOperationCompletions.has(operation.request.identifier)) {
+      let resolve: () => void = () => {};
+      const promise: Promise<void> = new Promise(r => {
+        resolve = r;
+      });
+      inFlightOperationCompletions.set(operation.request.identifier, {
+        promise,
+        resolve,
+      });
+    }
     this._operationLoader = operationLoader;
     this._operationTracker = operationTracker;
     this._operationUpdateEpochs = new Map();
@@ -294,6 +314,15 @@ class Executor<TMutation extends MutationParameters> {
     }
     this._state = 'completed';
     this._operationExecutions.delete(this._operation.request.identifier);
+    const completion = this._inFlightOperationCompletions.get(
+      this._operation.request.identifier,
+    );
+    if (completion != null) {
+      this._inFlightOperationCompletions.delete(
+        this._operation.request.identifier,
+      );
+      completion.resolve();
+    }
 
     if (this._subscriptions.size !== 0) {
       this._subscriptions.forEach(sub => sub.unsubscribe());

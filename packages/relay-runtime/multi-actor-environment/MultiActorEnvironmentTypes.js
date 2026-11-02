@@ -256,6 +256,14 @@ export interface IMultiActorEnvironment {
   ): boolean;
 
   /**
+   * Returns a Promise that resolves when the operation with this identifier
+   * completes, or null if no such operation is currently in flight.
+   */
+  getPromiseForInFlightOperation(
+    requestIdentifier: string,
+  ): Promise<void> | null;
+
+  /**
    * Returns `true` if execute in the server environment
    */
   isServer(): boolean;
