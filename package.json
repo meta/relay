@@ -24,7 +24,7 @@
     "typecheck:ts": "tsc -p packages/relay-runtime/tsconfig.json"
   },
   "dependencies": {
-    "@babel/core": "^7.25.2",
+    "@babel/core": "^7.29.6",
     "@babel/generator": "^7.29.1",
     "@babel/helper-check-duplicate-nodes": "^7.24.7",
     "@babel/parser": "^7.29.0",
