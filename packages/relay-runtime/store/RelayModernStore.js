@@ -423,6 +423,12 @@ class RelayModernStore implements Store {
         // there since it's retained. Remove it to maintain the invariant that
         // all release buffer entries have a refCount of 0.
         this._releaseBuffer = this._releaseBuffer.filter(_id => _id !== id);
+        if (this._shouldRetainWithinTTL_EXPERIMENTAL && this._gcRun != null) {
+          // GC may have skipped this unretained root. Reinsert the same entry
+          // so the live Map iterator revisits it without losing fetch metadata.
+          this._roots.delete(id);
+          this._roots.set(id, rootEntry);
+        }
       }
       // If we've previously retained this operation, increment the refCount
       rootEntry.refCount += 1;
