@@ -345,8 +345,7 @@ function createContainerWithFragments<
     createGetFragmentVariables(metadata);
 
   return class extends React.Component<$FlowFixMe, ContainerState> {
-    // $FlowFixMe[missing-local-annot]
-    static displayName = containerName;
+    static displayName: ?string = containerName;
 
     _isARequestInFlight: boolean;
     _refetchSubscription: ?Subscription;
