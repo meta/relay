@@ -17,7 +17,7 @@ Relay requires a [Babel plugin](https://www.npmjs.com/package/babel-plugin-relay
 If not, you can install the Babel plugin manually:
 
 ```sh
-yarn add --dev babel-plugin-relay graphql
+npm install --save-dev babel-plugin-relay graphql
 ```
 
 Add `"relay"` to the list of plugins in your `.babelrc` file:
