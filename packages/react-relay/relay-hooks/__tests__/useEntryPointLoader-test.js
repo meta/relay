@@ -74,24 +74,21 @@ beforeEach(() => {
     });
   };
 
-  Container = function ({
-    entryPoint,
-    environmentProvider,
-  }: Readonly<{
+  component TestContainer(
     entryPoint: any,
     environmentProvider: Readonly<{
       getEnvironment: (options: ?EnvironmentProviderOptions) => IEnvironment,
     }>,
-  }>) {
+  ) {
     renderCount = (renderCount || 0) + 1;
     [loadedEntryPoint, entryPointLoaderCallback, disposeEntryPoint] =
-      // $FlowFixMe[react-rule-hook]
       useEntryPointLoader<{...}, any, any, any, any, any, any>(
         environmentProvider,
         entryPoint,
       );
     return null;
-  };
+  }
+  Container = TestContainer;
   loadEntryPoint.mockClear();
 });
 

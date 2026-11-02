@@ -231,10 +231,8 @@ describe.each([
       return <PluralRenderer users={usersData} />;
     };
 
-    ContextProvider = ({children}: {children: React.Node}) => {
-      // $FlowFixMe[react-rule-hook]
+    component TestContextProvider(children: React.Node) {
       const [env, _setEnv] = React.useState(environment);
-      // $FlowFixMe[react-rule-hook]
       const relayContext = React.useMemo(
         (): RelayContext => ({environment: env}),
         [env],
@@ -246,7 +244,8 @@ describe.each([
           {children}
         </ReactRelayContext.Provider>
       );
-    };
+    }
+    ContextProvider = TestContextProvider;
 
     renderSingularFragment = (
       props?: {
