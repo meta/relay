@@ -35,4 +35,4 @@ serde = { version = "1.0.229", features = ["derive", "rc"] }
 [dev-dependencies]
 fixture-tests = { path = "../fixture-tests" }
 relay-test-schema = { path = "../relay-test-schema" }
-tokio = { version = "1.53.2", features = ["full", "test-util", "tracing"] }
+tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }

@@ -31,4 +31,4 @@ graphql-cli = { path = "../graphql-cli" }
 graphql-syntax = { path = "../graphql-syntax" }
 graphql-test-helpers = { path = "../graphql-test-helpers" }
 relay-test-schema = { path = "../relay-test-schema" }
-tokio = { version = "1.53.2", features = ["full", "test-util", "tracing"] }
+tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }

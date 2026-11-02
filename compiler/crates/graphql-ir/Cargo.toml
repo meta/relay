@@ -36,4 +36,4 @@ thiserror = "2.0.21"
 fixture-tests = { path = "../fixture-tests" }
 graphql-cli = { path = "../graphql-cli" }
 relay-test-schema = { path = "../relay-test-schema" }
-tokio = { version = "1.53.2", features = ["full", "test-util", "tracing"] }
+tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }

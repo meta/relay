@@ -33,4 +33,4 @@ schema = { path = "../schema" }
 fixture-tests = { path = "../fixture-tests" }
 relay-test-schema = { path = "../relay-test-schema" }
 relay-transforms = { path = "../relay-transforms" }
-tokio = { version = "1.53.2", features = ["full", "test-util", "tracing"] }
+tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }
