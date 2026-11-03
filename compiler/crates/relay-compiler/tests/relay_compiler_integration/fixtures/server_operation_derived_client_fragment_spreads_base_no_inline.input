@@ -1,0 +1,42 @@
+//- base_src/BaseCard.js
+
+// A derived project's server query hands off its own `@no_inline` client
+// fragment, which spreads a base project's `@no_inline` fragment. The base
+// fragment reads the operation variable `$scale` (its own argument `$size`
+// is not an operation variable). `rootVariables` lists `scale`.
+graphql`fragment BaseCard_user on User @no_inline
+@argumentDefinitions(size: {type: "Int!", defaultValue: 2}) {
+  small: picture(scale: $size)
+  large: picture(scale: $scale)
+}`
+//- derived_src/DerivedCard.js
+graphql`fragment DerivedCard_user on User @no_inline {
+  ...BaseCard_user @arguments(size: 9)
+}`
+graphql`query DerivedCardQuery($scale: Int!) @server {
+  me {
+    ...DerivedCard_user @alias(as: "card")
+  }
+}`
+//- relay.config.json
+{
+  "sources": {"base_src": "base", "derived_src": "derived"},
+  "projects": {
+    "base": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {"enable_relay_rsc": true, "no_inline": {"kind": "enabled"}}
+    },
+    "derived": {
+      "schema": "schema.graphql",
+      "base": "base",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {"enable_relay_rsc": true, "no_inline": {"kind": "enabled"}}
+    }
+  }
+}
+//- schema.graphql
+type Query { me: User }
+type User { id: ID! picture(scale: Int!): String }

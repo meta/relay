@@ -1,0 +1,43 @@
+//- base_src/BaseShadow.js
+
+// A derived project's server query hands off a base project's `@no_inline`
+// client fragment whose own argument `$scale` has the same name as the
+// operation variable `$scale` that a fragment it spreads reads.
+// `rootVariables` lists `scale`.
+graphql`fragment BaseShadow_user on User @no_inline
+@argumentDefinitions(scale: {type: "Int!", defaultValue: 2}) {
+  local: picture(scale: $scale)
+  ...BaseShadowChild_user
+}`
+graphql`fragment BaseShadowChild_user on User {
+  root: picture(scale: $scale)
+}`
+//- derived_src/DerivedShadow.js
+graphql`query DerivedShadowQuery($scale: Int!, $localValue: Int!) @server {
+  me {
+    outer: picture(scale: $scale)
+    ...BaseShadow_user @arguments(scale: $localValue) @alias(as: "card")
+  }
+}`
+//- relay.config.json
+{
+  "sources": {"base_src": "base", "derived_src": "derived"},
+  "projects": {
+    "base": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {"enable_relay_rsc": true, "no_inline": {"kind": "enabled"}}
+    },
+    "derived": {
+      "schema": "schema.graphql",
+      "base": "base",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {"enable_relay_rsc": true}
+    }
+  }
+}
+//- schema.graphql
+type Query { me: User }
+type User { id: ID! picture(scale: Int!): String }

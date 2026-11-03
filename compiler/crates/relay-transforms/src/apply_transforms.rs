@@ -484,6 +484,8 @@ fn apply_normalization_transforms(
         print_stats("normalization start", &program);
     }
 
+    // Its fragments, of a base project too, before they are inlined.
+    let fragments_program = Arc::clone(&program);
     let custom_transforms =
         custom_transforms_config.and_then(|c| c.normalization_transforms.as_ref());
     let mut program = apply_before_custom_transforms(
@@ -537,6 +539,11 @@ fn apply_normalization_transforms(
         print_stats("skip_unreachable_node", &program);
     }
 
+    // Before `inline_fragments`, which inlines client boundaries.
+    program = log_event.time("generate_server_operation_handoffs", || {
+        generate_server_operation_handoffs(&program, &fragments_program)
+    })?;
+
     program = log_event.time("inline_fragments", || {
         inline_fragments(
             &program,
@@ -589,13 +596,6 @@ fn apply_normalization_transforms(
         &log_event,
         maybe_print_stats,
     )?;
-
-    program = log_event.time("generate_server_operation_handoffs", || {
-        generate_server_operation_handoffs(
-            &program,
-            project_config.schema_config.node_interface_id_field,
-        )
-    })?;
 
     log_event.complete();
 

@@ -1,0 +1,45 @@
+//- src/ServerUser.js
+
+// A server query hands off the same client fragment with an explicit `null`
+// argument and with its default. The server query's normalization writes the
+// fields with those values (`picture` and `picture(size:1)`), as Relay writes
+// any spread with arguments; the client fragment's normalization operation
+// takes the argument as a variable.
+graphql`query ServerUserQuery @server {
+  nullCard: me {
+    ...ClientCard_user @arguments(scale: null) @alias(as: "card")
+  }
+  defaultCard: me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User
+  @argumentDefinitions(scale: {type: "Int", defaultValue: 1}) {
+  picture(size: $scale)
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int): String
+}

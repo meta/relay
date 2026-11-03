@@ -7,14 +7,19 @@
 
 use std::sync::LazyLock;
 
+use common::ArgumentName;
 use common::DirectiveName;
+use common::WithLocation;
 use graphql_ir::ARGUMENT_DEFINITION;
 use graphql_ir::Argument;
 use graphql_ir::Directive;
+use graphql_ir::FragmentDefinition;
 use graphql_ir::FragmentDefinitionName;
 use graphql_ir::ProvidedVariableMetadata;
 use graphql_ir::UNUSED_LOCAL_VARIABLE_DEPRECATED;
 use graphql_ir::Value;
+use graphql_ir::Variable;
+use graphql_ir::VariableDefinition;
 use graphql_ir::VariableName;
 use intern::Lookup;
 use intern::string_key::Intern;
@@ -185,6 +190,46 @@ pub fn is_relay_custom_inline_fragment_directive(directive: &Directive) -> bool 
 
 pub fn generate_abstract_type_refinement_key(schema: &SDLSchema, type_: Type) -> StringKey {
     format!("__is{}", schema.get_type_name(type_).lookup()).intern()
+}
+
+/// The variable definitions and arguments of an operation that spreads
+/// `fragment` with its own variables, named by `variable_name`. Provided
+/// variables stay provided, so they are neither declared nor passed.
+pub fn pass_through_fragment_variables(
+    fragment: &FragmentDefinition,
+    variable_name: impl Fn(VariableName) -> VariableName,
+) -> (Vec<VariableDefinition>, Vec<Argument>) {
+    fragment
+        .variable_definitions
+        .iter()
+        .filter(|definition| ProvidedVariableMetadata::find(&definition.directives).is_none())
+        .map(|definition| {
+            let name = WithLocation::new(
+                definition.name.location,
+                variable_name(definition.name.item),
+            );
+            let argument = Argument {
+                name: WithLocation::new(
+                    definition.name.location,
+                    ArgumentName(definition.name.item.0),
+                ),
+                value: WithLocation::new(
+                    definition.name.location,
+                    Value::Variable(Variable {
+                        name,
+                        type_: definition.type_.clone(),
+                    }),
+                ),
+            };
+            (
+                VariableDefinition {
+                    name,
+                    ..definition.clone()
+                },
+                argument,
+            )
+        })
+        .unzip()
 }
 
 pub fn get_normalization_operation_name(name: StringKey) -> String {

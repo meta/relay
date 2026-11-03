@@ -1,0 +1,59 @@
+//- base_src/ClientCard.js
+
+// A derived project's server query hands off a base project's `@no_inline`
+// client fragment, whose normalization operation the base project generates.
+// `rootVariables` comes from the fragment's definition: `size`, which the
+// spread fragment reads, and not the fragment's own `scale`.
+graphql`fragment ClientCard_user on User @no_inline
+  @argumentDefinitions(scale: {type: "Int", defaultValue: 2}) {
+  local: picture(size: $scale)
+  ...ClientAvatar_user
+}`
+
+graphql`fragment ClientAvatar_user on User {
+  thumbnail: picture(size: $size)
+}`
+
+//- derived_src/ServerQuery.js
+
+graphql`query ServerQuery($size: Int) @server {
+  me {
+    ...ClientCard_user @alias(as: "clientCard")
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {
+    "base_src": "base_project",
+    "derived_src": "derived_project"
+  },
+  "projects": {
+    "base_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    },
+    "derived_project": {
+      "schema": "schema.graphql",
+      "base": "base_project",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int): String
+}

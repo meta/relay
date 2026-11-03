@@ -52,7 +52,7 @@ use intern::string_key::StringKeyMap;
 use itertools::Itertools;
 use schema::Type;
 use scope::Scope;
-use scope::format_local_variable;
+pub(crate) use scope::format_local_variable;
 use thiserror::Error;
 
 use super::get_applied_fragment_name;

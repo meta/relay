@@ -7,14 +7,12 @@
 
 use std::sync::Arc;
 
-use common::ArgumentName;
 use common::Diagnostic;
 use common::DiagnosticsResult;
 use common::FeatureFlag;
 use common::Location;
 use common::NamedItem;
 use common::WithLocation;
-use graphql_ir::Argument;
 use graphql_ir::ExecutableDefinitionName;
 use graphql_ir::FragmentDefinition;
 use graphql_ir::FragmentDefinitionName;
@@ -27,8 +25,7 @@ use graphql_ir::Program;
 use graphql_ir::Selection;
 use graphql_ir::Transformed;
 use graphql_ir::Transformer;
-use graphql_ir::Value;
-use graphql_ir::Variable;
+use graphql_ir::VariableName;
 use graphql_ir::associated_data_impl;
 use graphql_syntax::OperationKind;
 use intern::string_key::Intern;
@@ -42,8 +39,10 @@ use crate::RelayDirective;
 use crate::SERVER_DIRECTIVE;
 use crate::SplitOperationMetadata;
 use crate::UPDATABLE_DIRECTIVE;
+use crate::apply_fragment_arguments::format_local_variable;
 use crate::no_inline::attach_no_inline_directives_to_fragments;
 use crate::util::get_normalization_operation_name;
+use crate::util::pass_through_fragment_variables;
 
 /// Identifies the generated normalization artifact for a client fragment
 /// crossing a server-owned fragment boundary.
@@ -180,6 +179,13 @@ impl<'program, 'flag> ClientComponentBoundaryTransform<'program, 'flag> {
                 .or_insert_with(|| {
                     let mut parent_documents = FxHashSet::default();
                     parent_documents.insert(document_name);
+                    // The fragment's variables are renamed as in `@no_inline`
+                    // split operations, so they cannot shadow an operation
+                    // variable read by a fragment spread inside it.
+                    let (variable_definitions, arguments) =
+                        pass_through_fragment_variables(fragment, |name| {
+                            VariableName(format_local_variable(fragment.name.item, name.0))
+                        });
                     (
                         SplitOperationMetadata {
                             derived_from: Some(fragment.name.item),
@@ -194,11 +200,11 @@ impl<'program, 'flag> ClientComponentBoundaryTransform<'program, 'flag> {
                             ),
                             type_: fragment.type_condition,
                             kind: OperationKind::Query,
-                            variable_definitions: fragment.variable_definitions.clone(),
+                            variable_definitions,
                             directives: Vec::new(),
                             selections: vec![Selection::FragmentSpread(Arc::new(FragmentSpread {
                                 fragment: fragment.name,
-                                arguments: pass_through_fragment_arguments(fragment),
+                                arguments,
                                 directives: Vec::new(),
                                 signature: Some(fragment.as_ref().into()),
                             }))],
@@ -323,26 +329,6 @@ impl Transformer<'_> for ClientComponentBoundaryTransform<'_, '_> {
             }
         }
     }
-}
-
-fn pass_through_fragment_arguments(fragment: &FragmentDefinition) -> Vec<Argument> {
-    fragment
-        .variable_definitions
-        .iter()
-        .map(|definition| Argument {
-            name: WithLocation::new(
-                definition.name.location,
-                ArgumentName(definition.name.item.0),
-            ),
-            value: WithLocation::new(
-                definition.name.location,
-                Value::Variable(Variable {
-                    name: definition.name,
-                    type_: definition.type_.clone(),
-                }),
-            ),
-        })
-        .collect()
 }
 
 #[derive(

@@ -1,0 +1,47 @@
+//- src/ServerUser.js
+
+// A handed-off client fragment declares a provided variable named `size`, and
+// a fragment it spreads reads the operation variable `$size`. The operation
+// variable is listed in `rootVariables` next to the provider's variable.
+graphql`query ServerUserQuery($size: Int!) @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User
+  @argumentDefinitions(
+    size: {type: "Int!", provider: "./PictureSizeProvider"}
+  ) {
+  picture(size: $size)
+  ...ClientAvatar_user
+}`
+
+graphql`fragment ClientAvatar_user on User {
+  thumbnail: picture(size: $size)
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int!): String
+}

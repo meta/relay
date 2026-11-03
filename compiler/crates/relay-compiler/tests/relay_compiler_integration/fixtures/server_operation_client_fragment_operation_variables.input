@@ -1,0 +1,48 @@
+//- src/ServerUser.js
+
+// A client fragment reads the operation variable `$size` directly and through
+// a fragment it spreads, so its `serverHandoff.clientFragments` entry lists it
+// in `rootVariables`. `$path` is read only on the path to the client fragment,
+// so it is not listed.
+graphql`query ServerUserQuery($size: Int!, $path: String!) @server {
+  friend(name: $path) {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User {
+  picture(size: $size)
+  ...ClientAvatar_user
+}`
+
+graphql`fragment ClientAvatar_user on User {
+  thumbnail: picture(size: $size)
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "schemaConfig": {
+        "nodeInterfaceIdField": "key"
+      },
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  friend(name: String!): User
+}
+
+type User {
+  key: ID!
+  picture(size: Int!): String
+}

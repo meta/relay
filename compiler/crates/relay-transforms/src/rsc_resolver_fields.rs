@@ -37,7 +37,6 @@ use graphql_ir::Transformed;
 use graphql_ir::Transformer;
 use graphql_ir::ValidationLevel;
 use graphql_ir::Value;
-use graphql_ir::Variable;
 use graphql_ir::VariableDefinition;
 use graphql_ir::VariableName;
 use graphql_ir::associated_data_impl;
@@ -64,6 +63,7 @@ use crate::relay_resolvers::ResolverSchemaGenType;
 use crate::relay_resolvers::get_resolver_info;
 use crate::root_variables::InferVariablesVisitor;
 use crate::util::get_normalization_operation_name;
+use crate::util::pass_through_fragment_variables;
 
 /// Compiler-only recipe for one Resolver-authored `RelayRscValue` selection.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -589,7 +589,7 @@ impl<'program> RscResolverFieldTransform<'program> {
                         directives: Vec::new(),
                         selections: vec![Selection::FragmentSpread(Arc::new(FragmentSpread {
                             fragment: fragment.name,
-                            arguments: pass_through_fragment_arguments(fragment),
+                            arguments: pass_through_fragment_variables(fragment, |name| name).1,
                             directives: Vec::new(),
                             signature: Some(fragment.into()),
                         }))],
@@ -660,26 +660,6 @@ fn is_rsc_value_field(schema: &SDLSchema, field: &Field) -> bool {
         .inner()
         .get_scalar_id()
         .is_some_and(|scalar_id| schema.scalar(scalar_id).name.item == *RELAY_RSC_VALUE_SCALAR_NAME)
-}
-
-fn pass_through_fragment_arguments(fragment: &FragmentDefinition) -> Vec<Argument> {
-    fragment
-        .variable_definitions
-        .iter()
-        .map(|definition| Argument {
-            name: WithLocation::new(
-                definition.name.location,
-                ArgumentName(definition.name.item.0),
-            ),
-            value: WithLocation::new(
-                definition.name.location,
-                Value::Variable(Variable {
-                    name: definition.name,
-                    type_: definition.type_.clone(),
-                }),
-            ),
-        })
-        .collect()
 }
 
 fn rsc_definition_id(

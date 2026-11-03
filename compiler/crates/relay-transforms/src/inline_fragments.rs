@@ -33,7 +33,6 @@ use schema::ObjectID;
 use schema::Schema;
 use schema::Type;
 
-use crate::ClientComponentBoundaryMetadata;
 use crate::NoInlineFragmentSpreadMetadata;
 use crate::RelayLocationAgnosticBehavior;
 use crate::RscSeamMetadata;
@@ -491,7 +490,6 @@ impl Transformer<'_> for InlineFragmentsTransform<'_> {
             Selection::FragmentSpread(selection) => {
                 let should_skip_inline = selection.directives.iter().any(|directive| {
                     directive.name.item == NoInlineFragmentSpreadMetadata::directive_name()
-                        || directive.name.item == ClientComponentBoundaryMetadata::directive_name()
                         || directive.name.item == RscSeamMetadata::directive_name()
                 });
                 if should_skip_inline {

@@ -42,12 +42,10 @@ async fn server_rsc_resolver_projection() {
 
     for expected in [
         "\"name\": \"rsc$",
-        "\"handle\": \"rsc\"",
         "\"definitionID\":",
         "\"componentArgumentNames\": [",
         "\"tone\"",
         "\"rscIdentityArgs\":",
-        "\"clientNormalization\": ServerRscResolverProjectionQuery$clientNormalization_graphql",
     ] {
         assert!(
             output.contains(expected),
@@ -55,30 +53,6 @@ async fn server_rsc_resolver_projection() {
         );
     }
     assert!(!output.contains("\"kind\": \"RelayResolver\""));
-
-    let client_normalization = generated_artifact(
-        &output,
-        "src/__generated__/ServerRscResolverProjectionQuery$clientNormalization.graphql.js",
-    );
-    let compact_client_normalization: String = client_normalization
-        .chars()
-        .filter(|char| !char.is_whitespace())
-        .collect();
-    assert!(compact_client_normalization.contains(
-        "varv0=[{\"kind\":\"Literal\",\"name\":\"size\",\"value\":64},{\"kind\":\"Literal\",\"name\":\"tone\",\"value\":\"quiet\"}]"
-    ));
-    assert_eq!(
-        compact_client_normalization
-            .matches("(v0/*::asany*/)")
-            .count(),
-        3
-    );
-    assert!(client_normalization.contains("\"kind\": \"ClientExtension\""));
-    assert!(client_normalization.contains("\"kind\": \"ScalarField\""));
-    assert!(client_normalization.contains("\"kind\": \"ScalarHandle\""));
-    assert!(!client_normalization.contains("\"kind\": \"FragmentSpread\""));
-    assert!(!client_normalization.contains("\"kind\": \"ModuleImport\""));
-    assert!(!client_normalization.contains("\"serverFragment\""));
 
     let request = generated_artifact(
         &output,

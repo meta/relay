@@ -1,0 +1,50 @@
+//- src/ServerUser.js
+
+// The same as `server_operation_client_fragment_operation_variables`, with the
+// `no_inline` feature on: the client fragment's normalization is a `@no_inline`
+// split operation, whose own arguments are not operation variables.
+graphql`query ServerUserQuery($size: Int!, $path: String!) @server {
+  friend(name: $path) {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User
+@argumentDefinitions(scale: {type: "Int", defaultValue: 1}) {
+  picture(size: $size)
+  scaled: picture(size: $scale)
+  ...ClientAvatar_user
+}`
+
+graphql`fragment ClientAvatar_user on User {
+  thumbnail: picture(size: $size)
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "schemaConfig": {
+        "nodeInterfaceIdField": "key"
+      },
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  friend(name: String!): User
+}
+
+type User {
+  key: ID!
+  picture(size: Int!): String
+}

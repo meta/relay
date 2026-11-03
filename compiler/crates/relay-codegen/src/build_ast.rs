@@ -1903,37 +1903,51 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         })
     }
 
+    /// Builds a server query's `serverHandoff`: `clientFragments` lists each
+    /// client fragment it hands off, with its Reader fragment, its
+    /// `$normalization` split operation and the operation variables it reads,
+    /// and `rsc` lists the Relay RSC Resolver fields it selects.
     fn build_server_handoff(&mut self, operation: &OperationDefinition) -> Option<Primitive> {
         let handoff = ServerOperationHandoffMetadata::find(&operation.directives)?;
         let client_fragments = handoff
             .client_fragments
             .iter()
             .map(|client_fragment| {
-                let client_normalization =
-                    self.build_graphql_artifact_dependency(WithLocation::new(
-                        client_fragment.fragment_location,
-                        client_fragment.client_normalization_operation.into(),
-                    ));
+                let normalization = self.build_graphql_artifact_dependency(WithLocation::new(
+                    client_fragment.fragment_location,
+                    client_fragment.client_normalization_operation.into(),
+                ));
                 let fragment = self.build_graphql_artifact_dependency(WithLocation::new(
                     client_fragment.fragment_location,
                     client_fragment.fragment.into(),
                 ));
-                Primitive::Key(self.object(object! {
-                    client_normalization: client_normalization,
+                let mut fields = object! {
+                    normalization: normalization,
                     fragment: fragment,
-                }))
+                };
+                if !client_fragment.root_variables.is_empty() {
+                    let root_variables = client_fragment
+                        .root_variables
+                        .iter()
+                        .map(|name| Primitive::String(name.0))
+                        .collect();
+                    fields.push(ObjectEntry {
+                        key: CODEGEN_CONSTANTS.root_variables,
+                        value: Primitive::Key(self.array(root_variables)),
+                    });
+                }
+                Primitive::Key(self.object(fields))
             })
             .collect();
-        let client_normalization = self.build_graphql_artifact_dependency(WithLocation::new(
-            operation.name.location,
-            handoff.client_normalization_operation.into(),
-        ));
         let client_fragments = Primitive::Key(self.array(client_fragments));
 
-        Some(Primitive::Key(self.object(object! {
+        let mut fields = object! {
             client_fragments: client_fragments,
-            client_normalization: client_normalization,
-        })))
+        };
+        if !handoff.rsc_seams.is_empty() {
+            fields.push(self.build_rsc_descriptors(&handoff.rsc_seams));
+        }
+        Some(Primitive::Key(self.object(fields)))
     }
 
     fn build_graphql_artifact_dependency(

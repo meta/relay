@@ -1,0 +1,42 @@
+//- src/ServerUser.js
+
+// A client fragment that declares a provided variable is handed off: its
+// normalization operation keeps the variable provided instead of passing it
+// through `@arguments`.
+graphql`query ServerUserQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User
+  @argumentDefinitions(
+    size: {type: "Int!", provider: "./PictureSizeProvider"}
+  ) {
+  picture(size: $size)
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int!): String
+}

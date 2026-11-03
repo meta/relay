@@ -1,0 +1,60 @@
+//- src/ServerUser.js
+
+// A handed-off client fragment selects a Relay Resolver whose arguments read
+// operation variables inside an object value (`$size`), a list value
+// (`$small`, `$large`) and a provided variable (`$accent`). Its
+// `rootVariables` lists them all, but not the fragment's own argument
+// `$suffix`.
+graphql`query ServerUserQuery($size: Int!, $small: Int!, $large: Int!) @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User
+  @argumentDefinitions(
+    suffix: {type: "String", defaultValue: "!"}
+    accent: {type: "String", provider: "./AccentProvider"}
+  ) {
+  pictureLabel(
+    options: {size: $size, accent: $accent}
+    sizes: [$small, $large]
+    suffix: $suffix
+  )
+}`
+
+//- src/PictureLabel.js
+
+/**
+ * @relayField User.pictureLabel(options: PictureOptions, sizes: [Int], suffix: String): String
+ */
+export function pictureLabel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+}
+
+input PictureOptions {
+  size: Int
+  accent: String
+}

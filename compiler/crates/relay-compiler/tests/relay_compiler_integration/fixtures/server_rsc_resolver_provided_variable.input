@@ -1,0 +1,51 @@
+//- src/Page.js
+
+// A Relay RSC Resolver field's root fragment declares a provided variable: the
+// field's normalization operation keeps the variable provided instead of
+// passing it through `@arguments`.
+graphql`query ServerPageQuery @server {
+  me {
+    panel
+  }
+}`
+
+//- src/Panel.js
+
+/**
+ * @relayField User.panel: RelayRscValue
+ * @rootFragment Panel_user
+ */
+graphql`fragment Panel_user on User
+  @argumentDefinitions(
+    size: {type: "Int!", provider: "./PictureSizeProvider"}
+  )
+  @server {
+  picture(size: $size)
+}`
+
+export function Panel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int!): String
+}

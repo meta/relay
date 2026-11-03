@@ -1,0 +1,46 @@
+//- src/ServerUser.js
+
+// A handed-off client fragment's own argument `$scale` has the same name as
+// the operation variable `$scale` that a fragment it spreads reads. In the
+// client fragment's normalization operation each keeps its own value, and the
+// operation variable is listed in `rootVariables`.
+graphql`query ServerUserQuery($scale: Int!) @server {
+  me {
+    ...ClientCard_user @arguments(scale: 2) @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User
+  @argumentDefinitions(scale: {type: "Int!"}) {
+  local: picture(size: $scale)
+  ...ClientAvatar_user
+}`
+
+graphql`fragment ClientAvatar_user on User {
+  global: picture(size: $scale)
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int!): String
+}

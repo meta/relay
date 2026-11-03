@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<bd5527aaca3013eed7b6ded1e3a9823c>>
+ * @generated SignedSource<<fa1eb4e17c135f6a3e52d82fe7672c08>>
  */
 
 mod relay_compiler_integration;
@@ -1504,6 +1504,20 @@ async fn server_fragment_requires_feature_invalid() {
 }
 
 #[tokio::test]
+async fn server_operation_base_no_inline_client_fragment_shadowed_variable() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_shadowed_variable.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_shadowed_variable.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_base_no_inline_client_fragment_shadowed_variable.input", "relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_shadowed_variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_base_no_inline_client_fragment_variables() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_variables.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_variables.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_base_no_inline_client_fragment_variables.input", "relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_variables.expected", input, expected).await;
+}
+
+#[tokio::test]
 async fn server_operation_base_no_inline_incremental_unsupported_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.expected");
@@ -1515,6 +1529,62 @@ async fn server_operation_client_boundary_on_union_member() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_boundary_on_union_member.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_boundary_on_union_member.expected");
     test_fixture(transform_fixture, file!(), "server_operation_client_boundary_on_union_member.input", "relay_compiler_integration/fixtures/server_operation_client_boundary_on_union_member.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_argument_null_and_default() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_argument_null_and_default.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_argument_null_and_default.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_argument_null_and_default.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_argument_null_and_default.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_argument_shadows_operation_variable() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_argument_shadows_operation_variable.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_argument_shadows_operation_variable.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_argument_shadows_operation_variable.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_argument_shadows_operation_variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_operation_variables() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_operation_variables.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_operation_variables.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_operation_variables.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_operation_variables.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_operation_variables_no_inline() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_operation_variables_no_inline.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_operation_variables_no_inline.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_operation_variables_no_inline.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_operation_variables_no_inline.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_provided_variable() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_provided_variable.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_provided_variable.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_provided_variable.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_provided_variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_provided_variable_shadows_operation_variable() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_provided_variable_shadows_operation_variable.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_provided_variable_shadows_operation_variable.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_provided_variable_shadows_operation_variable.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_provided_variable_shadows_operation_variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_resolver_argument_variables() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_resolver_argument_variables.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_resolver_argument_variables.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_resolver_argument_variables.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_resolver_argument_variables.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_derived_client_fragment_spreads_base_no_inline() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_derived_client_fragment_spreads_base_no_inline.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_derived_client_fragment_spreads_base_no_inline.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_derived_client_fragment_spreads_base_no_inline.input", "relay_compiler_integration/fixtures/server_operation_derived_client_fragment_spreads_base_no_inline.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1662,6 +1732,13 @@ async fn server_rsc_resolver_incremental_validation_root_fragment_defer_invalid(
     let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_validation_root_fragment_defer.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_validation_root_fragment_defer.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_rsc_resolver_incremental_validation_root_fragment_defer.invalid.input", "relay_compiler_integration/fixtures/server_rsc_resolver_incremental_validation_root_fragment_defer.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_rsc_resolver_provided_variable() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_provided_variable.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_provided_variable.expected");
+    test_fixture(transform_fixture, file!(), "server_rsc_resolver_provided_variable.input", "relay_compiler_integration/fixtures/server_rsc_resolver_provided_variable.expected", input, expected).await;
 }
 
 #[tokio::test]
