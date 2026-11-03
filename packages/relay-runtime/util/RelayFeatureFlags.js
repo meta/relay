@@ -53,10 +53,6 @@ export type FeatureFlags = {
   // Temporary flag to experiment to enable compatibility with React's unstable <Activity> API
   ENABLE_ACTIVITY_COMPATIBILITY: boolean,
 
-  // @deprecated No longer read: read time resolver storage keys are always
-  // prefixed. Kept until callers stop setting it; will be removed.
-  ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX: boolean,
-
   // Enable logging an ID collision in the Relay store
   ENABLE_STORE_ID_COLLISION_LOGGING: boolean,
 
@@ -146,7 +142,6 @@ const RelayFeatureFlags: FeatureFlags = {
   MARK_RESOLVER_VALUES_AS_CLEAN_AFTER_FRAGMENT_REREAD: false,
   ENABLE_CYLE_DETECTION_IN_VARIABLES: false,
   ENABLE_ACTIVITY_COMPATIBILITY: true,
-  ENABLE_READ_TIME_RESOLVER_STORAGE_KEY_PREFIX: true,
   DISALLOW_NESTED_UPDATES: false,
   ENABLE_UI_CONTEXT_ON_RELAY_LOGGER: false,
   CHECK_ALL_FRAGMENTS_FOR_MISSING_CLIENT_EDGES: false,
