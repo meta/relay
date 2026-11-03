@@ -38,8 +38,9 @@ export type ResolverFragmentResult = Readonly<{
   fieldErrors: ?FieldErrors,
 }>;
 
-export type GetDataForResolverFragmentFn =
-  SingularReaderSelector => ResolverFragmentResult;
+export type GetDataForResolverFragmentFn = (
+  v: SingularReaderSelector,
+) => ResolverFragmentResult;
 
 export interface ResolverCache {
   readFromCacheOrEvaluate<T>(

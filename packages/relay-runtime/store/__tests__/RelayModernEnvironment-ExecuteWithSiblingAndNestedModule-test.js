@@ -43,7 +43,7 @@ const {
 injectPromisePolyfill__DEPRECATED();
 disallowWarnings();
 
-function runWithFeatureFlags(setFlags: (typeof RelayFeatureFlags) => void) {
+function runWithFeatureFlags(setFlags: (v: typeof RelayFeatureFlags) => void) {
   describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
     'execute() a query with nested @match',
     environmentType => {

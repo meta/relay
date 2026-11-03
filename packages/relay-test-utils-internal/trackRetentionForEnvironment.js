@@ -24,7 +24,7 @@ import type {OperationDescriptor} from '../relay-runtime/store/RelayStoreTypes';
  */
 function trackRetentionForEnvironment(environment: IEnvironment): {
   release_DEPRECATED: JestMockFn<[unknown], void>,
-  isOperationRetained: OperationDescriptor => boolean,
+  isOperationRetained: (v: OperationDescriptor) => boolean,
 } {
   const retainCountsByOperation = new Map<unknown, number>();
 

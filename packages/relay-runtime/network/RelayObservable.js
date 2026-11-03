@@ -35,11 +35,11 @@ type SubscriptionFn = {
  * .subscribe(). Each callback function is invoked when that event occurs.
  */
 export type Observer<in T> = {
-  readonly start?: ?(Subscription) => unknown,
-  readonly next?: ?(T) => unknown,
-  readonly error?: ?(Error) => unknown,
+  readonly start?: ?(v: Subscription) => unknown,
+  readonly next?: ?(v: T) => unknown,
+  readonly error?: ?(v: Error) => unknown,
   readonly complete?: ?() => unknown,
-  readonly unsubscribe?: ?(Subscription) => unknown,
+  readonly unsubscribe?: ?(v: Subscription) => unknown,
 };
 
 /**
@@ -48,8 +48,8 @@ export type Observer<in T> = {
  * field to see if the resulting subscription has closed.
  */
 export type Sink<in T> = {
-  readonly next: T => void,
-  readonly error: (Error, isUncaughtThrownError?: boolean) => void,
+  readonly next: (v: T) => void,
+  readonly error: (v0: Error, isUncaughtThrownError?: boolean) => void,
   readonly complete: () => void,
   readonly closed: boolean,
 };
@@ -60,7 +60,9 @@ export type Sink<in T> = {
  * and may return either a cleanup function or a Subscription instance (for use
  * when composing Observables).
  */
-export type Source<out T> = (Sink<T>) => void | Subscription | SubscriptionFn;
+export type Source<out T> = (
+  v: Sink<T>,
+) => void | Subscription | SubscriptionFn;
 
 /**
  * A Subscribable is an interface describing any object which can be subscribed.
@@ -75,7 +77,7 @@ export interface Subscribable<out T> {
 export type ObservableFromValue<out T> = Subscribable<T> | Promise<T> | T;
 
 let hostReportError:
-  | ((Error, isUncaughtThrownError: boolean) => unknown)
+  | ((v0: Error, isUncaughtThrownError: boolean) => unknown)
   | ((_error: Error, _isUncaughtThrownError: boolean) => void) = swallowError;
 
 /**
@@ -133,7 +135,7 @@ class RelayObservable<out T> implements Subscribable<T> {
    *    stack traces.
    */
   static onUnhandledError(
-    callback: (Error, isUncaughtThrownError: boolean) => unknown,
+    callback: (v0: Error, isUncaughtThrownError: boolean) => unknown,
   ): void {
     hostReportError = callback;
   }
@@ -157,7 +159,7 @@ class RelayObservable<out T> implements Subscribable<T> {
    * If the catch handler throws a new error, it will appear as an error event
    * on the resulting Observable.
    */
-  catch<U>(fn: Error => RelayObservable<U>): RelayObservable<T | U> {
+  catch<U>(fn: (v: Error) => RelayObservable<U>): RelayObservable<T | U> {
     return RelayObservable.create(sink => {
       let subscription;
       this.subscribe({
@@ -333,7 +335,7 @@ class RelayObservable<out T> implements Subscribable<T> {
    * Returns a new Observerable where each value has been transformed by
    * the mapping function.
    */
-  map<U>(fn: T => U): RelayObservable<U> {
+  map<U>(fn: (v: T) => U): RelayObservable<U> {
     return RelayObservable.create(sink => {
       const subscription = this.subscribe({
         complete: sink.complete,
@@ -358,7 +360,7 @@ class RelayObservable<out T> implements Subscribable<T> {
    * by the mapping function, the results of which returned as a single
    * merged Observable.
    */
-  mergeMap<U>(fn: T => ObservableFromValue<U>): RelayObservable<U> {
+  mergeMap<U>(fn: (v: T) => ObservableFromValue<U>): RelayObservable<U> {
     return RelayObservable.create(sink => {
       const subscriptions = [];
 

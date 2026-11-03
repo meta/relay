@@ -451,7 +451,7 @@ export interface StoreSubscriptions {
  * A type that accepts a callback and schedules it to run at some future time.
  * By convention, implementations should not execute the callback immediately.
  */
-export type Scheduler = (() => void) => void;
+export type Scheduler = (v: () => void) => void;
 
 /**
  * A type that can schedule callbacks and also cancel them.
@@ -926,8 +926,8 @@ export type LogEvent =
   | ReaderRead
   | ReaderReadFragmentSpread;
 
-export type LogFunction = LogEvent => void;
-export type LogRequestInfoFunction = unknown => void;
+export type LogFunction = (v: LogEvent) => void;
+export type LogRequestInfoFunction = (v: unknown) => void;
 
 /**
  * The public API of Relay core. Represents an encapsulated environment with its
@@ -1096,7 +1096,7 @@ export interface IEnvironment {
    * the result is subscribed to:
    * environment.executeWithSource({...}).subscribe({...}).
    */
-  executeWithSource({
+  executeWithSource(v: {
     operation: OperationDescriptor,
     source: RelayObservable<GraphQLResponse>,
   }): RelayObservable<GraphQLResponse>;

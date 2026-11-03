@@ -237,7 +237,7 @@ export interface IMultiActorEnvironment {
    */
   executeWithSource(
     actorEnvironment: IActorEnvironment,
-    {
+    v1: {
       operation: OperationDescriptor,
       source: RelayObservable<GraphQLResponse>,
     },

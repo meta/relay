@@ -70,7 +70,7 @@ hook useMutation<TVariables extends Variables, TData, TRawResponse = {...}>(
     config: CommitMutationConfig<TVariables, TData, TRawResponse>,
   ) => Disposable = defaultCommitMutation,
 ): [
-  (UseMutationConfigInternal<TVariables, TData, TRawResponse>) => Disposable,
+  (v: UseMutationConfigInternal<TVariables, TData, TRawResponse>) => Disposable,
   boolean,
 ] {
   const environment = useRelayEnvironment();

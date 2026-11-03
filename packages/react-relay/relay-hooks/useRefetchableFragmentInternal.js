@@ -76,7 +76,7 @@ export type ReturnType<
 
 export type Options = {
   fetchPolicy?: FetchPolicy,
-  onComplete?: (Error | null) => void,
+  onComplete?: (v: Error | null) => void,
   UNSTABLE_renderPolicy?: RenderPolicy,
 };
 
@@ -110,7 +110,7 @@ type Action =
       refetchQuery: OperationDescriptor,
       fetchPolicy?: FetchPolicy,
       renderPolicy?: RenderPolicy,
-      onComplete?: (Error | null) => void,
+      onComplete?: (v: Error | null) => void,
       refetchEnvironment: ?IEnvironment,
     };
 
@@ -118,7 +118,7 @@ type RefetchState = {
   fetchPolicy: FetchPolicy | void,
   mirroredEnvironment: IEnvironment,
   mirroredFragmentIdentifier: string,
-  onComplete: ((Error | null) => void) | void,
+  onComplete: ((v: Error | null) => void) | void,
   refetchEnvironment?: ?IEnvironment,
   refetchQuery: OperationDescriptor | null,
   renderPolicy: RenderPolicy | void,
@@ -359,19 +359,20 @@ hook useRefetchableFragmentInternal<
 hook useRefetchFunction<TQuery extends OperationType>(
   componentDisplayName: string,
   dispatch: (
-    | {
-        environment: IEnvironment,
-        fragmentIdentifier: string,
-        type: 'reset',
-      }
-    | {
-        fetchPolicy?: FetchPolicy,
-        onComplete?: (Error | null) => void,
-        refetchEnvironment: ?IEnvironment,
-        refetchQuery: OperationDescriptor,
-        renderPolicy?: RenderPolicy,
-        type: 'refetch',
-      },
+    v:
+      | {
+          environment: IEnvironment,
+          fragmentIdentifier: string,
+          type: 'reset',
+        }
+      | {
+          fetchPolicy?: FetchPolicy,
+          onComplete?: (v: Error | null) => void,
+          refetchEnvironment: ?IEnvironment,
+          refetchQuery: OperationDescriptor,
+          renderPolicy?: RenderPolicy,
+          type: 'refetch',
+        },
   ) => void,
   disposeQuery: () => void,
   fragmentData: unknown,

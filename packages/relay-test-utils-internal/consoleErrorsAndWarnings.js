@@ -20,9 +20,9 @@ export type WillFireOptions = {
 
 type API = Readonly<{
   disallowMessages: () => void,
-  expectMessageWillFire: (string, void | WillFireOptions) => void,
-  expectMessage: <T>(string, () => T) => T,
-  expectMessageMany: <T>(Array<string>, () => T) => T,
+  expectMessageWillFire: (v0: string, v1: void | WillFireOptions) => void,
+  expectMessage: <T>(v0: string, v1: () => T) => T,
+  expectMessageMany: <T>(v0: Array<string>, v1: () => T) => T,
 }>;
 
 const originalConsoleError = console.error;
@@ -30,7 +30,7 @@ const originalConsoleError = console.error;
 function createConsoleInterceptionSystem(
   typename: string,
   expectFunctionName: string,
-  setUpMock: ((string) => void) => void,
+  setUpMock: (v: (v: string) => void) => void,
 ): API {
   let installed = false;
   const expectedMessages: Array<string> = [];

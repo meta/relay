@@ -44,7 +44,7 @@ const warning = require('warning');
 export type LoadMoreFn<TVariables extends Variables> = (
   count: number,
   options?: {
-    onComplete?: (Error | null) => void,
+    onComplete?: (v: Error | null) => void,
     UNSTABLE_extraVariables?: Partial<TVariables>,
   },
 ) => Disposable;
@@ -153,7 +153,7 @@ hook useLoadMoreFunction_CURRENT<TVariables extends Variables>(
       count: number,
       options: void | {
         UNSTABLE_extraVariables?: Partial<TVariables>,
-        onComplete?: (Error | null) => void,
+        onComplete?: (v: Error | null) => void,
       },
     ) => {
       // TODO(T41131846): Fetch/Caching policies for loadMore

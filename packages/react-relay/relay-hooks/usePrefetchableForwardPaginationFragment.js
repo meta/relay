@@ -46,7 +46,7 @@ const {
 type LoadMoreFn<TVariables extends Variables> = (
   count: number,
   options?: {
-    onComplete?: (Error | null) => void,
+    onComplete?: (v: Error | null) => void,
     UNSTABLE_extraVariables?: Partial<TVariables>,
   },
 ) => void;
@@ -69,10 +69,10 @@ export type ReturnType<TVariables, TData, TEdgeData, TKey> = {
 
 type LoadMoreOptions<TVariables> = {
   UNSTABLE_extraVariables?: Partial<TVariables>,
-  onComplete?: (Error | null) => void,
+  onComplete?: (v: Error | null) => void,
 };
 
-export type GetExtraVariablesFn<TEdgeData, TData, TVariables, TKey> = ({
+export type GetExtraVariablesFn<TEdgeData, TData, TVariables, TKey> = (v: {
   hasNext: boolean,
   data: [readonly key: TKey] extends [
     readonly key: {readonly $fragmentSpreads: unknown, ...},
@@ -102,7 +102,7 @@ hook usePrefetchableForwardPaginationFragment<
     UNSTABLE_extraVariables?:
       | Partial<TVariables>
       | GetExtraVariablesFn<TEdgeData, TData, TVariables, TKey>,
-    onComplete?: (Error | null) => void,
+    onComplete?: (v: Error | null) => void,
   },
   minimalFetchSize: number = 1,
   disablePrefetching?: boolean = false,

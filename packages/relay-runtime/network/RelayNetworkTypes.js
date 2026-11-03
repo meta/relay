@@ -33,7 +33,7 @@ export interface INetwork {
   ) => void;
 }
 
-export type LogRequestInfoFunction = unknown => void;
+export type LogRequestInfoFunction = (v: unknown) => void;
 
 export type PayloadData = {readonly [key: string]: unknown};
 

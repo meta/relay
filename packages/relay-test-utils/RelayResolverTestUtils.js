@@ -35,7 +35,7 @@ const {
  * ```
  **/
 function testResolver<D extends ?{readonly $fragmentType?: unknown, ...}, Ret>(
-  resolver: ({$data?: D, $fragmentRefs: any, $fragmentSpreads: any}) => Ret,
+  resolver: (v: {$data?: D, $fragmentRefs: any, $fragmentSpreads: any}) => Ret,
   // indexed_access is not yet enabled for this code base. Once it is, this can
   // become: `Key['$data']`
   fragmentData: NoInfer<Omit<NonNullable<D>, '$fragmentType'>>,

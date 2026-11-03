@@ -27,8 +27,8 @@ const invariant = require('invariant');
 // info on this stack before we call the resolver function.
 type ResolverContext = {
   getDataForResolverFragment: (
-    SingularReaderSelector,
-    FragmentType,
+    v0: SingularReaderSelector,
+    v1: FragmentType,
   ) => ResolverFragmentResult,
 };
 const contextStack: Array<ResolverContext> = [];

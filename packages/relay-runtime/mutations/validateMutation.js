@@ -265,4 +265,8 @@ if (__DEV__) {
   };
 }
 
-module.exports = validateMutation as (any, ConcreteRequest, ?any) => void;
+module.exports = validateMutation as (
+  v0: any,
+  v1: ConcreteRequest,
+  v2: ?any,
+) => void;

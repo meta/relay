@@ -92,8 +92,8 @@ const PrependNodeHandler: Handler = {
 };
 
 function edgeUpdater(
-  insertFn: (RecordProxy, RecordProxy, ?string) => void,
-): (RecordSourceProxy, HandleFieldPayload) => void {
+  insertFn: (v0: RecordProxy, v1: RecordProxy, v2: ?string) => void,
+): (v0: RecordSourceProxy, v1: HandleFieldPayload) => void {
   return (store: RecordSourceProxy, payload: HandleFieldPayload) => {
     const record = store.get(payload.dataID);
     if (record == null) {
@@ -165,8 +165,8 @@ function edgeUpdater(
 }
 
 function nodeUpdater(
-  insertFn: (RecordProxy, RecordProxy, ?string) => void,
-): (RecordSourceProxy, HandleFieldPayload) => void {
+  insertFn: (v0: RecordProxy, v1: RecordProxy, v2: ?string) => void,
+): (v0: RecordSourceProxy, v1: HandleFieldPayload) => void {
   return (store: RecordSourceProxy, payload: HandleFieldPayload) => {
     const record = store.get(payload.dataID);
     if (record == null) {

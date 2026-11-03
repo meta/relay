@@ -18,7 +18,7 @@ export type FeatureFlags = {
   ENABLE_FRIENDLY_QUERY_NAME_GQL_URL: boolean,
   ENABLE_DO_NOT_WRAP_LIVE_QUERY: boolean,
   ENABLE_NOTIFY_SUBSCRIPTION: boolean,
-  BATCH_ASYNC_MODULE_UPDATES_FN: ?(() => void) => Disposable,
+  BATCH_ASYNC_MODULE_UPDATES_FN: ?(v: () => void) => Disposable,
   MAX_DATA_ID_LENGTH: ?number,
   STRING_INTERN_LEVEL: number,
   LOG_MISSING_RECORDS_IN_PROD: boolean,

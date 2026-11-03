@@ -17,7 +17,11 @@ import type {FragmentType, ResolverContext} from '../RelayStoreTypes';
 const {readFragment} = require('../ResolverFragments');
 const invariant = require('invariant');
 
-type ResolverFn = ($FlowFixMe, ?$FlowFixMe, ResolverContext) => unknown;
+type ResolverFn = (
+  v0: $FlowFixMe,
+  v1: ?$FlowFixMe,
+  v2: ResolverContext,
+) => unknown;
 
 /**
  *

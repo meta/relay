@@ -1743,7 +1743,7 @@ class Executor<TMutation extends MutationParameters> {
   }
 
   _scheduleAsyncStoreUpdate(
-    scheduleFn: (() => void) => Disposable,
+    scheduleFn: (v: () => void) => Disposable,
     completeFn: () => void,
   ): void {
     this._completeFns.push(completeFn);
