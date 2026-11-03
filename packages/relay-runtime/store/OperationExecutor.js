@@ -1675,7 +1675,7 @@ class Executor<TMutation extends MutationParameters> {
 
     // Determine the index in the field of the new item
     const finalPathEntry = path[path.length - 1];
-    const itemIndex = parseInt(finalPathEntry, 10);
+    const itemIndex = parseInt(String(finalPathEntry), 10);
     invariant(
       itemIndex === finalPathEntry && itemIndex >= 0,
       'OperationExecutor: Expected path for @stream to end in a ' +

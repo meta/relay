@@ -508,7 +508,7 @@ class NormalizationEngine {
     }
 
     const finalPathEntry = path[path.length - 1];
-    const itemIndex = parseInt(finalPathEntry, 10);
+    const itemIndex = parseInt(String(finalPathEntry), 10);
     if (itemIndex !== finalPathEntry || itemIndex < 0) {
       throw err(
         'NormalizationEngine: Expected path for @stream to end in a ' +
