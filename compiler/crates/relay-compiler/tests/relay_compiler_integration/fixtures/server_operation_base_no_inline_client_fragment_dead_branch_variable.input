@@ -1,0 +1,53 @@
+//- base_src/ClientCard.js
+
+// A base project's `@no_inline` client fragment reads `$pathSize` only in a
+// branch that `@skip(if: true)` removes from its normalization, so
+// `rootVariables` lists `size` and not `pathSize`.
+graphql`fragment ClientCard_user on User @no_inline {
+  thumbnail: picture(size: $size)
+  dead: picture(size: $pathSize) @skip(if: true)
+}`
+
+//- derived_src/ServerQuery.js
+
+graphql`query ServerQuery($size: Int, $pathSize: Int) @server {
+  me {
+    ...ClientCard_user @alias(as: "clientCard")
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {
+    "base_src": "base_project",
+    "derived_src": "derived_project"
+  },
+  "projects": {
+    "base_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    },
+    "derived_project": {
+      "schema": "schema.graphql",
+      "base": "base_project",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int): String
+}

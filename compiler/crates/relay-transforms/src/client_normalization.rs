@@ -11,6 +11,8 @@ use common::Diagnostic;
 use common::DiagnosticsResult;
 use common::Location;
 use common::NamedItem;
+use graphql_ir::Condition;
+use graphql_ir::ConditionValue;
 use graphql_ir::Directive;
 use graphql_ir::FragmentDefinition;
 use graphql_ir::FragmentDefinitionName;
@@ -279,6 +281,17 @@ impl Visitor for UsedVariableCollector<'_> {
         if !self.local_names.contains(&variable.name.item) {
             self.names.insert(variable.name.item);
         }
+    }
+
+    // A base fragment's definition still holds the branches that a constant
+    // condition removes from its normalization.
+    fn visit_condition(&mut self, condition: &Condition) {
+        if let ConditionValue::Constant(value) = condition.value
+            && value != condition.passing_value
+        {
+            return;
+        }
+        self.default_visit_condition(condition);
     }
 
     fn visit_directive(&mut self, directive: &Directive) {

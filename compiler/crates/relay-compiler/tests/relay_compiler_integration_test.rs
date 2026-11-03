@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<fa1eb4e17c135f6a3e52d82fe7672c08>>
+ * @generated SignedSource<<88865b876a1bdb9de70aae5f0d496f7e>>
  */
 
 mod relay_compiler_integration;
@@ -1501,6 +1501,13 @@ async fn server_fragment_requires_feature_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_fragment_requires_feature.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_requires_feature.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_fragment_requires_feature.invalid.input", "relay_compiler_integration/fixtures/server_fragment_requires_feature.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_base_no_inline_client_fragment_dead_branch_variable() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_dead_branch_variable.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_dead_branch_variable.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_base_no_inline_client_fragment_dead_branch_variable.input", "relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_dead_branch_variable.expected", input, expected).await;
 }
 
 #[tokio::test]
