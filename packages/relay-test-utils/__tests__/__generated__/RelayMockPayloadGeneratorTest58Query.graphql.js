@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<1152fe886c4be6911ae568c90539f50e>>
+ * @generated SignedSource<<c80e38e257f0ffce13bce7110aa53a0e>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -93,15 +93,22 @@ return {
             "storageKey": null
           },
           {
-            "args": [
+            "kind": "InlineFragment",
+            "selections": [
               {
-                "kind": "Literal",
-                "name": "RelayMockPayloadGeneratorTest_fragment59$cond",
-                "value": true
+                "args": [
+                  {
+                    "kind": "Literal",
+                    "name": "RelayMockPayloadGeneratorTest_fragment59$cond",
+                    "value": true
+                  }
+                ],
+                "fragment": require('./RelayMockPayloadGeneratorTest_fragment59$normalization.graphql'),
+                "kind": "FragmentSpread"
               }
             ],
-            "fragment": require('./RelayMockPayloadGeneratorTest_fragment59$normalization.graphql'),
-            "kind": "FragmentSpread"
+            "type": "User",
+            "abstractKey": null
           },
           {
             "alias": null,

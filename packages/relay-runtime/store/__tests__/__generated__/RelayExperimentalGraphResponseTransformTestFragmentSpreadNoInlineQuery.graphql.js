@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<c0a12497db2dcb5ca52cd576889fd745>>
+ * @generated SignedSource<<d5364b4d911c41ba14165a52affc14f5>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -87,9 +87,16 @@ return {
             "storageKey": null
           },
           {
-            "args": null,
-            "fragment": require('./RelayExperimentalGraphResponseTransformTest_no_inline_user_name$normalization.graphql'),
-            "kind": "FragmentSpread"
+            "kind": "InlineFragment",
+            "selections": [
+              {
+                "args": null,
+                "fragment": require('./RelayExperimentalGraphResponseTransformTest_no_inline_user_name$normalization.graphql'),
+                "kind": "FragmentSpread"
+              }
+            ],
+            "type": "User",
+            "abstractKey": null
           },
           {
             "alias": null,

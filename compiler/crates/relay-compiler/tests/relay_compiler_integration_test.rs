@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<39211b8ce5b9bdcd3b660802f9a31e33>>
+ * @generated SignedSource<<bd5527aaca3013eed7b6ded1e3a9823c>>
  */
 
 mod relay_compiler_integration;
@@ -832,6 +832,13 @@ async fn multiple_resolvers_returns_interfaces_of_all_strong_model_type() {
 }
 
 #[tokio::test]
+async fn no_inline_fragment_on_union_member() {
+    let input = include_str!("relay_compiler_integration/fixtures/no_inline_fragment_on_union_member.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/no_inline_fragment_on_union_member.expected");
+    test_fixture(transform_fixture, file!(), "no_inline_fragment_on_union_member.input", "relay_compiler_integration/fixtures/no_inline_fragment_on_union_member.expected", input, expected).await;
+}
+
+#[tokio::test]
 async fn no_inline_raw_response_type_typescript_abstract_spread() {
     let input = include_str!("relay_compiler_integration/fixtures/no_inline_raw_response_type_typescript_abstract_spread.input");
     let expected = include_str!("relay_compiler_integration/fixtures/no_inline_raw_response_type_typescript_abstract_spread.expected");
@@ -1501,6 +1508,13 @@ async fn server_operation_base_no_inline_incremental_unsupported_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_operation_base_no_inline_incremental_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_boundary_on_union_member() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_boundary_on_union_member.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_boundary_on_union_member.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_boundary_on_union_member.input", "relay_compiler_integration/fixtures/server_operation_client_boundary_on_union_member.expected", input, expected).await;
 }
 
 #[tokio::test]

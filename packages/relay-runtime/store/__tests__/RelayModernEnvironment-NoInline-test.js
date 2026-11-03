@@ -308,6 +308,55 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         operation = createOperationDescriptor(Query, {size: [1]});
       });
 
+      it('normalizes a fragment on a union member only for that member', () => {
+        const UnionQuery = graphql`
+          query RelayModernEnvironmentNoInlineTestUnionQuery {
+            me {
+              nameRenderer {
+                ...RelayModernEnvironmentNoInlineTestPlain_name
+                  @alias(as: "plain")
+                ... on MarkdownUserNameRenderer {
+                  data {
+                    markup
+                  }
+                }
+              }
+            }
+          }
+        `;
+        graphql`
+          fragment RelayModernEnvironmentNoInlineTestPlain_name on PlainUserNameRenderer
+          @no_inline {
+            data {
+              text
+            }
+          }
+        `;
+        environment
+          .execute({operation: createOperationDescriptor(UnionQuery, {})})
+          .subscribe(callbacks);
+        subject.next({
+          data: {
+            me: {
+              id: '1',
+              nameRenderer: {
+                __typename: 'MarkdownUserNameRenderer',
+                data: {id: 'data', markup: 'markup'},
+              },
+            },
+          },
+        });
+        expect(
+          callbacks.error.mock.calls.map(([error]) => error.message),
+        ).toEqual([]);
+        expect(source.get('data')).toEqual({
+          __id: 'data',
+          __typename: 'MarkdownUserNameData',
+          id: 'data',
+          markup: 'markup',
+        });
+      });
+
       it('executes and reads back results (fragment type matches)', () => {
         environment.execute({operation}).subscribe(callbacks);
         subject.next({

@@ -1,0 +1,42 @@
+//- src/ServerRenderer.js
+// A client fragment on a union member that a server query hands off is
+// normalized only for records of that type, as it would be if it were inlined.
+graphql`query ServerRendererQuery @server {
+  renderer {
+    ...ClientPlain_renderer @alias
+  }
+}`
+
+//- src/ClientPlain.js
+graphql`fragment ClientPlain_renderer on PlainRenderer {
+  text
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+   renderer: Renderer
+}
+
+union Renderer = PlainRenderer | MarkdownRenderer
+
+type PlainRenderer {
+   text: String
+}
+
+type MarkdownRenderer {
+   markup: String
+}

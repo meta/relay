@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<6da358a514a2f4b6e99737bcf8f77fe5>>
+ * @generated SignedSource<<3fd99f0541fd737b74ff1511eef5f161>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -63,15 +63,22 @@ return {
       "selections": [
         (v0/*:: as any*/),
         {
-          "args": [
+          "kind": "InlineFragment",
+          "selections": [
             {
-              "kind": "Variable",
-              "name": "RelayModernEnvironmentNoInlineTest_nestedNoInline$cond",
-              "variableName": "global_cond"
+              "args": [
+                {
+                  "kind": "Variable",
+                  "name": "RelayModernEnvironmentNoInlineTest_nestedNoInline$cond",
+                  "variableName": "global_cond"
+                }
+              ],
+              "fragment": require('./RelayModernEnvironmentNoInlineTest_nestedNoInline$normalization.graphql'),
+              "kind": "FragmentSpread"
             }
           ],
-          "fragment": require('./RelayModernEnvironmentNoInlineTest_nestedNoInline$normalization.graphql'),
-          "kind": "FragmentSpread"
+          "type": "User",
+          "abstractKey": null
         },
         (v1/*:: as any*/)
       ],
@@ -93,15 +100,22 @@ return {
       "selections": [
         (v0/*:: as any*/),
         {
-          "args": [
+          "kind": "InlineFragment",
+          "selections": [
             {
-              "kind": "Literal",
-              "name": "RelayModernEnvironmentNoInlineTest_nestedNoInline$cond",
-              "value": false
+              "args": [
+                {
+                  "kind": "Literal",
+                  "name": "RelayModernEnvironmentNoInlineTest_nestedNoInline$cond",
+                  "value": false
+                }
+              ],
+              "fragment": require('./RelayModernEnvironmentNoInlineTest_nestedNoInline$normalization.graphql'),
+              "kind": "FragmentSpread"
             }
           ],
-          "fragment": require('./RelayModernEnvironmentNoInlineTest_nestedNoInline$normalization.graphql'),
-          "kind": "FragmentSpread"
+          "type": "User",
+          "abstractKey": null
         },
         (v1/*:: as any*/)
       ],
@@ -123,15 +137,22 @@ return {
       "selections": [
         (v0/*:: as any*/),
         {
-          "args": [
+          "kind": "InlineFragment",
+          "selections": [
             {
-              "kind": "Variable",
-              "name": "RelayModernEnvironmentNoInlineTest_nestedNoInline$cond",
-              "variableName": "RelayModernEnvironmentNoInlineTest_nestedNoInlineParent$cond"
+              "args": [
+                {
+                  "kind": "Variable",
+                  "name": "RelayModernEnvironmentNoInlineTest_nestedNoInline$cond",
+                  "variableName": "RelayModernEnvironmentNoInlineTest_nestedNoInlineParent$cond"
+                }
+              ],
+              "fragment": require('./RelayModernEnvironmentNoInlineTest_nestedNoInline$normalization.graphql'),
+              "kind": "FragmentSpread"
             }
           ],
-          "fragment": require('./RelayModernEnvironmentNoInlineTest_nestedNoInline$normalization.graphql'),
-          "kind": "FragmentSpread"
+          "type": "User",
+          "abstractKey": null
         },
         (v1/*:: as any*/)
       ],

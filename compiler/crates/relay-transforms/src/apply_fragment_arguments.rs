@@ -50,6 +50,7 @@ use intern::string_key::StringKey;
 use intern::string_key::StringKeyIndexMap;
 use intern::string_key::StringKeyMap;
 use itertools::Itertools;
+use schema::Type;
 use scope::Scope;
 use scope::format_local_variable;
 use thiserror::Error;
@@ -328,20 +329,7 @@ impl Transformer<'_> for ApplyFragmentArgumentsTransform<'_, '_, '_> {
                 ),
                 signature: Some(fragment.as_ref().into()),
             }));
-            // If the fragment type is abstract, we need to ensure that it's only evaluated at runtime if the
-            // type of the object matches the fragment's type condition. Rather than reimplement type refinement
-            // for fragment spreads, we wrap the fragment spread in an inline fragment (which may be inlined away)
-            // that ensures it will go through type-refinement at runtime.
-            return if fragment.type_condition.is_abstract_type() {
-                Transformed::Replace(Selection::InlineFragment(Arc::new(InlineFragment {
-                    directives: Default::default(),
-                    selections: vec![next_spread],
-                    type_condition: Some(fragment.type_condition),
-                    spread_location: Location::generated(),
-                })))
-            } else {
-                Transformed::Replace(next_spread)
-            };
+            return with_type_refinement(next_spread, fragment.type_condition);
         }
 
         let applied_fragment = self.apply_fragment(spread, fragment);
@@ -356,12 +344,15 @@ impl Transformer<'_> for ApplyFragmentArgumentsTransform<'_, '_, '_> {
 
             let arguments = self.transform_arguments(&spread.arguments);
             let directives = self.transform_directives(&spread.directives);
-            return Transformed::Replace(Selection::FragmentSpread(Arc::new(FragmentSpread {
-                fragment: applied_fragment.name,
-                arguments: arguments.replace_or_else(|| spread.arguments.clone()),
-                directives: directives.replace_or_else(|| spread.directives.clone()),
-                signature: Some(applied_fragment.as_ref().into()),
-            })));
+            return with_type_refinement(
+                Selection::FragmentSpread(Arc::new(FragmentSpread {
+                    fragment: applied_fragment.name,
+                    arguments: arguments.replace_or_else(|| spread.arguments.clone()),
+                    directives: directives.replace_or_else(|| spread.directives.clone()),
+                    signature: Some(applied_fragment.as_ref().into()),
+                })),
+                applied_fragment.type_condition,
+            );
         }
 
         match applied_fragment {
@@ -835,4 +826,17 @@ enum ValidationMessage {
         name: StringKey,
         document: &'static str,
     },
+}
+
+/// Wraps a spread that normalization does not inline in its fragment's type
+/// refinement, so that the runtime traverses it only for records of that type,
+/// as it would the inlined fragment. `flatten` removes the refinement where the
+/// parent selection already has that type.
+fn with_type_refinement(spread: Selection, type_condition: Type) -> Transformed<Selection> {
+    Transformed::Replace(Selection::InlineFragment(Arc::new(InlineFragment {
+        directives: Default::default(),
+        selections: vec![spread],
+        type_condition: Some(type_condition),
+        spread_location: Location::generated(),
+    })))
 }

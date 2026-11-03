@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<eedbd5f77af28cf2e442713434b17187>>
+ * @generated SignedSource<<f4017abce7793863616e7cb86a427c45>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -102,15 +102,22 @@ return {
             "storageKey": null
           },
           {
-            "args": [
+            "kind": "InlineFragment",
+            "selections": [
               {
-                "kind": "Variable",
-                "name": "RelayModernEnvironmentNoInlineTestStream_feedback$cond",
-                "variableName": "cond"
+                "args": [
+                  {
+                    "kind": "Variable",
+                    "name": "RelayModernEnvironmentNoInlineTestStream_feedback$cond",
+                    "variableName": "cond"
+                  }
+                ],
+                "fragment": require('./RelayModernEnvironmentNoInlineTestStream_feedback$normalization.graphql'),
+                "kind": "FragmentSpread"
               }
             ],
-            "fragment": require('./RelayModernEnvironmentNoInlineTestStream_feedback$normalization.graphql'),
-            "kind": "FragmentSpread"
+            "type": "Feedback",
+            "abstractKey": null
           },
           {
             "alias": null,

@@ -1,0 +1,44 @@
+//- src/Page.js
+// A `@no_inline` fragment on a union member is normalized only for records of
+// that type, as it would be if it were inlined.
+graphql`query PageQuery {
+  renderer {
+    ...Plain_renderer @alias
+  }
+}`
+
+//- src/Plain.js
+graphql`fragment Plain_renderer on PlainRenderer @no_inline {
+  text
+}`
+
+//- relay.config.json
+{
+   "sources": {
+      "src": "test_project"
+   },
+   "projects": {
+      "test_project": {
+         "schema": "schema.graphql",
+         "language": "flow",
+         "featureFlags": {
+            "no_inline": { "kind": "enabled" }
+         }
+      }
+   }
+}
+
+//- schema.graphql
+type Query {
+   renderer: Renderer
+}
+
+union Renderer = PlainRenderer | MarkdownRenderer
+
+type PlainRenderer {
+   text: String
+}
+
+type MarkdownRenderer {
+   markup: String
+}

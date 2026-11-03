@@ -47,8 +47,8 @@ fragment RelayMockPayloadGeneratorTest_fragment59_22eGLd on User {
 {
   "data": {
     "node": {
-      "__typename": "__MockObject",
-      "id": "<mock-id-1>",
+      "__typename": "User",
+      "id": "<User-mock-id-1>",
       "name": "<mock-value-for-field-\\"name\\">"
     }
   }
@@ -76,8 +76,8 @@ fragment RelayMockPayloadGeneratorTest_fragment61_yuQoQ on User {
 {
   "data": {
     "node": {
-      "__typename": "__MockObject",
-      "id": "<mock-id-1>",
+      "__typename": "User",
+      "id": "<User-mock-id-1>",
       "name": "<mock-value-for-field-\\"name\\">"
     }
   }
