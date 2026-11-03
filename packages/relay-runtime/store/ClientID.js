@@ -23,6 +23,9 @@ function generateClientID(
   storageKey: string,
   index?: number,
 ): DataID {
+  if (RelayFeatureFlags.ENABLE_PERF_PUBLISH) {
+    return generateClientIDPerf(id, storageKey, index);
+  }
   const internedId =
     RelayFeatureFlags.STRING_INTERN_LEVEL <= 0
       ? id
@@ -56,6 +59,38 @@ function generateClientObjectClientID(
   let key = `${PREFIX}${typename}:${localId}`;
   if (index != null) {
     key += ':' + index;
+  }
+  return key;
+}
+
+// ----------------------------------------------------------------------
+// Optimized variants (`*Perf`) of the functions above.
+// Used only when ENABLE_PERF_PUBLISH is on; with it off the code above runs
+// unchanged.
+
+function generateClientIDPerf(
+  id: DataID,
+  storageKey: string,
+  index?: number,
+): DataID {
+  const internedId =
+    RelayFeatureFlags.STRING_INTERN_LEVEL <= 0
+      ? id
+      : intern(id, RelayFeatureFlags.MAX_DATA_ID_LENGTH);
+  let key = internedId + ':' + storageKey;
+  if (index != null) {
+    key += ':' + index;
+  }
+  // Decide from the (already flat) parent ID when it is at least as long as
+  // the prefix: checking the concatenated key flattens it, and prepending the
+  // prefix afterwards makes the key get flattened again when it is hashed.
+  // Untyped callers can pass a parent ID that is not a string.
+  if (
+    typeof internedId === 'string' && internedId.length >= PREFIX.length
+      ? internedId.lastIndexOf(PREFIX, 0) !== 0
+      : key.indexOf(PREFIX) !== 0
+  ) {
+    key = PREFIX + key;
   }
   return key;
 }

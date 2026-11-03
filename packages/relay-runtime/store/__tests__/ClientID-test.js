@@ -37,3 +37,32 @@ it('does not add extra prefix to a client id', () => {
   const clientID = 'client:0';
   expect(generateClientID(clientID, 'a')).toEqual(`${clientID}:a`);
 });
+
+it('prefixes keys exactly when the full key does not start with the prefix', () => {
+  const prefixed = (key: string) =>
+    key.indexOf('client:') === 0 ? key : 'client:' + key;
+  [
+    ['Story:1', 'feedback', undefined],
+    ['client:Story:1:feedback', 'comments', 2],
+    ['client', 'x', undefined],
+    ['clien', 't:x', undefined],
+    ['', 'client:x', undefined],
+    ['c', 'lient:x', 0],
+    ['12345', 'name', 3],
+  ].forEach(([id, storageKey, index]) => {
+    const key = id + ':' + storageKey + (index != null ? ':' + index : '');
+    expect(generateClientID(id, storageKey, index)).toBe(prefixed(key));
+  });
+});
+
+it('builds keys for parent IDs that are not strings from their string form', () => {
+  // Untyped callers can pass any value; read from JSON to get past Flow.
+  const [nullID, numericID]: ReadonlyArray<DataID> =
+    JSON.parse('[null, 1234567]');
+  const undefinedID: DataID = JSON.parse('{}').id;
+  expect(generateClientID(nullID, 'friends')).toBe('client:null:friends');
+  expect(generateClientID(undefinedID, 'friends', 1)).toBe(
+    'client:undefined:friends:1',
+  );
+  expect(generateClientID(numericID, 'friends')).toBe('client:1234567:friends');
+});
