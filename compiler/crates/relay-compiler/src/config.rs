@@ -405,6 +405,12 @@ pub struct Config {
     /// Allow incremental build for some schema changes
     pub has_schema_change_incremental_build: bool,
 
+    /// Detect schema changes by parsing and diffing only the changed chunks
+    /// of a schema split across files, in parallel, instead of the whole old
+    /// and new schema as two joined documents. Same result whenever the
+    /// current schema builds; kill switch for the faster path.
+    pub schema_diff_changed_sources_only: bool,
+
     /// A custom function to extract resolver Dockblock IRs from sources
     pub custom_extract_relay_resolvers: Option<CustomExtractRelayResolvers>,
 
@@ -838,6 +844,7 @@ impl Config {
             initialize_resources: None,
             update_compiler_state_from_saved_state: None,
             has_schema_change_incremental_build: false,
+            schema_diff_changed_sources_only: true,
             custom_extract_relay_resolvers: None,
             should_extract_full_source: None,
             transferrable_refetchable_query_directives: vec![],

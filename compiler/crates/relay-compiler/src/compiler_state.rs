@@ -39,10 +39,12 @@ use rayon::prelude::*;
 use relay_config::ProjectName;
 use relay_config::SchemaConfig;
 use schema::SDLSchema;
+use schema::ends_with_right_curly_brace;
 use schema_diff::check::SchemaChangeSafety;
 use schema_diff::definitions::SchemaChange;
 use schema_diff::detect_changes;
 use schema_diff::detect_changes_from_schemas;
+use schema_diff::try_detect_changes_per_document;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde::Serialize;
@@ -298,6 +300,79 @@ impl SchemaSources {
         let mut sources: Vec<_> = self.processed.iter().collect();
         sources.sort_by_key(|file_content| file_content.0);
         sources.iter().map(|file_content| file_content.1).collect()
+    }
+
+    /// The changed parts of a schema split across files, in the units the
+    /// schema is parsed in.
+    ///
+    /// The schema builder parses files in path order, in chunks that end at a
+    /// file ending with `}`. This groups the paths into chunks that end where
+    /// a file ends with `}` both before and after the change, so each one is a
+    /// whole number of the parser's chunks on either side, and keeps the
+    /// chunks that contain a changed file.
+    pub fn get_changed_chunks(&self) -> ChangedSchemaChunks {
+        let mut paths: Vec<_> = self.processed.keys().chain(self.pending.keys()).collect();
+        paths.sort();
+        paths.dedup();
+
+        let mut changed = ChangedSchemaChunks::default();
+        let mut chunk = ChunkBuilder::default();
+        for path in paths {
+            let previous = self.processed.get(path).map_or("", String::as_str);
+            let pending = self.pending.get(path).map(String::as_str);
+            let file_changed = pending.is_some_and(|current| current != previous);
+            let current = pending.unwrap_or(previous);
+            chunk.push(current, previous, file_changed);
+            if ends_with_right_curly_brace(current) && ends_with_right_curly_brace(previous) {
+                std::mem::take(&mut chunk).finish_into(&mut changed);
+            }
+        }
+        chunk.finish_into(&mut changed);
+        changed
+    }
+}
+
+/// See [`SchemaSources::get_changed_chunks`].
+#[derive(Debug, Default, PartialEq)]
+pub struct ChangedSchemaChunks {
+    /// New text of each changed chunk, in path order.
+    pub current: Vec<String>,
+    /// Old text of each changed chunk, in path order.
+    pub previous: Vec<String>,
+    pub changed_file_count: usize,
+}
+
+#[derive(Default)]
+struct ChunkBuilder<'a> {
+    current: Vec<&'a str>,
+    previous: Vec<&'a str>,
+    changed_file_count: usize,
+}
+
+impl<'a> ChunkBuilder<'a> {
+    fn push(&mut self, current: &'a str, previous: &'a str, changed: bool) {
+        if changed {
+            self.changed_file_count += 1;
+        }
+        if !current.is_empty() {
+            self.current.push(current);
+        }
+        if !previous.is_empty() {
+            self.previous.push(previous);
+        }
+    }
+
+    fn finish_into(self, changed: &mut ChangedSchemaChunks) {
+        if self.changed_file_count == 0 {
+            return;
+        }
+        changed.changed_file_count += self.changed_file_count;
+        if !self.current.is_empty() {
+            changed.current.push(self.current.join("\n"));
+        }
+        if !self.previous.is_empty() {
+            changed.previous.push(self.previous.join("\n"));
+        }
     }
 }
 
@@ -589,7 +664,19 @@ impl CompilerState {
                 .any(|sources| !sources.processed.is_empty())
     }
 
-    fn get_schema_change(&self, sources: &SchemaSources) -> SchemaChange {
+    fn get_schema_change(
+        &self,
+        log_event: Option<&impl PerfLogEvent>,
+        sources: &SchemaSources,
+        diff_changed_sources_only: bool,
+    ) -> SchemaChange {
+        if diff_changed_sources_only
+            && let Some(schema_change) =
+                Self::get_schema_change_of_changed_chunks(log_event, sources)
+        {
+            return schema_change;
+        }
+
         let previous = sources
             .get_old_sources()
             .into_iter()
@@ -603,6 +690,52 @@ impl CompilerState {
             .collect::<Vec<_>>();
 
         detect_changes(&current, &previous)
+    }
+
+    /// Diffs only the chunks of [`SchemaSources::get_changed_chunks`]. Same as
+    /// diffing the whole joined schema when the parser's chunks of the current
+    /// schema each parse (otherwise building it fails before or right after
+    /// this check): unchanged chunks then give both sides the same
+    /// definitions, a type is defined once, and the diff ignores extensions,
+    /// directive and schema definitions, and source positions. That also
+    /// assumes the processed (old) schema defines each type once: sources are
+    /// committed as processed only after a successful build
+    /// (`complete_compilation`, also on the LSP path), and saved states are
+    /// written after a successful compile. One exception: a `-p` build commits
+    /// the pending sources of projects it didn't build, so with
+    /// `--export-state` an unbuilt project's processed schema may define a
+    /// type twice; the diff can then report it as changed instead of
+    /// removed. `None`, to diff
+    /// everything instead, when a changed chunk does not parse on its own, or
+    /// when the changed chunks hold the same text on both sides (text moved
+    /// between files, which reorders the joined schema).
+    fn get_schema_change_of_changed_chunks(
+        log_event: Option<&impl PerfLogEvent>,
+        sources: &SchemaSources,
+    ) -> Option<SchemaChange> {
+        let changed = sources.get_changed_chunks();
+        if let Some(log_event) = log_event {
+            log_event.number("schema_diff_changed_file_count", changed.changed_file_count);
+        }
+        if changed.changed_file_count == 0 {
+            return Some(SchemaChange::None);
+        }
+        let log_fallback = |reason: &str| {
+            if let Some(log_event) = log_event {
+                log_event.string("schema_diff_fallback_reason", reason.to_owned());
+            }
+        };
+        if changed.current == changed.previous {
+            log_fallback("moved_text");
+            return None;
+        }
+        let current: Vec<&str> = changed.current.iter().map(String::as_str).collect();
+        let previous: Vec<&str> = changed.previous.iter().map(String::as_str).collect();
+        let schema_change = try_detect_changes_per_document(&current, &previous);
+        if schema_change.is_none() {
+            log_fallback("chunk_does_not_parse");
+        }
+        schema_change
     }
 
     fn build_schema_for_safety_check(
@@ -623,13 +756,15 @@ impl CompilerState {
 
     /// This method is looking at the pending schema changes to see if they may be breaking (removed types, renamed field, etc)
     /// When `built_schema` is provided, it is reused for the safety check
-    /// instead of rebuilding the schema.
+    /// instead of rebuilding the schema. `diff_changed_sources_only` mirrors
+    /// [`Config::schema_diff_changed_sources_only`].
     pub fn schema_change_safety(
         &self,
         log_event: &impl PerfLogEvent,
         project_name: ProjectName,
         schema_config: &SchemaConfig,
         built_schema: Option<&SDLSchema>,
+        diff_changed_sources_only: bool,
     ) -> SchemaChangeSafety {
         if let Some(extension) = self.extensions.get(&project_name)
             && !extension.pending.is_empty()
@@ -691,7 +826,13 @@ impl CompilerState {
         if let Some(schema_sources) = self.schemas.get(&project_name)
             && !schema_sources.pending.is_empty()
         {
-            let schema_change = self.get_schema_change(schema_sources);
+            let schema_change = self.get_schema_change(
+                // A project's own check passes its built schema; log only that
+                // one so the base project's check doesn't overwrite it.
+                built_schema.map(|_| log_event),
+                schema_sources,
+                diff_changed_sources_only,
+            );
             let schema_change_string = schema_change_for_logging(&schema_change);
             let schema_change_safety = if schema_change == SchemaChange::None {
                 SchemaChangeSafety::Safe
@@ -1367,6 +1508,7 @@ mod tests {
 
     // --- CompilerState::projects_share_pending_schemas tests ---
 
+    use common::NoopPerfLoggerEvent;
     use intern::string_key::Intern;
 
     fn project(name: &str) -> ProjectName {
@@ -1552,5 +1694,507 @@ mod tests {
             logged.ends_with("... (1000 definition changes)"),
             "should say how many changes there were: {logged}"
         );
+    }
+
+    fn schema_sources(processed: &[(&str, &str)], pending: &[(&str, &str)]) -> SchemaSources {
+        let to_map = |entries: &[(&str, &str)]| {
+            entries
+                .iter()
+                .map(|(path, source)| (PathBuf::from(path), source.to_string()))
+                .collect()
+        };
+        IncrementalSources {
+            processed: to_map(processed),
+            pending: to_map(pending),
+        }
+    }
+
+    #[test]
+    fn get_changed_chunks_extends_chunks_to_a_definition_boundary_on_both_sides() {
+        let sources = schema_sources(
+            &[
+                ("a", "type A { a: Int }"),
+                ("b", "type B {"),
+                ("c", "b: Int }"),
+                ("d", "type D { d: Int }"),
+            ],
+            &[("a", "type A { a: Int }"), ("c", "b: String }")],
+        );
+
+        assert_eq!(
+            sources.get_changed_chunks(),
+            ChangedSchemaChunks {
+                current: vec!["type B {\nb: String }".to_owned()],
+                previous: vec!["type B {\nb: Int }".to_owned()],
+                changed_file_count: 1,
+            },
+            "`c` continues `b`, so they form one chunk; touched-identical `a` and `d` are left out",
+        );
+    }
+
+    /// The schema change with only changed chunks diffed, and with everything
+    /// diffed, in a form that ignores the order of the definition changes.
+    fn schema_changes_both_ways(
+        processed: &[(&str, &str)],
+        pending: &[(&str, &str)],
+    ) -> (String, String) {
+        let state = CompilerState::default();
+        let sources = schema_sources(processed, pending);
+        let canonical = |change: SchemaChange| match change {
+            SchemaChange::DefinitionChanges(changes) => {
+                let mut changes: Vec<_> = changes.iter().map(|c| format!("{c:?}")).collect();
+                changes.sort();
+                format!("{changes:?}")
+            }
+            change => format!("{change:?}"),
+        };
+        let get = |changed_chunks_only| {
+            canonical(state.get_schema_change(
+                None::<&NoopPerfLoggerEvent>,
+                &sources,
+                changed_chunks_only,
+            ))
+        };
+        (get(true), get(false))
+    }
+
+    fn assert_same_schema_change(processed: &[(&str, &str)], pending: &[(&str, &str)]) {
+        let (changed_chunks_only, everything) = schema_changes_both_ways(processed, pending);
+        assert_eq!(changed_chunks_only, everything);
+    }
+
+    #[test]
+    fn changed_chunks_split_definition_with_unchanged_middle_file() {
+        // `U` spans the unchanged `2` and the changed `3`; the changed `1`
+        // starts `T`, which `2` finishes.
+        assert_same_schema_change(
+            &[
+                ("0", "type Query { t: T uu: U }"),
+                ("1", "type T {"),
+                ("2", "x: Int }\ntype U {"),
+                ("3", "u: Int }"),
+            ],
+            &[("1", "type T {\nw: Int"), ("3", "u: String }")],
+        );
+    }
+
+    #[test]
+    fn changed_chunks_same_content_renamed() {
+        // Moving the text to another path reorders the joined schema, which the
+        // full diff reports as a generic change; keep that.
+        let (changed_chunks_only, everything) = schema_changes_both_ways(
+            &[("a", "type Query { q: Int }"), ("b", "type B { x: Int }")],
+            &[("b", ""), ("0", "type B { x: Int }")],
+        );
+        assert_eq!(everything, "GenericChange");
+        assert_eq!(changed_chunks_only, everything);
+    }
+
+    #[test]
+    fn changed_chunks_type_moved_between_files() {
+        assert_same_schema_change(
+            &[
+                ("a", "type Query { a: A }\ntype A { x: Int }"),
+                ("b", "type B { y: Int }"),
+                ("c", "type C { z: Int }"),
+            ],
+            &[
+                ("a", "type Query { a: A }"),
+                ("b", "type B { y: Int }\ntype A { x: Int name: String }"),
+            ],
+        );
+    }
+
+    #[test]
+    fn changed_chunks_extension_changed_with_base_elsewhere() {
+        assert_same_schema_change(
+            &[
+                ("a", "type A { x: Int }"),
+                ("b", "extend type A { y: Int }"),
+            ],
+            &[("b", "extend type A { z: Int }")],
+        );
+    }
+
+    #[test]
+    fn changed_chunks_only_directive_and_schema_definitions_changed() {
+        assert_same_schema_change(
+            &[
+                ("a", "type Query { x: Int }"),
+                ("b", "directive @d on FIELD\nschema { query: Query }"),
+            ],
+            &[(
+                "b",
+                "directive @d(a: Int) on FIELD\nschema { query: Query }",
+            )],
+        );
+    }
+
+    #[test]
+    fn changed_chunks_file_ending_with_union_continues_into_next() {
+        // Like WWW's dumped shards: a file may end with a union, so its chunk
+        // runs into the next file.
+        assert_same_schema_change(
+            &[
+                ("a", "type A { x: Int }\nunion U = A"),
+                ("b", "type B { y: Int }"),
+                ("c", "type C { z: Int }"),
+            ],
+            &[("b", "type B { y: Int w: Int }")],
+        );
+    }
+
+    #[test]
+    fn changed_chunks_added_and_deleted_files() {
+        assert_same_schema_change(
+            &[("a", "type A { x: Int }"), ("b", "enum E { ONE TWO }")],
+            &[("b", ""), ("c", "type C { z: Int }")],
+        );
+    }
+
+    #[test]
+    fn changed_chunks_touched_identical_is_no_change() {
+        let processed = [("a", "type Query { a: A }"), ("b", "type A { x: Int }")];
+        assert_eq!(
+            schema_changes_both_ways(&processed, &processed),
+            ("None".to_owned(), "None".to_owned()),
+        );
+    }
+
+    /// Small deterministic generator for the randomized test below.
+    struct Lcg(u64);
+
+    impl Lcg {
+        fn below(&mut self, n: usize) -> usize {
+            self.0 = self
+                .0
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((self.0 >> 33) as usize) % n
+        }
+    }
+
+    /// A generated definition as lines: `head` (description, comment, the
+    /// line that opens it), `body`, and a closing `}` when `closed`.
+    #[derive(Clone)]
+    struct GeneratedDefinition {
+        name: String,
+        head: Vec<String>,
+        body: Vec<String>,
+        closed: bool,
+    }
+
+    impl GeneratedDefinition {
+        fn lines(&self) -> Vec<String> {
+            let mut lines = self.head.clone();
+            lines.extend(self.body.iter().cloned());
+            if self.closed {
+                lines.push("}".to_owned());
+            }
+            lines
+        }
+
+        fn random(rng: &mut Lcg, i: usize) -> Self {
+            let scalar = |rng: &mut Lcg| ["Int", "String", "ID", "[Int]", "Int!"][rng.below(5)];
+            let definition = |name: String, head: Vec<String>, body: Vec<String>| Self {
+                name,
+                head,
+                body,
+                closed: true,
+            };
+            match rng.below(8) {
+                0 => definition(
+                    format!("E{i}"),
+                    vec![format!("enum E{i} {{")],
+                    (0..1 + rng.below(3)).map(|v| format!("V{v}")).collect(),
+                ),
+                1 => Self {
+                    name: format!("U{i}"),
+                    head: vec![format!("union U{i} = T0 | T1")],
+                    body: vec![],
+                    closed: false,
+                },
+                // Default values ending in `}` put an inner `}` at a line end.
+                2 => definition(
+                    format!("In{i}"),
+                    vec![format!("input In{i} {{")],
+                    vec![
+                        "a: Int = 1".to_owned(),
+                        "b: In0 = {x: 1}".to_owned(),
+                        "c: [String] = [\"s\"]".to_owned(),
+                    ],
+                ),
+                3 => definition(
+                    format!("I{i}"),
+                    vec![format!("interface I{i} {{")],
+                    vec!["id: ID".to_owned()],
+                ),
+                4 => definition(
+                    format!("X{i}"),
+                    vec![format!("extend type T{} {{", rng.below(4))],
+                    vec![format!("e{i}: Int")],
+                ),
+                _ => {
+                    let mut head = vec![];
+                    if rng.below(3) == 0 {
+                        head.push(format!("\"\"\"Doc {i}\"\"\""));
+                    }
+                    if rng.below(3) == 0 {
+                        head.push("# comment".to_owned());
+                    }
+                    let implements = if rng.below(3) == 0 {
+                        " implements I3"
+                    } else {
+                        ""
+                    };
+                    head.push(format!("type T{i}{implements} {{"));
+                    let body = (0..2 + rng.below(3))
+                        .map(|f| {
+                            // A directive object argument also ends a line in `}`.
+                            let directive = if rng.below(4) == 0 {
+                                " @d(o: {k: 1})"
+                            } else {
+                                ""
+                            };
+                            format!("f{f}: {}{directive}", scalar(rng))
+                        })
+                        .collect();
+                    definition(format!("T{i}"), head, body)
+                }
+            }
+        }
+
+        fn edit(&mut self, rng: &mut Lcg, n: usize) {
+            let new_line = if self
+                .head
+                .last()
+                .is_some_and(|head| head.starts_with("enum"))
+            {
+                format!("NEW{n}")
+            } else if self
+                .head
+                .last()
+                .is_some_and(|head| head.starts_with("input"))
+            {
+                format!("g{n}: Int = {{x: {n}}}")
+            } else {
+                format!("g{n}: Int")
+            };
+            match rng.below(4) {
+                0 if self.closed => self.body.push(new_line),
+                1 if self.body.len() > 1 => {
+                    self.body.remove(rng.below(self.body.len()));
+                }
+                2 if !self.body.is_empty() => {
+                    let line = rng.below(self.body.len());
+                    self.body[line] = self.body[line].replacen("Int", "String", 1);
+                }
+                _ => {
+                    let head = self.head.last_mut().expect("has a head line");
+                    if head.starts_with("union") {
+                        head.push_str(" | T9");
+                    } else if head.starts_with("type") && !head.contains("implements") {
+                        *head = head.replacen(" {", " implements I1 {", 1);
+                    } else {
+                        self.head.insert(0, format!("\"\"\"Changed {n}\"\"\""));
+                    }
+                }
+            }
+        }
+    }
+
+    /// Renders definitions grouped by file index into `(path, text)` pairs.
+    /// The last definition of a file may be split after line `split[name]`: it
+    /// then finishes at the start of the next file, like a schema whose
+    /// definitions run across files.
+    fn render_files(
+        definitions: &[(usize, GeneratedDefinition)],
+        split: &FnvHashMap<String, usize>,
+        file_count: usize,
+    ) -> Vec<(String, String)> {
+        let mut files = vec![String::new(); file_count + 1];
+        for (i, (file, definition)) in definitions.iter().enumerate() {
+            let lines = definition.lines();
+            let last_in_file = definitions.get(i + 1).is_none_or(|(next, _)| next != file);
+            let split_at = split
+                .get(&definition.name)
+                .filter(|_| last_in_file && lines.len() > 1)
+                .map(|at| (*at).clamp(1, lines.len() - 1));
+            let (head, tail) = match split_at {
+                Some(at) => (lines[..at].join("\n"), Some(lines[at..].join("\n"))),
+                None => (lines.join("\n"), None),
+            };
+            files[*file].push_str(&head);
+            files[*file].push('\n');
+            if let Some(tail) = tail {
+                files[*file + 1].insert_str(0, &format!("{tail}\n"));
+            }
+        }
+        files
+            .into_iter()
+            .enumerate()
+            .map(|(i, text)| (format!("{i:02}.graphql"), text))
+            .collect()
+    }
+
+    #[test]
+    fn changed_chunks_match_full_diff_on_random_schemas() {
+        let mut rng = Lcg(42);
+        let mut used_changed_chunks = 0;
+        for _ in 0..1000 {
+            let file_count = 2 + rng.below(6);
+            let mut definitions: Vec<(usize, GeneratedDefinition)> = (0..3 + rng.below(8))
+                .map(|i| {
+                    let definition = GeneratedDefinition::random(&mut rng, i);
+                    (rng.below(file_count), definition)
+                })
+                .collect();
+            definitions.sort_by_key(|(file, _)| *file);
+            let split: FnvHashMap<String, usize> = definitions
+                .iter()
+                .filter_map(|(_, definition)| {
+                    if rng.below(4) != 0 {
+                        return None;
+                    }
+                    Some((definition.name.clone(), 1 + rng.below(4)))
+                })
+                .collect();
+
+            let mut changed = definitions.clone();
+            for n in 0..1 + rng.below(3) {
+                let i = rng.below(changed.len());
+                match rng.below(5) {
+                    0 => {
+                        changed.remove(i);
+                        if changed.is_empty() {
+                            break;
+                        }
+                    }
+                    1 => changed[i].0 = rng.below(file_count),
+                    _ => changed[i].1.edit(&mut rng, n),
+                }
+            }
+            changed.sort_by_key(|(file, _)| *file);
+
+            let processed = render_files(&definitions, &split, file_count);
+            let pending = render_files(&changed, &split, file_count);
+            let processed: Vec<(&str, &str)> = processed
+                .iter()
+                .map(|(p, t)| (p.as_str(), t.as_str()))
+                .collect();
+            let pending: Vec<(&str, &str)> = pending
+                .iter()
+                .map(|(p, t)| (p.as_str(), t.as_str()))
+                .collect();
+
+            if CompilerState::get_schema_change_of_changed_chunks(
+                None::<&NoopPerfLoggerEvent>,
+                &schema_sources(&processed, &pending),
+            )
+            .is_some()
+            {
+                used_changed_chunks += 1;
+            }
+            let (changed_chunks_only, everything) = schema_changes_both_ways(&processed, &pending);
+            assert_eq!(
+                changed_chunks_only, everything,
+                "processed: {processed:?}\npending: {pending:?}"
+            );
+        }
+        assert!(
+            used_changed_chunks > 500,
+            "most cases should take the changed-chunks path, took it {used_changed_chunks} times",
+        );
+    }
+
+    #[test]
+    fn schema_change_safety_same_with_changed_sources_only() {
+        let processed = [
+            ("0.graphql", "type Query { a: A b: B }"),
+            ("1.graphql", "type A { id: ID }"),
+            ("2.graphql", "enum B { X Y }"),
+            ("3.graphql", "type C { id: ID }"),
+        ];
+        let pending = [
+            ("1.graphql", "type A { id: ID }"),
+            ("2.graphql", "enum B { X }"),
+            ("3.graphql", ""),
+        ];
+        let current_sdl = "type Query { a: A b: B } type A { id: ID } enum B { X }";
+        let schema = relay_schema::build_schema_with_extensions_parallel::<_, &str>(
+            &[(current_sdl, SourceLocationKey::generated())],
+            &[],
+        )
+        .unwrap();
+        let proj = project("my_project");
+        let mut state = CompilerState::default();
+        state
+            .schemas
+            .insert(proj, schema_sources(&processed, &pending));
+
+        assert!(
+            matches!(
+                state.schema_change_safety(
+                    &NoopPerfLoggerEvent,
+                    proj,
+                    &Default::default(),
+                    Some(&schema),
+                    true,
+                ),
+                SchemaChangeSafety::SafeWithIncrementalBuild(_)
+            ),
+            "removing an enum value and an object needs an incremental build",
+        );
+        // `None` is the base project's check, which builds the schema itself.
+        for built_schema in [Some(&schema), None] {
+            let safety = |changed_sources_only| {
+                state.schema_change_safety(
+                    &NoopPerfLoggerEvent,
+                    proj,
+                    &Default::default(),
+                    built_schema,
+                    changed_sources_only,
+                )
+            };
+            assert_eq!(safety(true), safety(false));
+        }
+    }
+
+    #[test]
+    fn schema_change_safety_falls_back_when_changed_file_splits_a_definition() {
+        // `A` starts in the unchanged `0.graphql` and ends in the changed
+        // `1.graphql`, which does not parse on its own.
+        let processed = [
+            ("0.graphql", "type Query { a: A }\ntype A {"),
+            ("1.graphql", "id: ID }"),
+        ];
+        let pending = [("1.graphql", "id: ID name: String }")];
+        let current_sdl = "type Query { a: A }\ntype A { id: ID name: String }";
+        let schema = relay_schema::build_schema_with_extensions_parallel::<_, &str>(
+            &[(current_sdl, SourceLocationKey::generated())],
+            &[],
+        )
+        .unwrap();
+        let proj = project("my_project");
+        let mut state = CompilerState::default();
+        state
+            .schemas
+            .insert(proj, schema_sources(&processed, &pending));
+
+        let safety = |changed_sources_only| {
+            state.schema_change_safety(
+                &NoopPerfLoggerEvent,
+                proj,
+                &Default::default(),
+                Some(&schema),
+                changed_sources_only,
+            )
+        };
+
+        assert!(
+            matches!(safety(true), SchemaChangeSafety::Safe),
+            "adding a field is safe once the whole definition is diffed",
+        );
+        assert!(matches!(safety(false), SchemaChangeSafety::Safe));
     }
 }

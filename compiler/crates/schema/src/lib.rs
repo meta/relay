@@ -185,7 +185,9 @@ pub fn builtins() -> DiagnosticsResult<SchemaDocument> {
     graphql_syntax::parse_schema_document(BUILTINS, SourceLocationKey::generated())
 }
 
-fn ends_with_right_curly_brace<T: AsRef<str>>(text: T) -> bool {
+/// Whether `text` ends with `}` (ignoring trailing whitespace). A server schema
+/// split across files is parsed in chunks that end at such a file.
+pub fn ends_with_right_curly_brace<T: AsRef<str>>(text: T) -> bool {
     for char in text.as_ref().chars().rev() {
         if char == '}' {
             return true;

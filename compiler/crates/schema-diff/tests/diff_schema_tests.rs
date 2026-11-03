@@ -2602,3 +2602,56 @@ fn sort_change(change: &mut SchemaChange) {
         }
     }
 }
+
+fn diff_per_document(current: &[&str], previous: &[&str]) -> Option<SchemaChange> {
+    let mut change = try_detect_changes_per_document(current, previous)?;
+    sort_change(&mut change);
+    Some(change)
+}
+
+fn diff_joined(current: &[&str], previous: &[&str]) -> SchemaChange {
+    let mut change = detect_changes(current, previous);
+    sort_change(&mut change);
+    change
+}
+
+#[test]
+fn test_per_document_matches_joined_documents() {
+    let current = [
+        "type A { x: Int }",
+        "type B { y: Int z: String }\nenum E { ONE }",
+        "union U = A",
+        "",
+        "# comment only",
+    ];
+    let previous = [
+        "type A { x: Int }",
+        "type B { y: Int }\nenum E { ONE TWO }",
+        "input I { a: Int }",
+    ];
+
+    let change = diff_per_document(&current, &previous);
+
+    assert!(
+        matches!(change, Some(SchemaChange::DefinitionChanges(_))),
+        "expected definition changes, got {change:?}",
+    );
+    assert_eq!(change, Some(diff_joined(&current, &previous)));
+}
+
+#[test]
+fn test_per_document_is_none_for_definition_split_across_documents() {
+    assert_eq!(
+        diff_per_document(&["type A {", "x: Int }"], &["type A {", "y: Int }"]),
+        None,
+        "neither half of `A` parses on its own",
+    );
+}
+
+#[test]
+fn test_per_document_same_text() {
+    assert_eq!(
+        diff_per_document(&["type A { x: Int }"], &["type A { x: Int }"]),
+        Some(SchemaChange::None)
+    );
+}

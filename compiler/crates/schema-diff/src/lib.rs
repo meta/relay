@@ -29,6 +29,7 @@ use graphql_syntax::TypeSystemDefinition;
 use graphql_syntax::UnionTypeDefinition;
 use graphql_syntax::parse_schema_document;
 use intern::string_key::StringKey;
+use rayon::prelude::*;
 use schema::DirectiveValue;
 use schema::SDLSchema;
 use schema::Schema;
@@ -686,6 +687,44 @@ pub fn detect_changes(current_text: &[&str], previous_text: &[&str]) -> SchemaCh
         }
         (_, _) => SchemaChange::InvalidSchema,
     }
+}
+
+/// [`detect_changes`] for documents that each parse on their own: parses them
+/// independently and in parallel instead of as one joined document on a
+/// single thread per side. `None` when any document does not parse on its own.
+///
+/// A document that parses on its own ends with a complete definition, and the
+/// next one starts a new definition, so the joined parse yields the same
+/// definitions; the diff ignores their source positions.
+pub fn try_detect_changes_per_document(
+    current_text: &[&str],
+    previous_text: &[&str],
+) -> Option<SchemaChange> {
+    if current_text == previous_text {
+        return Some(SchemaChange::None);
+    }
+
+    let (current_definitions, previous_definitions) = rayon::join(
+        || parse_documents_parallel(current_text),
+        || parse_documents_parallel(previous_text),
+    );
+
+    Some(diff(current_definitions?, previous_definitions?))
+}
+
+/// The definitions of all documents in order, or `None` if any of them fails
+/// to parse on its own.
+fn parse_documents_parallel(texts: &[&str]) -> Option<Vec<TypeSystemDefinition>> {
+    let documents = texts
+        .par_iter()
+        .map(|text| parse_schema_document(text, SourceLocationKey::Generated).ok())
+        .collect::<Option<Vec<_>>>()?;
+    Some(
+        documents
+            .into_iter()
+            .flat_map(|document| document.definitions)
+            .collect(),
+    )
 }
 
 fn type_ref_to_diff_type(schema: &SDLSchema, type_ref: &TypeReference<SchemaType>) -> Type {

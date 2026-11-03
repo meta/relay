@@ -330,11 +330,16 @@ pub fn build_programs(
     let mut build_mode = if !compiler_state.has_processed_changes() {
         BuildMode::Full
     } else {
+        log_event.bool(
+            "schema_diff_changed_sources_only",
+            config.schema_diff_changed_sources_only,
+        );
         let project_schema_change = compiler_state.schema_change_safety(
             log_event,
             project_name,
             &project_config.schema_config,
             Some(&schema),
+            config.schema_diff_changed_sources_only,
         );
         match project_schema_change {
             SchemaChangeSafety::Unsafe => BuildMode::Full,
@@ -355,6 +360,7 @@ pub fn build_programs(
                             base,
                             &project_config.schema_config,
                             None,
+                            config.schema_diff_changed_sources_only,
                         )
                     }
                 } else {

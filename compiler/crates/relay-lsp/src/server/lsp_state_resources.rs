@@ -445,6 +445,7 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
                 project_config.name,
                 &project_config.schema_config,
                 None,
+                self.lsp_state.config.schema_diff_changed_sources_only,
             );
             match project_schema_change {
                 SchemaChangeSafety::Unsafe => BuildMode::Full,
@@ -455,6 +456,7 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
                             base,
                             &project_config.schema_config,
                             None,
+                            self.lsp_state.config.schema_diff_changed_sources_only,
                         )
                     } else {
                         SchemaChangeSafety::Safe
