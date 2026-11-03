@@ -1,9 +1,8 @@
-==================================== INPUT ====================================
 //- src/ServerDeferred.js
 
 // No `relayRsc` block, so the default `nextjs` mode resolves
-// `allowIncrementalDelivery` to true. Server-owned operations still cannot
-// use `@defer`, and the error must not blame the capability.
+// `allowIncrementalDelivery` to true and the server-owned operation can defer
+// a server fragment.
 graphql`query ServerDeferredQuery @server {
   me {
     ...ServerDeferred_user @defer(label: "ServerDeferredQuery$user")
@@ -41,11 +40,3 @@ type Query {
 type User {
   name: String
 }
-==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerDeferredQuery` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet.
-
-  src/ServerDeferred.js:7:28
-    6 │   me {
-    7 │     ...ServerDeferred_user @defer(label: "ServerDeferredQuery$user")
-      │                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    8 │   }

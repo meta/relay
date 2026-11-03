@@ -27,6 +27,9 @@ graphql`query ServerStreamConnectionQuery @server {
     "test_project": {
       "schema": "schema.graphql",
       "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
       "featureFlags": {
         "enable_relay_rsc": true
       }
@@ -73,7 +76,7 @@ type PageInfo {
   hasPreviousPage: Boolean
 }
 ==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerStreamConnectionQuery` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet.
+✖︎ Relay RSC operation `ServerStreamConnectionQuery` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false.
 
   src/ServerStreamConnection.js:8:7
     7 │     friends(first: 1)

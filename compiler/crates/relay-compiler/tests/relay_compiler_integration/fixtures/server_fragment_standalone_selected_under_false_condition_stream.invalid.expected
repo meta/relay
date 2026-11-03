@@ -1,0 +1,56 @@
+==================================== INPUT ====================================
+//- src/ServerFriends.js
+
+// The query spreads `ServerFriends_user` only under a statically false
+// condition, which the query's own validation skips, so the fragment is
+// validated as its own owner and its server-owned `@stream` is rejected.
+graphql`query ServerFriendsQuery @server {
+  me @include(if: false) {
+    ...ServerFriends_user
+  }
+}`
+
+graphql`fragment ServerFriends_user on User @server {
+  friends @stream(initialCount: 1, label: "friends") {
+    name
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+  useCustomizedBatch: Boolean = false
+) on FIELD
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+  friends: [User]
+}
+==================================== OUTPUT ===================================
+✖︎ Server-owned fragment `ServerFriends_user`, which no server-owned operation in this project selects, cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
+
+  src/ServerFriends.js:12:11
+   11 │ fragment ServerFriends_user on User @server {
+   12 │   friends @stream(initialCount: 1, label: "friends") {
+      │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   13 │     name

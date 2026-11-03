@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::mem::take;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -15,17 +16,23 @@ use common::DirectiveName;
 use common::Location;
 use common::NamedItem;
 use common::WithLocation;
+use graphql_ir::Condition;
 use graphql_ir::ConditionValue;
 use graphql_ir::ConstantValue;
 use graphql_ir::Directive;
 use graphql_ir::FragmentDefinitionName;
+use graphql_ir::FragmentDefinitionNameSet;
 use graphql_ir::FragmentSpread;
+use graphql_ir::LinkedField;
+use graphql_ir::OperationDefinition;
 use graphql_ir::OperationDefinitionName;
 use graphql_ir::Program;
+use graphql_ir::ScalarField;
 use graphql_ir::Selection;
 use graphql_ir::Transformed;
 use graphql_ir::Transformer;
 use graphql_ir::Value;
+use graphql_ir::Visitor;
 use intern::string_key::Intern;
 use intern::string_key::StringKey;
 use relay_config::DeferStreamInterface;
@@ -41,6 +48,7 @@ use crate::REFETCHABLE_NAME;
 use crate::UPDATABLE_DIRECTIVE;
 use crate::fragment_alias_directive::FRAGMENT_ALIAS_DIRECTIVE_NAME;
 use crate::get_all_resolver_fragment_dependency_names;
+use crate::get_resolver_fragment_dependency_name;
 use crate::relay_directive::RELAY_DIRECTIVE_NAME;
 
 pub static SERVER_DIRECTIVE: LazyLock<DirectiveName> =
@@ -282,31 +290,65 @@ fn validate_server_selection_directives(
 pub(crate) fn validate_server_operation_incremental_delivery(
     program: &Program,
     defer_stream_interface: &DeferStreamInterface,
+    allow_incremental_delivery: bool,
+    base_fragment_names: &FragmentDefinitionNameSet,
 ) -> DiagnosticsResult<()> {
     let mut server_operations: Vec<_> = program
         .operations()
         .filter(|operation| operation.directives.named(*SERVER_DIRECTIVE).is_some())
         .collect();
     server_operations.sort_unstable_by_key(|operation| operation.name.item);
+    if server_operations.is_empty()
+        && !program
+            .fragments()
+            .any(|fragment| fragment.directives.named(*SERVER_DIRECTIVE).is_some())
+    {
+        return Ok(());
+    }
+    let resolver_root_fragments: FragmentDefinitionNameSet = program
+        .schema
+        .get_fields()
+        .filter_map(get_resolver_fragment_dependency_name)
+        .collect();
 
-    let errors: Vec<_> = server_operations
-        .into_iter()
+    let mut finder = IncrementalSelectionFinder {
+        program,
+        defer_stream_interface,
+        connection_constants: ConnectionConstants::default(),
+        resolver_root_fragments: &resolver_root_fragments,
+        visited_fragments: Default::default(),
+        allow_incremental_delivery,
+        in_resolver_fragment: false,
+    };
+    let mut validated_fragments = FxHashSet::default();
+    let mut errors: Vec<_> = server_operations
+        .iter()
         .filter_map(|operation| {
-            let location = IncrementalSelectionFinder {
-                program,
-                defer_stream_interface,
-                connection_constants: ConnectionConstants::default(),
-                visited_fragments: Default::default(),
-            }
-            .find(&operation.selections)?;
-            Some(Diagnostic::error(
-                ValidationMessage::IncrementalDeliveryUnsupported {
-                    operation_name: operation.name.item,
-                },
-                location,
-            ))
+            let found = finder.find(&operation.selections);
+            validated_fragments.extend(take(&mut finder.visited_fragments));
+            let (location, reason) = found?;
+            let operation_name = operation.name.item;
+            let message = match reason {
+                Unsupported::Disabled => {
+                    ValidationMessage::IncrementalDeliveryDisabled { operation_name }
+                }
+                Unsupported::ServerOwnedStream => {
+                    ValidationMessage::ServerOwnedStreamUnsupported { operation_name }
+                }
+                Unsupported::InResolverFragment => {
+                    ValidationMessage::IncrementalDeliveryInResolverFragment { operation_name }
+                }
+            };
+            Some(Diagnostic::error(message, location))
         })
         .collect();
+    finder.visited_fragments = validated_fragments;
+    errors.extend(validate_standalone_server_fragments(
+        program,
+        &server_operations,
+        base_fragment_names,
+        finder,
+    ));
 
     if errors.is_empty() {
         Ok(())
@@ -315,19 +357,176 @@ pub(crate) fn validate_server_operation_incremental_delivery(
     }
 }
 
-/// Finds `@defer` and `@stream` in the authored documents, including
+/// A local `@server` fragment that no `@server` operation selects may still be
+/// selected by a server query in another project, or by one not written yet,
+/// so it is validated as its own owner. Fragments an operation reaches are
+/// left to that operation, and a fragment that another such fragment selects
+/// is validated through it. The finder starts with the fragments and contexts
+/// the operations already validated, so each rejected directive is reported
+/// once.
+fn validate_standalone_server_fragments(
+    program: &Program,
+    server_operations: &[&Arc<OperationDefinition>],
+    base_fragment_names: &FragmentDefinitionNameSet,
+    mut finder: IncrementalSelectionFinder<'_>,
+) -> Vec<Diagnostic> {
+    let mut reached = ReachedFragments {
+        program,
+        fragments: Default::default(),
+    };
+    for operation in server_operations {
+        reached.visit_selections(&operation.selections);
+    }
+    let unreached: Vec<_> = program
+        .fragments()
+        .filter(|fragment| {
+            fragment.directives.named(*SERVER_DIRECTIVE).is_some()
+                && !base_fragment_names.contains(&fragment.name.item)
+                && !reached.fragments.contains(&fragment.name.item)
+        })
+        .collect();
+    if unreached.is_empty() {
+        return Vec::new();
+    }
+
+    for fragment in &unreached {
+        reached.visit_selections(&fragment.selections);
+    }
+    let mut owners: Vec<_> = unreached
+        .into_iter()
+        .filter(|fragment| !reached.fragments.contains(&fragment.name.item))
+        .collect();
+    owners.sort_unstable_by_key(|fragment| fragment.name.item);
+
+    owners
+        .into_iter()
+        .filter_map(|fragment| {
+            let fragment_name = fragment.name.item;
+            let (location, reason) = finder.find_fragment(fragment_name)?;
+            let message = match reason {
+                Unsupported::Disabled => {
+                    ValidationMessage::StandaloneFragmentIncrementalDeliveryDisabled {
+                        fragment_name,
+                    }
+                }
+                Unsupported::ServerOwnedStream => {
+                    ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported {
+                        fragment_name,
+                    }
+                }
+                Unsupported::InResolverFragment => {
+                    ValidationMessage::StandaloneFragmentIncrementalDeliveryInResolverFragment {
+                        fragment_name,
+                    }
+                }
+            };
+            Some(Diagnostic::error(message, location))
+        })
+        .collect()
+}
+
+/// Collects the fragments that selections reach through fragment spreads and
+/// Relay Resolver root fragments, outside statically false conditions.
+struct ReachedFragments<'program> {
+    program: &'program Program,
+    fragments: FragmentDefinitionNameSet,
+}
+
+impl ReachedFragments<'_> {
+    fn reach(&mut self, fragment_name: FragmentDefinitionName) {
+        let program = self.program;
+        if self.fragments.insert(fragment_name)
+            && let Some(fragment) = program.fragment(fragment_name)
+        {
+            self.visit_selections(&fragment.selections);
+        }
+    }
+
+    fn reach_resolver_fragments(&mut self, field_id: FieldID) {
+        let schema = self.program.schema.as_ref();
+        for fragment_name in
+            get_all_resolver_fragment_dependency_names(schema.field(field_id), schema)
+        {
+            self.reach(fragment_name);
+        }
+    }
+}
+
+impl Visitor for ReachedFragments<'_> {
+    const NAME: &'static str = "ReachedFragments";
+    const VISIT_ARGUMENTS: bool = false;
+    const VISIT_DIRECTIVES: bool = false;
+
+    fn visit_fragment_spread(&mut self, spread: &FragmentSpread) {
+        self.reach(spread.fragment.item);
+    }
+
+    fn visit_condition(&mut self, condition: &Condition) {
+        if let ConditionValue::Constant(value) = condition.value
+            && value != condition.passing_value
+        {
+            return;
+        }
+        self.default_visit_condition(condition);
+    }
+
+    fn visit_scalar_field(&mut self, field: &ScalarField) {
+        self.reach_resolver_fragments(field.definition.item);
+    }
+
+    fn visit_linked_field(&mut self, field: &LinkedField) {
+        self.reach_resolver_fragments(field.definition.item);
+        self.default_visit_linked_field(field);
+    }
+}
+
+/// Why an incremental directive is rejected.
+#[derive(Clone, Copy)]
+enum Unsupported {
+    /// The project sets `relayRsc.allowIncrementalDelivery` to false.
+    Disabled,
+    /// `@stream` on a server-owned selection: a server component renders the
+    /// list once, so items that arrive later would never render.
+    ServerOwnedStream,
+    /// Incremental delivery inside a Relay Resolver root fragment.
+    InResolverFragment,
+}
+
+/// Finds rejected `@defer` and `@stream` in the authored documents, including
 /// `@stream_connection`, deferred fragment spreads, and Resolver root
 /// fragments, so the result does not depend on `transform_connections`,
 /// `transform_defer_stream`, or Resolver lowering having run.
+///
+/// When incremental delivery is allowed, `@defer` is accepted and only
+/// server-owned selections are searched: a client fragment may stream.
 struct IncrementalSelectionFinder<'program> {
     program: &'program Program,
     defer_stream_interface: &'program DeferStreamInterface,
     connection_constants: ConnectionConstants,
-    visited_fragments: FxHashSet<FragmentDefinitionName>,
+    /// Entering one of these fragments, by a Resolver field or by a spread,
+    /// enters a Resolver root fragment.
+    resolver_root_fragments: &'program FragmentDefinitionNameSet,
+    /// A fragment can be both server-owned and reached through a Resolver
+    /// root fragment, so it is visited once in each context.
+    visited_fragments: FxHashSet<(FragmentDefinitionName, bool)>,
+    allow_incremental_delivery: bool,
+    in_resolver_fragment: bool,
 }
 
 impl IncrementalSelectionFinder<'_> {
-    fn find(&mut self, selections: &[Selection]) -> Option<Location> {
+    fn reject(&self, location: Location, is_stream: bool) -> Option<(Location, Unsupported)> {
+        if !self.allow_incremental_delivery {
+            Some((location, Unsupported::Disabled))
+        } else if self.in_resolver_fragment {
+            Some((location, Unsupported::InResolverFragment))
+        } else if is_stream {
+            Some((location, Unsupported::ServerOwnedStream))
+        } else {
+            None
+        }
+    }
+
+    fn find(&mut self, selections: &[Selection]) -> Option<(Location, Unsupported)> {
         let defer_stream = self.defer_stream_interface;
         selections.iter().find_map(|selection| match selection {
             Selection::LinkedField(field) => active_directive_location(
@@ -342,6 +541,7 @@ impl IncrementalSelectionFinder<'_> {
                     self.connection_constants.stream_connection_if_arg,
                 )
             })
+            .and_then(|location| self.reject(location, true))
             .or_else(|| self.find_resolver_fragments(field.definition.item))
             .or_else(|| self.find(&field.selections)),
             Selection::InlineFragment(fragment) => active_directive_location(
@@ -349,6 +549,7 @@ impl IncrementalSelectionFinder<'_> {
                 defer_stream.defer_name,
                 defer_stream.if_arg,
             )
+            .and_then(|location| self.reject(location, false))
             .or_else(|| self.find(&fragment.selections)),
             Selection::Condition(condition) => {
                 if let ConditionValue::Constant(value) = condition.value
@@ -365,6 +566,7 @@ impl IncrementalSelectionFinder<'_> {
                 defer_stream.defer_name,
                 defer_stream.if_arg,
             )
+            .and_then(|location| self.reject(location, false))
             .or_else(|| self.find_fragment(spread.fragment.item)),
             Selection::ScalarField(field) => self.find_resolver_fragments(field.definition.item),
         })
@@ -372,22 +574,42 @@ impl IncrementalSelectionFinder<'_> {
 
     /// A Relay Resolver's root fragment is selected by the operation that
     /// selects the Resolver field.
-    fn find_resolver_fragments(&mut self, field_id: FieldID) -> Option<Location> {
-        get_all_resolver_fragment_dependency_names(
+    fn find_resolver_fragments(&mut self, field_id: FieldID) -> Option<(Location, Unsupported)> {
+        let in_resolver_fragment = self.in_resolver_fragment;
+        self.in_resolver_fragment = true;
+        let found = get_all_resolver_fragment_dependency_names(
             self.program.schema.field(field_id),
             self.program.schema.as_ref(),
         )
         .into_iter()
-        .find_map(|fragment_name| self.find_fragment(fragment_name))
+        .find_map(|fragment_name| self.find_fragment(fragment_name));
+        self.in_resolver_fragment = in_resolver_fragment;
+        found
     }
 
-    fn find_fragment(&mut self, fragment_name: FragmentDefinitionName) -> Option<Location> {
-        if !self.visited_fragments.insert(fragment_name) {
+    fn find_fragment(
+        &mut self,
+        fragment_name: FragmentDefinitionName,
+    ) -> Option<(Location, Unsupported)> {
+        let in_resolver_fragment =
+            self.in_resolver_fragment || self.resolver_root_fragments.contains(&fragment_name);
+        if !self
+            .visited_fragments
+            .insert((fragment_name, in_resolver_fragment))
+        {
             return None;
         }
         let program = self.program;
         let fragment = program.fragment(fragment_name)?;
-        self.find(&fragment.selections)
+        if self.allow_incremental_delivery && fragment.directives.named(*SERVER_DIRECTIVE).is_none()
+        {
+            return None;
+        }
+        let outer_in_resolver_fragment = self.in_resolver_fragment;
+        self.in_resolver_fragment = in_resolver_fragment;
+        let found = self.find(&fragment.selections);
+        self.in_resolver_fragment = outer_in_resolver_fragment;
+        found
     }
 }
 
@@ -509,10 +731,45 @@ enum ValidationMessage {
     ServerDocumentSelectsModule { document_name: StringKey },
 
     #[error(
-        "Relay RSC operation `{operation_name}` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet."
+        "Relay RSC operation `{operation_name}` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false."
     )]
-    IncrementalDeliveryUnsupported {
+    IncrementalDeliveryDisabled {
         operation_name: OperationDefinitionName,
+    },
+
+    #[error(
+        "Relay RSC operation `{operation_name}` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive."
+    )]
+    ServerOwnedStreamUnsupported {
+        operation_name: OperationDefinitionName,
+    },
+
+    #[error(
+        "Relay RSC operation `{operation_name}` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet."
+    )]
+    IncrementalDeliveryInResolverFragment {
+        operation_name: OperationDefinitionName,
+    },
+
+    #[error(
+        "Server-owned fragment `{fragment_name}`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false."
+    )]
+    StandaloneFragmentIncrementalDeliveryDisabled {
+        fragment_name: FragmentDefinitionName,
+    },
+
+    #[error(
+        "Server-owned fragment `{fragment_name}`, which no server-owned operation in this project selects, cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive."
+    )]
+    StandaloneFragmentServerOwnedStreamUnsupported {
+        fragment_name: FragmentDefinitionName,
+    },
+
+    #[error(
+        "Server-owned fragment `{fragment_name}`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet."
+    )]
+    StandaloneFragmentIncrementalDeliveryInResolverFragment {
+        fragment_name: FragmentDefinitionName,
     },
 }
 
@@ -704,13 +961,111 @@ mod tests {
         assert_eq!(
             validate_server_operation_incremental_delivery(
                 &program,
-                &DeferStreamInterface::default()
+                &DeferStreamInterface::default(),
+                false,
+                &Default::default(),
             )
             .expect_err(
                 "a deferred spread and @stream_connection both request incremental delivery"
             )
             .len(),
             2
+        );
+    }
+
+    #[test]
+    fn allows_defer_but_rejects_server_owned_stream_when_incremental_delivery_is_allowed() {
+        let program = program(
+            r#"query ServerQuery @server {
+              ...ServerUser_query @defer(label: "ServerQuery$user")
+              me { friends { edges @stream(initialCount: 1, label: "ServerQuery$friends") { cursor } } }
+            }
+            fragment ServerUser_query on Query @server { me { id } }"#,
+        );
+
+        assert_eq!(
+            validate_server_operation_incremental_delivery(
+                &program,
+                &DeferStreamInterface::default(),
+                true,
+                &Default::default(),
+            )
+            .expect_err("a server-owned @stream would render once and drop later items")
+            .len(),
+            1,
+            "only the server-owned @stream is reported, not the @defer"
+        );
+    }
+
+    #[test]
+    fn allows_stream_in_client_fragments_when_incremental_delivery_is_allowed() {
+        let program = program(
+            r#"query ServerQuery @server {
+              me { ...ClientFriends_user @alias(as: "friends") }
+            }
+            fragment ClientFriends_user on User {
+              friends { edges @stream(initialCount: 1, label: "ClientFriends$friends") { cursor } }
+            }"#,
+        );
+
+        assert!(
+            validate_server_operation_incremental_delivery(
+                &program,
+                &DeferStreamInterface::default(),
+                true,
+                &Default::default(),
+            )
+            .is_ok(),
+            "a client fragment re-renders as streamed items arrive"
+        );
+    }
+
+    #[test]
+    fn validates_server_fragments_no_server_operation_selects_once() {
+        let program = program(
+            r#"query ServerQuery @server {
+              ...ServerReached_query
+            }
+            fragment ServerReached_query on Query @server {
+              me { friends { edges @stream(initialCount: 1, label: "ServerReached$friends") { cursor } } }
+            }
+            fragment ServerOuter_query on Query @server {
+              ...ServerReached_query
+              ...ServerInner_query
+            }
+            fragment ServerInner_query on Query @server {
+              me { friends { edges @stream(initialCount: 1, label: "ServerInner$friends") { cursor } } }
+            }
+            fragment ServerBase_query on Query @server {
+              me { friends { edges @stream(initialCount: 1, label: "ServerBase$friends") { cursor } } }
+            }"#,
+        );
+        let mut base_fragment_names = FragmentDefinitionNameSet::default();
+        base_fragment_names.insert(FragmentDefinitionName("ServerBase_query".intern()));
+
+        let errors = validate_server_operation_incremental_delivery(
+            &program,
+            &DeferStreamInterface::default(),
+            true,
+            &base_fragment_names,
+        )
+        .expect_err("server-owned @stream is rejected with or without a server operation");
+        assert_eq!(
+            errors
+                .iter()
+                .map(|error| error.message().to_string())
+                .collect::<Vec<_>>(),
+            vec![
+                ValidationMessage::ServerOwnedStreamUnsupported {
+                    operation_name: OperationDefinitionName("ServerQuery".intern()),
+                }
+                .to_string(),
+                ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported {
+                    fragment_name: FragmentDefinitionName("ServerOuter_query".intern()),
+                }
+                .to_string(),
+            ],
+            "the operation owns the fragment it reaches, the outer standalone fragment owns the inner one, and base fragments are validated by their own project"
         );
     }
 
@@ -726,7 +1081,9 @@ mod tests {
         assert!(
             validate_server_operation_incremental_delivery(
                 &program,
-                &DeferStreamInterface::default()
+                &DeferStreamInterface::default(),
+                false,
+                &Default::default(),
             )
             .is_ok(),
             "`if: false` removes the @defer, so nothing is delivered incrementally"
@@ -745,7 +1102,9 @@ mod tests {
         assert!(
             validate_server_operation_incremental_delivery(
                 &program,
-                &DeferStreamInterface::default()
+                &DeferStreamInterface::default(),
+                false,
+                &Default::default(),
             )
             .is_ok(),
             "statically unreachable @stream cannot require incremental delivery"
@@ -763,7 +1122,9 @@ mod tests {
         assert_eq!(
             validate_server_operation_incremental_delivery(
                 &program,
-                &DeferStreamInterface::default()
+                &DeferStreamInterface::default(),
+                false,
+                &Default::default(),
             )
             .expect_err("a runtime condition can still reach @stream")
             .len(),

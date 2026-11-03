@@ -20,6 +20,9 @@ graphql`fragment ServerRootDefer_query on Query @server {
     "test_project": {
       "schema": "schema.graphql",
       "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
       "featureFlags": {
         "enable_relay_rsc": true
       }

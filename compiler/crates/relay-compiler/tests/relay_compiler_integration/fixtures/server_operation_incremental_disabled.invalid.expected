@@ -24,6 +24,9 @@ graphql`fragment DeferredUser_user on User @server {
     "test_project": {
       "schema": "schema.graphql",
       "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
       "featureFlags": {
         "enable_relay_rsc": true
       }
@@ -53,7 +56,7 @@ type User {
   name: String
 }
 ==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerDeferredQuery` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet.
+✖︎ Relay RSC operation `ServerDeferredQuery` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false.
 
   src/ServerFriends.js:10:26
     9 │   me {
@@ -61,7 +64,7 @@ type User {
       │                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    11 │   }
 
-✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet.
+✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false.
 
   src/ServerFriends.js:3:11
     2 │ query ServerFriendsQuery @server {

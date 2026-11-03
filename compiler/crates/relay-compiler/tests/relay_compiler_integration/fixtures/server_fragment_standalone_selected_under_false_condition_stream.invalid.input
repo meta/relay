@@ -1,19 +1,18 @@
 //- src/ServerFriends.js
 
+// The query spreads `ServerFriends_user` only under a statically false
+// condition, which the query's own validation skips, so the fragment is
+// validated as its own owner and its server-owned `@stream` is rejected.
 graphql`query ServerFriendsQuery @server {
-  friends @stream(initialCount: 1, label: "ServerFriendsQuery$friends") {
+  me @include(if: false) {
+    ...ServerFriends_user
+  }
+}`
+
+graphql`fragment ServerFriends_user on User @server {
+  friends @stream(initialCount: 1, label: "friends") {
     name
   }
-}`
-
-graphql`query ServerDeferredQuery @server {
-  me {
-    ...DeferredUser_user @defer(label: "ServerDeferredQuery$user")
-  }
-}`
-
-graphql`fragment DeferredUser_user on User @server {
-  name
 }`
 
 //- relay.config.json
@@ -38,16 +37,11 @@ directive @stream(
   useCustomizedBatch: Boolean = false
 ) on FIELD
 
-directive @defer(
-  label: String!
-  if: Boolean = true
-) on FRAGMENT_SPREAD | INLINE_FRAGMENT
-
 type Query {
-  friends: [User]
   me: User
 }
 
 type User {
   name: String
+  friends: [User]
 }

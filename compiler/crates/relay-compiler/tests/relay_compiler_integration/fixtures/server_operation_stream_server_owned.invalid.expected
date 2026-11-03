@@ -1,0 +1,66 @@
+==================================== INPUT ====================================
+//- src/ServerFriends.js
+
+// `@stream` on a server-owned field is rejected even though the project allows
+// incremental delivery: a server component renders the list once, so items
+// that arrive later would never render.
+graphql`query ServerFriendsQuery @server {
+  me {
+    ...ServerFriends_user
+  }
+}`
+
+graphql`fragment ServerFriends_user on User @server {
+  friends @stream(initialCount: 1, label: "friends") {
+    name
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "schemaConfig": {
+        "nodeInterfaceIdField": "key"
+      },
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+  useCustomizedBatch: Boolean = false
+) on FIELD
+
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  key: ID!
+  name: String
+  secret: String
+  friends: [User]
+}
+==================================== OUTPUT ===================================
+✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
+
+  src/ServerFriends.js:12:11
+   11 │ fragment ServerFriends_user on User @server {
+   12 │   friends @stream(initialCount: 1, label: "friends") {
+      │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   13 │     name

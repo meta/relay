@@ -1,0 +1,68 @@
+//- src/ServerFeed.js
+
+// The client projection keeps the label of a deferred server fragment that
+// reaches a client fragment, keeps the client fragment's own `@stream`, and
+// drops a deferred fragment that selects only server fields.
+graphql`query ServerFeedQuery @server {
+  me {
+    ...ServerProfile_user @defer(label: "profile")
+    ...ServerOnly_user @defer(label: "serverOnly")
+  }
+}`
+
+graphql`fragment ServerProfile_user on User @server {
+  secret
+  ...ClientCard_user @alias(as: "clientCard")
+}`
+
+graphql`fragment ServerOnly_user on User @server {
+  secret
+}`
+
+graphql`fragment ClientCard_user on User {
+  name
+  friends @stream(initialCount: 1, label: "friends") {
+    name
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "schemaConfig": {
+        "nodeInterfaceIdField": "key"
+      },
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+  useCustomizedBatch: Boolean = false
+) on FIELD
+
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  key: ID!
+  name: String
+  secret: String
+  friends: [User]
+}

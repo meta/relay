@@ -1,0 +1,41 @@
+//- src/ServerFriends.js
+
+// A `@server` fragment that no `@server` operation in this project selects is
+// validated as its own owner: its server-owned `@stream` is rejected even
+// though the project allows incremental delivery.
+graphql`fragment ServerFriends_user on User @server {
+  friends @stream(initialCount: 1, label: "friends") {
+    name
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+  useCustomizedBatch: Boolean = false
+) on FIELD
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+  friends: [User]
+}

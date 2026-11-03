@@ -1,0 +1,43 @@
+//- src/ServerUser.js
+
+// A `@server` fragment that no `@server` operation in this project selects is
+// validated as its own owner: its `@defer` is rejected because the project
+// disables incremental delivery.
+graphql`fragment ServerUser_user on User @server {
+  ...DeferredName_user @defer(label: "ServerUser_user$name")
+}`
+
+graphql`fragment DeferredName_user on User @server {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}

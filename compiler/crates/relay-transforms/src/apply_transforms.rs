@@ -185,6 +185,10 @@ fn apply_common_transforms(
         validate_server_operation_incremental_delivery(
             &program,
             &project_config.schema_config.defer_stream_interface,
+            project_config
+                .relay_rsc_capabilities()
+                .is_none_or(|capabilities| capabilities.allow_incremental_delivery),
+            &base_fragment_names,
         )
     })?;
     program = log_event.time("transform_connections", || {

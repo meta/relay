@@ -1,0 +1,58 @@
+==================================== INPUT ====================================
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+// No `@server` operation in this project selects `rscPanel`, so its root
+// fragment is validated as its own owner, inside a Relay Resolver root
+// fragment: the `@defer` is rejected even though the project allows
+// incremental delivery.
+graphql`fragment RscPanel_user on User @server {
+  ...DeferredName_user @defer(label: "RscPanel_user$name")
+}`
+
+graphql`fragment DeferredName_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Server-owned fragment `RscPanel_user`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+
+  src/RscPanel.js:11:24
+   10 │ fragment RscPanel_user on User @server {
+   11 │   ...DeferredName_user @defer(label: "RscPanel_user$name")
+      │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   12 │ }

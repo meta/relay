@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<88865b876a1bdb9de70aae5f0d496f7e>>
+ * @generated SignedSource<<e28388bb5758290a09f59f9b39889b86>>
  */
 
 mod relay_compiler_integration;
@@ -1504,6 +1504,41 @@ async fn server_fragment_requires_feature_invalid() {
 }
 
 #[tokio::test]
+async fn server_fragment_standalone_incremental_disabled_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_incremental_disabled.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_incremental_disabled.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_standalone_incremental_disabled.invalid.input", "relay_compiler_integration/fixtures/server_fragment_standalone_incremental_disabled.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_standalone_selected_under_false_condition_stream_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_selected_under_false_condition_stream.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_selected_under_false_condition_stream.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_standalone_selected_under_false_condition_stream.invalid.input", "relay_compiler_integration/fixtures/server_fragment_standalone_selected_under_false_condition_stream.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_standalone_spreads_resolver_root_fragment_resolver_first_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_spreads_resolver_root_fragment_resolver_first.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_spreads_resolver_root_fragment_resolver_first.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_standalone_spreads_resolver_root_fragment_resolver_first.invalid.input", "relay_compiler_integration/fixtures/server_fragment_standalone_spreads_resolver_root_fragment_resolver_first.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_standalone_spreads_resolver_root_fragment_spread_first_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_spreads_resolver_root_fragment_spread_first.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_spreads_resolver_root_fragment_spread_first.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_standalone_spreads_resolver_root_fragment_spread_first.invalid.input", "relay_compiler_integration/fixtures/server_fragment_standalone_spreads_resolver_root_fragment_spread_first.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_standalone_stream_server_owned_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_stream_server_owned.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_stream_server_owned.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_standalone_stream_server_owned.invalid.input", "relay_compiler_integration/fixtures/server_fragment_standalone_stream_server_owned.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
 async fn server_operation_base_no_inline_client_fragment_dead_branch_variable() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_dead_branch_variable.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_client_fragment_dead_branch_variable.expected");
@@ -1525,10 +1560,10 @@ async fn server_operation_base_no_inline_client_fragment_variables() {
 }
 
 #[tokio::test]
-async fn server_operation_base_no_inline_incremental_unsupported_invalid() {
-    let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.input");
-    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.expected");
-    test_fixture(transform_fixture, file!(), "server_operation_base_no_inline_incremental_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_unsupported.invalid.expected", input, expected).await;
+async fn server_operation_base_no_inline_incremental_disabled_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_disabled.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_disabled.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_base_no_inline_incremental_disabled.invalid.input", "relay_compiler_integration/fixtures/server_operation_base_no_inline_incremental_disabled.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1623,24 +1658,24 @@ async fn server_operation_flow() {
 }
 
 #[tokio::test]
-async fn server_operation_incremental_default_nextjs_allows_but_rejected_invalid() {
-    let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_default_nextjs_allows_but_rejected.invalid.input");
-    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_default_nextjs_allows_but_rejected.invalid.expected");
-    test_fixture(transform_fixture, file!(), "server_operation_incremental_default_nextjs_allows_but_rejected.invalid.input", "relay_compiler_integration/fixtures/server_operation_incremental_default_nextjs_allows_but_rejected.invalid.expected", input, expected).await;
+async fn server_operation_incremental_client_handoff() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_client_handoff.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_client_handoff.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_incremental_client_handoff.input", "relay_compiler_integration/fixtures/server_operation_incremental_client_handoff.expected", input, expected).await;
 }
 
 #[tokio::test]
-async fn server_operation_incremental_explicitly_allowed_but_rejected_invalid() {
-    let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_explicitly_allowed_but_rejected.invalid.input");
-    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_explicitly_allowed_but_rejected.invalid.expected");
-    test_fixture(transform_fixture, file!(), "server_operation_incremental_explicitly_allowed_but_rejected.invalid.input", "relay_compiler_integration/fixtures/server_operation_incremental_explicitly_allowed_but_rejected.invalid.expected", input, expected).await;
+async fn server_operation_incremental_default_nextjs_allowed() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_default_nextjs_allowed.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_default_nextjs_allowed.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_incremental_default_nextjs_allowed.input", "relay_compiler_integration/fixtures/server_operation_incremental_default_nextjs_allowed.expected", input, expected).await;
 }
 
 #[tokio::test]
-async fn server_operation_incremental_unsupported_invalid() {
-    let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_unsupported.invalid.input");
-    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_unsupported.invalid.expected");
-    test_fixture(transform_fixture, file!(), "server_operation_incremental_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_incremental_unsupported.invalid.expected", input, expected).await;
+async fn server_operation_incremental_disabled_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_disabled.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_disabled.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_incremental_disabled.invalid.input", "relay_compiler_integration/fixtures/server_operation_incremental_disabled.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1683,6 +1718,20 @@ async fn server_operation_spread_relay_mask_false_unsupported_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_spread_relay_mask_false_unsupported.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_spread_relay_mask_false_unsupported.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_operation_spread_relay_mask_false_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_spread_relay_mask_false_unsupported.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_stream_connection_server_owned_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_stream_connection_server_owned.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_stream_connection_server_owned.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_stream_connection_server_owned.invalid.input", "relay_compiler_integration/fixtures/server_operation_stream_connection_server_owned.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_stream_server_owned_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_stream_server_owned.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_stream_server_owned.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_stream_server_owned.invalid.input", "relay_compiler_integration/fixtures/server_operation_stream_server_owned.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1735,6 +1784,20 @@ async fn server_rsc_resolver_field_required_rejected_invalid() {
 }
 
 #[tokio::test]
+async fn server_rsc_resolver_incremental_shared_root_fragment_resolver_first_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_shared_root_fragment_resolver_first.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_shared_root_fragment_resolver_first.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_rsc_resolver_incremental_shared_root_fragment_resolver_first.invalid.input", "relay_compiler_integration/fixtures/server_rsc_resolver_incremental_shared_root_fragment_resolver_first.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_rsc_resolver_incremental_shared_root_fragment_spread_first_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_shared_root_fragment_spread_first.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_shared_root_fragment_spread_first.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_rsc_resolver_incremental_shared_root_fragment_spread_first.invalid.input", "relay_compiler_integration/fixtures/server_rsc_resolver_incremental_shared_root_fragment_spread_first.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
 async fn server_rsc_resolver_incremental_validation_root_fragment_defer_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_validation_root_fragment_defer.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_incremental_validation_root_fragment_defer.invalid.expected");
@@ -1746,6 +1809,27 @@ async fn server_rsc_resolver_provided_variable() {
     let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_provided_variable.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_provided_variable.expected");
     test_fixture(transform_fixture, file!(), "server_rsc_resolver_provided_variable.input", "relay_compiler_integration/fixtures/server_rsc_resolver_provided_variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_rsc_resolver_standalone_root_fragment_defer_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_defer.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_defer.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_rsc_resolver_standalone_root_fragment_defer.invalid.input", "relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_defer.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_rsc_resolver_standalone_root_fragment_shared_resolver_first_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_shared_resolver_first.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_shared_resolver_first.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_rsc_resolver_standalone_root_fragment_shared_resolver_first.invalid.input", "relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_shared_resolver_first.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_rsc_resolver_standalone_root_fragment_shared_spread_first_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_shared_spread_first.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_shared_spread_first.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_rsc_resolver_standalone_root_fragment_shared_spread_first.invalid.input", "relay_compiler_integration/fixtures/server_rsc_resolver_standalone_root_fragment_shared_spread_first.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]

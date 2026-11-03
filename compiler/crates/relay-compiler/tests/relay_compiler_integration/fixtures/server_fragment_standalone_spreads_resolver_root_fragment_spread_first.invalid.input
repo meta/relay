@@ -1,0 +1,61 @@
+//- src/Page.js
+
+// No server-owned operation selects `Outer_user`, so it is validated as its own
+// owner. It spreads `Shared_user` directly, where the `@defer` is allowed, and
+// then spreads the Relay Resolver root fragment `RscPanel_user`: entering a
+// Resolver root fragment by a spread enters its context, so the same `@defer`
+// is rejected there.
+graphql`fragment Outer_user on User @server {
+  ...Shared_user
+  ...RscPanel_user
+}`
+
+graphql`fragment Shared_user on User @server {
+  ...DeferredName_user @defer(label: "Shared_user$name")
+}`
+
+graphql`fragment DeferredName_user on User @server {
+  name
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  ...Shared_user
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

@@ -1,4 +1,3 @@
-==================================== INPUT ====================================
 //- base_src/ClientCard.js
 
 graphql`fragment ClientCard_user on User @no_inline {
@@ -27,6 +26,9 @@ graphql`query ServerQuery @server {
     "base_project": {
       "schema": "schema.graphql",
       "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
       "featureFlags": {
         "enable_relay_rsc": true,
         "no_inline": {"kind": "enabled"}
@@ -36,6 +38,9 @@ graphql`query ServerQuery @server {
       "schema": "schema.graphql",
       "base": "base_project",
       "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
       "featureFlags": {
         "enable_relay_rsc": true
       }
@@ -56,11 +61,3 @@ type Query {
 type User {
   name: String
 }
-==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerQuery` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet.
-
-  base_src/ClientCard.js:3:24
-    2 │ fragment ClientCard_user on User @no_inline {
-    3 │   ...DeferredName_user @defer(label: "ClientCard_user$name")
-      │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    4 │ }

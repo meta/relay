@@ -1,0 +1,69 @@
+==================================== INPUT ====================================
+//- src/Page.js
+
+// The same documents as
+// `server_fragment_standalone_spreads_resolver_root_fragment_spread_first`, with
+// the Relay Resolver root fragment spread first. The `@defer` is rejected inside
+// the Resolver root fragment either way.
+graphql`fragment Outer_user on User @server {
+  ...RscPanel_user
+  ...Shared_user
+}`
+
+graphql`fragment Shared_user on User @server {
+  ...DeferredName_user @defer(label: "Shared_user$name")
+}`
+
+graphql`fragment DeferredName_user on User @server {
+  name
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  ...Shared_user
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Server-owned fragment `Outer_user`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+
+  src/Page.js:12:24
+   11 │ fragment Shared_user on User @server {
+   12 │   ...DeferredName_user @defer(label: "Shared_user$name")
+      │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   13 │ }

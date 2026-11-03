@@ -1,0 +1,69 @@
+//- src/ServerFriends.js
+
+// `@stream_connection` on a server-owned field is rejected for the same reason
+// as `@stream`.
+graphql`query ServerFriendsQuery @server {
+  me {
+    friends(first: 1)
+      @stream_connection(key: "ServerFriendsQuery_friends", initial_count: 1) {
+      edges {
+        node {
+          name
+        }
+      }
+    }
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+  useCustomizedBatch: Boolean = false
+) on FIELD
+
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+  friends(first: Int, after: ID): FriendsConnection
+}
+
+type FriendsConnection {
+  edges: [FriendsEdge]
+  pageInfo: PageInfo
+}
+
+type FriendsEdge {
+  cursor: ID
+  node: User
+}
+
+type PageInfo {
+  startCursor: ID
+  endCursor: ID
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+}

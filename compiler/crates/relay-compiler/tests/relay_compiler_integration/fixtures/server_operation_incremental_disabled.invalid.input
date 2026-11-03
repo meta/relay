@@ -1,15 +1,18 @@
-//- src/ServerDeferred.js
+//- src/ServerFriends.js
 
-// `relayRsc.allowIncrementalDelivery` is explicitly true. Server-owned
-// operations still cannot use `@defer`, and the error must not blame the
-// capability.
-graphql`query ServerDeferredQuery @server {
-  me {
-    ...ServerDeferred_user @defer(label: "ServerDeferredQuery$user")
+graphql`query ServerFriendsQuery @server {
+  friends @stream(initialCount: 1, label: "ServerFriendsQuery$friends") {
+    name
   }
 }`
 
-graphql`fragment ServerDeferred_user on User @server {
+graphql`query ServerDeferredQuery @server {
+  me {
+    ...DeferredUser_user @defer(label: "ServerDeferredQuery$user")
+  }
+}`
+
+graphql`fragment DeferredUser_user on User @server {
   name
 }`
 
@@ -21,7 +24,7 @@ graphql`fragment ServerDeferred_user on User @server {
       "schema": "schema.graphql",
       "language": "javascript",
       "relayRsc": {
-        "allowIncrementalDelivery": true
+        "allowIncrementalDelivery": false
       },
       "featureFlags": {
         "enable_relay_rsc": true
@@ -31,12 +34,20 @@ graphql`fragment ServerDeferred_user on User @server {
 }
 
 //- schema.graphql
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+  useCustomizedBatch: Boolean = false
+) on FIELD
+
 directive @defer(
   label: String!
   if: Boolean = true
 ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
 
 type Query {
+  friends: [User]
   me: User
 }
 

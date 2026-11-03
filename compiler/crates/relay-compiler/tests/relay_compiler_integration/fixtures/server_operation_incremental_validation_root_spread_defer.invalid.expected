@@ -21,6 +21,9 @@ graphql`fragment ServerRootDefer_query on Query @server {
     "test_project": {
       "schema": "schema.graphql",
       "language": "javascript",
+      "relayRsc": {
+        "allowIncrementalDelivery": false
+      },
       "featureFlags": {
         "enable_relay_rsc": true
       }
@@ -42,7 +45,7 @@ type User {
   name: String
 }
 ==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerRootDeferQuery` cannot use `@defer` or `@stream`: incremental delivery of server-owned operations is not supported yet.
+✖︎ Relay RSC operation `ServerRootDeferQuery` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false.
 
   src/ServerRootDefer.js:6:28
     5 │ query ServerRootDeferQuery @server {
