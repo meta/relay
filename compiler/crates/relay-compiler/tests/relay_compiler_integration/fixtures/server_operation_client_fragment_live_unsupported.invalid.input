@@ -1,0 +1,38 @@
+//- src/ServerUser.js
+
+// `@live` in a client fragment that a `@server` operation hands off is
+// rejected: the server operation fetches the client fragment's data once.
+graphql`query ServerUserQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User {
+  name @live
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @live on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}

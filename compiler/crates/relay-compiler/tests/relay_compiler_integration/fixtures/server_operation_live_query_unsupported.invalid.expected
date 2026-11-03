@@ -1,0 +1,43 @@
+==================================== INPUT ====================================
+//- src/ServerUser.js
+
+// `@live_query` on a `@server` operation is rejected: the server fetches and
+// hands off its data once. The host schema declares the directive, so the
+// extension directive allowlist does not see it.
+graphql`query ServerUserQuery @server @live_query(polling_interval: 1000) {
+  me {
+    name
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @live_query(polling_interval: Int, config_id: String) on QUERY
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Server-owned document `ServerUserQuery` cannot use `@live_query`: a server-owned document's data is fetched and handed off once, so live updates would never be delivered.
+
+  src/ServerUser.js:5:39
+    5 │ query ServerUserQuery @server @live_query(polling_interval: 1000) {
+      │                               ^^^^^^^^^^^
+    6 │   me {

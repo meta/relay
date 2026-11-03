@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<f20276fac595cb315b81389a12977813>>
+ * @generated SignedSource<<73ec62b31135f818182527333cce35e9>>
  */
 
 mod relay_compiler_integration;
@@ -1511,6 +1511,13 @@ async fn server_fragment_inline_data_client_fragment_spread_invalid() {
 }
 
 #[tokio::test]
+async fn server_fragment_live_fragment_unsupported_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_live_fragment_unsupported.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_live_fragment_unsupported.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_live_fragment_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_fragment_live_fragment_unsupported.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
 async fn server_fragment_plural_client_boundary_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_fragment_plural_client_boundary.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_plural_client_boundary.invalid.expected");
@@ -1613,6 +1620,13 @@ async fn server_operation_client_fragment_argument_shadows_operation_variable() 
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_argument_shadows_operation_variable.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_argument_shadows_operation_variable.expected");
     test_fixture(transform_fixture, file!(), "server_operation_client_fragment_argument_shadows_operation_variable.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_argument_shadows_operation_variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_client_fragment_live_unsupported_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_live_unsupported.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_client_fragment_live_unsupported.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_client_fragment_live_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_client_fragment_live_unsupported.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1725,6 +1739,20 @@ async fn server_operation_inline_fragment_cycle_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_inline_fragment_cycle.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_inline_fragment_cycle.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_operation_inline_fragment_cycle.invalid.input", "relay_compiler_integration/fixtures/server_operation_inline_fragment_cycle.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_live_query_unsupported_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_live_query_unsupported.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_live_query_unsupported.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_live_query_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_live_query_unsupported.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_live_statically_skipped() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_live_statically_skipped.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_live_statically_skipped.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_live_statically_skipped.input", "relay_compiler_integration/fixtures/server_operation_live_statically_skipped.expected", input, expected).await;
 }
 
 #[tokio::test]

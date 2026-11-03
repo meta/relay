@@ -1,0 +1,36 @@
+//- src/ServerUser.js
+
+// `@live` under a statically false condition is never fetched, so the
+// server-owned live delivery check skips it, as the incremental delivery
+// check does.
+graphql`query ServerUserQuery @server {
+  me {
+    name
+    liveName: name @include(if: false) @live
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @live on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}

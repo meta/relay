@@ -1,0 +1,33 @@
+//- src/ServerUser.js
+
+// `@live_fragment` on a `@server` fragment is rejected, even when no `@server`
+// operation selects the fragment: a server-owned document's data is fetched
+// and handed off once.
+graphql`fragment ServerUser_user on User @server @live_fragment {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @live_fragment on FRAGMENT_DEFINITION
+
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}

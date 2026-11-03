@@ -62,6 +62,18 @@ static RAW_RESPONSE_TYPE_DIRECTIVE: LazyLock<DirectiveName> =
     LazyLock::new(|| DirectiveName("raw_response_type".intern()));
 static THROW_ON_FIELD_ERROR_DIRECTIVE: LazyLock<DirectiveName> =
     LazyLock::new(|| DirectiveName("throwOnFieldError".intern()));
+// Host schemas declare the live delivery directives, so the extension
+// directive allowlists below do not see them.
+static LIVE_DIRECTIVE: LazyLock<DirectiveName> = LazyLock::new(|| DirectiveName("live".intern()));
+static LIVE_OPERATION_DIRECTIVES: LazyLock<[DirectiveName; 3]> = LazyLock::new(|| {
+    [
+        *LIVE_DIRECTIVE,
+        DirectiveName("live_query".intern()),
+        DirectiveName("client_polling".intern()),
+    ]
+});
+static LIVE_FRAGMENT_DIRECTIVES: LazyLock<[DirectiveName; 1]> =
+    LazyLock::new(|| [DirectiveName("live_fragment".intern())]);
 static ALLOWED_SERVER_OPERATION_EXTENSION_DIRECTIVES: LazyLock<[DirectiveName; 2]> =
     LazyLock::new(|| [*SERVER_DIRECTIVE, *RAW_RESPONSE_TYPE_DIRECTIVE]);
 static ALLOWED_SERVER_FRAGMENT_EXTENSION_DIRECTIVES: LazyLock<[DirectiveName; 3]> =
@@ -233,11 +245,132 @@ pub(crate) fn validate_server_documents(
             &mut errors,
         );
     }
+    if relay_rsc_enabled {
+        validate_server_owned_live_delivery(program, &mut errors);
+    }
 
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// A server-owned document's data is fetched and handed off once, so neither
+/// it nor any fragment it selects can request live delivery. Each definition
+/// is checked once for the live directives it authors.
+fn validate_server_owned_live_delivery(program: &Program, errors: &mut Vec<Diagnostic>) {
+    let mut server_operations: Vec<_> = program
+        .operations()
+        .filter(|operation| operation.directives.named(*SERVER_DIRECTIVE).is_some())
+        .collect();
+    server_operations.sort_unstable_by_key(|operation| operation.name.item);
+    let mut reached = ReachedFragments {
+        program,
+        fragments: Default::default(),
+    };
+    for operation in &server_operations {
+        reached.visit_selections(&operation.selections);
+    }
+    for fragment in program.fragments() {
+        if fragment.directives.named(*SERVER_DIRECTIVE).is_some() {
+            reached.reach(fragment.name.item);
+        }
+    }
+    let mut fragments: Vec<_> = reached
+        .fragments
+        .iter()
+        .filter_map(|fragment_name| program.fragment(*fragment_name))
+        .collect();
+    fragments.sort_unstable_by_key(|fragment| fragment.name.item);
+
+    for operation in server_operations {
+        errors.extend(
+            live_directive_names(
+                &operation.directives,
+                LIVE_OPERATION_DIRECTIVES.as_slice(),
+                &operation.selections,
+            )
+            .into_iter()
+            .map(|directive_name| {
+                Diagnostic::error(
+                    ValidationMessage::ServerOwnedLiveDelivery {
+                        document_name: operation.name.item.0,
+                        directive_name: directive_name.item,
+                    },
+                    directive_name.location,
+                )
+            }),
+        );
+    }
+    for fragment in fragments {
+        let is_server_owned = fragment.directives.named(*SERVER_DIRECTIVE).is_some();
+        errors.extend(
+            live_directive_names(
+                &fragment.directives,
+                LIVE_FRAGMENT_DIRECTIVES.as_slice(),
+                &fragment.selections,
+            )
+            .into_iter()
+            .map(|directive_name| {
+                let message = if is_server_owned {
+                    ValidationMessage::ServerOwnedLiveDelivery {
+                        document_name: fragment.name.item.0,
+                        directive_name: directive_name.item,
+                    }
+                } else {
+                    ValidationMessage::ServerSelectedFragmentLiveDelivery {
+                        fragment_name: fragment.name.item,
+                        directive_name: directive_name.item,
+                    }
+                };
+                Diagnostic::error(message, directive_name.location)
+            }),
+        );
+    }
+}
+
+/// The live directives a definition authors on itself and on its own
+/// selections.
+fn live_directive_names(
+    directives: &[Directive],
+    live_directives: &[DirectiveName],
+    selections: &[Selection],
+) -> Vec<WithLocation<DirectiveName>> {
+    let mut names: Vec<_> = directives
+        .iter()
+        .filter(|directive| live_directives.contains(&directive.name.item))
+        .map(|directive| directive.name)
+        .collect();
+    collect_live_selection_directives(selections, &mut names);
+    names
+}
+
+/// Collects `@live` on the selections a definition authors directly, outside
+/// statically false conditions.
+fn collect_live_selection_directives(
+    selections: &[Selection],
+    locations: &mut Vec<WithLocation<DirectiveName>>,
+) {
+    for selection in selections {
+        let (directives, children): (&[Directive], &[Selection]) = match selection {
+            Selection::FragmentSpread(spread) => (&spread.directives, &[]),
+            Selection::InlineFragment(fragment) => (&fragment.directives, &fragment.selections),
+            Selection::LinkedField(field) => (&field.directives, &field.selections),
+            Selection::ScalarField(field) => (&field.directives, &[]),
+            Selection::Condition(condition) => {
+                if let ConditionValue::Constant(value) = condition.value
+                    && value != condition.passing_value
+                {
+                    continue;
+                }
+                (&[], &condition.selections)
+            }
+        };
+        if let Some(live) = directives.named(*LIVE_DIRECTIVE) {
+            locations.push(live.name);
+        }
+        collect_live_selection_directives(children, locations);
     }
 }
 
@@ -777,6 +910,22 @@ enum ValidationMessage {
     )]
     StandaloneFragmentIncrementalDeliveryInResolverFragment {
         fragment_name: FragmentDefinitionName,
+    },
+
+    #[error(
+        "Server-owned document `{document_name}` cannot use `@{directive_name}`: a server-owned document's data is fetched and handed off once, so live updates would never be delivered."
+    )]
+    ServerOwnedLiveDelivery {
+        document_name: StringKey,
+        directive_name: DirectiveName,
+    },
+
+    #[error(
+        "Fragment `{fragment_name}` cannot use `@{directive_name}` because a server-owned document selects it: a server-owned document's data is fetched and handed off once, so live updates would never be delivered."
+    )]
+    ServerSelectedFragmentLiveDelivery {
+        fragment_name: FragmentDefinitionName,
+        directive_name: DirectiveName,
     },
 }
 
