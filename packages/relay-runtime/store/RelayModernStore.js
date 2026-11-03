@@ -1134,8 +1134,12 @@ function updateTargetFromSource(
         updatedRecordIDs.add(dataID);
         target.set(dataID, nextRecord);
 
-        // Add per-field notification keys for field-granular records
+        // Add per-field notification keys for field-granular records. With
+        // ENABLE_PERF_PUBLISH, RelayReader also ignores the marker while
+        // field-granular notifications are off.
         if (
+          (!RelayFeatureFlags.ENABLE_PERF_PUBLISH ||
+            RelayFeatureFlags.ENABLE_FIELD_GRANULAR_NOTIFICATIONS) &&
           RelayModernRecord.getValue(
             nextRecord,
             FIELD_GRANULAR_NOTIFICATIONS_KEY,

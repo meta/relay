@@ -2293,7 +2293,12 @@ class RelayReaderOptimized {
   ): ?SelectorData {
     const record = this._recordSource.get(dataID);
     const prevFieldGranularDataID = this._fieldGranularNotificationDataID;
+    // As in RelayModernStore's publish: with ENABLE_PERF_PUBLISH, the
+    // field-granular marker is ignored while field-granular notifications are
+    // off.
     if (
+      (!RelayFeatureFlags.ENABLE_PERF_PUBLISH ||
+        RelayFeatureFlags.ENABLE_FIELD_GRANULAR_NOTIFICATIONS) &&
       record != null &&
       RelayModernRecord.getValue(record, FIELD_GRANULAR_NOTIFICATIONS_KEY)
     ) {
