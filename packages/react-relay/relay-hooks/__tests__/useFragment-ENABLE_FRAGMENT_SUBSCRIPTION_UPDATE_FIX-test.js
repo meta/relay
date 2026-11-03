@@ -237,7 +237,7 @@ describe('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX on behaves as off', () => {
   // Runs `scenario` with the flag off and on: the reading components render
   // the same names, in the same order, and read the store as often.
   function expectSameRenders(
-    scenario: (ReturnType<typeof renderApp>) => void,
+    scenario: (v: ReturnType<typeof renderApp>) => void,
     options?: Options,
   ): void {
     const results = [false, true].map(flag => {

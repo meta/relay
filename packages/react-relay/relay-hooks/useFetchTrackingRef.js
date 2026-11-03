@@ -30,7 +30,7 @@ const {useCallback, useEffect} = require('react');
  */
 hook useFetchTrackingRef(): {
   isFetchingRef: {current: ?boolean, ...},
-  startFetch: Subscription => void,
+  startFetch: (v: Subscription) => void,
   disposeFetch: () => void,
   completeFetch: () => void,
 } {

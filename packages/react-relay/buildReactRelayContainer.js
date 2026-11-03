@@ -55,7 +55,7 @@ function buildReactRelayContainer<TBase extends component(...empty)>(
   function ForwardRef(
     props: any,
     ref:
-      | ((null | React.ElementRef<TBase>) => unknown)
+      | ((v: null | React.ElementRef<TBase>) => unknown)
       | {writeonly current: null | React.ElementRef<TBase>, ...},
   ) {
     // $FlowFixMe[react-rule-hook]

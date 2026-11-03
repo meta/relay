@@ -237,7 +237,7 @@ export type ThinQueryParams<
 declare export opaque type ThinNestedEntryPointParams;
 
 export type ExtractQueryTypeHelper<TEnvironmentProviderOptions> = <TQuery>(
-  PreloadedQuery<TQuery>,
+  v: PreloadedQuery<TQuery>,
 ) => ThinQueryParams<TQuery, TEnvironmentProviderOptions>;
 
 // We need to match both cases without using distributive conditional types,

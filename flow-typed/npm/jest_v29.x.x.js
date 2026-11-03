@@ -1177,8 +1177,8 @@ type JestPrettyFormatColors = {
   ...
 };
 
-type JestPrettyFormatIndent = string => string;
-type JestPrettyFormatPrint = any => string;
+type JestPrettyFormatIndent = (v: string) => string;
+type JestPrettyFormatPrint = (v: any) => string;
 type JestPrettyFormatOptions = {|
   callToJSON: boolean,
   edgeSpacing: string,
@@ -1207,7 +1207,7 @@ type JestPrettyFormatPlugin = {
     opts: JestPrettyFormatOptions,
     colors: JestPrettyFormatColors,
   ) => string,
-  test: any => boolean,
+  test: (v: any) => boolean,
   ...
 };
 

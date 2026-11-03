@@ -26,7 +26,7 @@ class SuspenseResource {
   _retainCount = 0;
   _retainDisposable: ?Disposable = null;
   _releaseTemporaryRetain: ?() => void = null;
-  _retain: IEnvironment => Disposable;
+  _retain: (v: IEnvironment) => Disposable;
 
   constructor(retain: (environment: IEnvironment) => Disposable) {
     this._retain = (environment: IEnvironment): Disposable => {

@@ -86,12 +86,12 @@ let entryPoint: React.ComponentProps<
 let params;
 
 class FakeJSResource<T> {
-  _resolve: (T => unknown) | null;
+  _resolve: ((v: T) => unknown) | null;
   _resource: T | null;
   getModuleId: () => string;
   getModuleIfRequired: () => T | null;
   load: () => Promise<T>;
-  resolve: T => void;
+  resolve: (v: T) => void;
 
   constructor(resource: T | null) {
     this._resolve = null;

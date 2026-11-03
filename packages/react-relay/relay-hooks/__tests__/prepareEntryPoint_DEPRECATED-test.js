@@ -22,11 +22,11 @@ disallowWarnings();
 disallowConsoleErrors();
 
 class FakeJSResource<T> {
-  _resolve: (T => unknown) | null;
+  _resolve: ((v: T) => unknown) | null;
   _resource: T | null;
   getModuleIfRequired: () => T | null;
   load: () => Promise<T>;
-  resolve: T => void;
+  resolve: (v: T) => void;
 
   constructor(resource: T | null) {
     this._resolve = null;

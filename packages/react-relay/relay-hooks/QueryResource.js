@@ -50,9 +50,9 @@ type QueryResourceCacheEntry = {
   // from the incremental responses, so later we can choose how to handle errors
   // in the incremental payloads.
   processedPayloadsCount: number,
-  setNetworkSubscription(?Subscription): void,
+  setNetworkSubscription(v: ?Subscription): void,
   getValue(): Error | Promise<void> | QueryResult,
-  setValue(Error | Promise<void> | QueryResult): void,
+  setValue(v: Error | Promise<void> | QueryResult): void,
   temporaryRetain(environment: IEnvironment): Disposable,
   permanentRetain(environment: IEnvironment): Disposable,
   releaseTemporaryRetain(): void,
@@ -136,7 +136,7 @@ function createCacheEntry(
   operationAvailability: ?OperationAvailability,
   value: Error | Promise<void> | QueryResult,
   networkSubscription: ?Subscription,
-  onDispose: QueryResourceCacheEntry => void,
+  onDispose: (v: QueryResourceCacheEntry) => void,
 ): QueryResourceCacheEntry {
   const isLiveQuery = operationIsLiveQuery(operation);
 

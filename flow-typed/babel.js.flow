@@ -6545,9 +6545,9 @@ declare module '@babel/types' {
     index?: number,
   }>;
   declare export type TraversalHandler<T> = (
-    BabelNode,
-    TraversalAncestors,
-    T,
+    v0: BabelNode,
+    v1: TraversalAncestors,
+    v2: T,
   ) => void;
   declare export type TraversalHandlers<T> = {
     enter?: TraversalHandler<T>,
@@ -6567,7 +6567,7 @@ declare module '@babel/types' {
   declare export function buildMatchMemberExpression(
     match: string,
     allowPartial?: boolean,
-  ): (?BabelNode) => boolean;
+  ): (v: ?BabelNode) => boolean;
   declare export function is(type: string, n: BabelNode, opts: any): boolean;
   declare export function isBinding(
     node: BabelNode,

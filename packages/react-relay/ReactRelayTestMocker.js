@@ -41,7 +41,8 @@ export type DataWriteConfig = {
 export type NetworkWriteConfig = {
   query: ConcreteRequest,
   variables?: Variables,
-  payload: GraphQLSingularResponse | (Variables => GraphQLSingularResponse),
+  payload:
+    GraphQLSingularResponse | ((v: Variables) => GraphQLSingularResponse),
   ...
 };
 

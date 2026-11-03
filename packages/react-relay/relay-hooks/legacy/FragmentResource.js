@@ -109,7 +109,7 @@ function missingLiveResolverFields(
 
 function singularOrPluralForEach(
   snapshot: SingularOrPluralSnapshot,
-  f: Snapshot => void,
+  f: (v: Snapshot) => void,
 ): void {
   if (Array.isArray(snapshot)) {
     snapshot.forEach(f);

@@ -53,7 +53,7 @@ type FragmentState = Readonly<
   | {kind: 'plural', snapshots: ReadonlyArray<Snapshot>, epoch: number},
 >;
 
-type StateUpdaterFunction<T> = ((T) => T) => void;
+type StateUpdaterFunction<T> = (v: (v: T) => T) => void;
 
 function isMissingData(state: FragmentState): boolean {
   if (state.kind === 'bailout') {
