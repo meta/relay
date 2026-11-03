@@ -1667,22 +1667,6 @@ test('Subscriptions cleaned up correctly after GC', () => {
   });
   expect(snapshot.isMissingData).toBe(false);
 
-  // Note: this is another issue with GC here.
-  // Our GC will remove **all** records from the store(including __ROOT__) if they are not retained.
-  //
-  // So in this test we need to retain some unrelevant records in the store to keep the __ROOT__
-  // record arount after GC run.
-  environment.retain(
-    createOperationDescriptor(
-      graphql`
-        query LiveResolversTestWithGCCounterQuery {
-          counter_no_fragment
-        }
-      `,
-      {},
-    ),
-  );
-
   const subscriptionsCountBeforeGCRun = GLOBAL_STORE.getSubscriptionsCount();
 
   // Go-go-go! Clean the store!
@@ -1721,6 +1705,51 @@ test('Subscriptions cleaned up correctly after GC', () => {
     live_counter_with_possible_missing_fragment_data: 1,
   });
   expect(snapshot.isMissingData).toBe(false);
+});
+
+test('useClientQuery reads a Live Resolver after GC evicts every record', () => {
+  const store = new RelayModernStore(RelayRecordSource.create(), {
+    gcReleaseBufferSize: 0,
+  });
+  const environment = new RelayModernEnvironment({
+    network: RelayNetwork.create(jest.fn()),
+    store,
+  });
+
+  // Nothing is retained, so GC evicts every record, the root included.
+  store.scheduleGC();
+  jest.runAllImmediates();
+
+  function TestComponent() {
+    const data = useClientQuery(
+      graphql`
+        query LiveResolversTestAfterFullGCQuery {
+          counter_no_fragment
+        }
+      `,
+      {},
+    );
+    return data.counter_no_fragment;
+  }
+
+  let renderer;
+  TestRenderer.act(() => {
+    renderer = TestRenderer.create(
+      <RelayEnvironmentProvider environment={environment}>
+        <React.Suspense fallback="Loading...">
+          <TestComponent />
+        </React.Suspense>
+      </RelayEnvironmentProvider>,
+    );
+  });
+  // $FlowFixMe[incompatible-use]
+  expect(renderer.toJSON()).toEqual('0');
+
+  TestRenderer.act(() => {
+    GLOBAL_STORE.dispatch({type: 'INCREMENT'});
+  });
+  // $FlowFixMe[incompatible-use]
+  expect(renderer.toJSON()).toEqual('1');
 });
 
 test('Errors when reading a @live resolver that does not return a LiveState object', () => {

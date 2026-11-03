@@ -989,6 +989,12 @@ class RelayModernStore implements Store {
         }
       }
 
+      // Every query is read from the root record, including client-only
+      // queries whose fields need nothing else from the store (such as Live
+      // Resolvers backed by external state), so recreate an empty one if it
+      // was evicted, as the constructor does.
+      initializeRecordSource(this._recordSource);
+
       if (log != null) {
         log({
           name: 'store.gc.end',

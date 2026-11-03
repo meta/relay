@@ -17,6 +17,8 @@ const React = require('react');
 const ReactTestRenderer = require('react-test-renderer');
 const {
   RecordSource,
+  ROOT_ID,
+  ROOT_TYPE,
   Store,
   createOperationDescriptor,
   graphql,
@@ -436,9 +438,9 @@ describe('ReactRelayLocalQueryRenderer', () => {
       // make sure GC runs
       environment.getStore().__gc();
       jest.runAllImmediates();
-      expect(
-        environment.lookup(operation.fragment, operation).data,
-      ).toBeUndefined();
+      expect(environment.lookup(operation.fragment, operation).data).toEqual({
+        node: undefined,
+      });
       environment.commitPayload(operation, payload);
       expect(render).not.toBeCalled();
     });
@@ -494,7 +496,9 @@ describe('ReactRelayLocalQueryRenderer', () => {
     it('never runs before unmount, data retain should be released', () => {
       ReactTestRenderer.act(() => instance.unmount());
       jest.runAllTimers();
-      expect(environment.getStore().getSource().toJSON()).toEqual({});
+      expect(environment.getStore().getSource().toJSON()).toEqual({
+        [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+      });
     });
   });
 

@@ -106,6 +106,6 @@ describe('retain()', () => {
     });
     jest.runAllTimers();
     // After GC runs data is missing
-    expect(environment.lookup(selector).data).toBe(undefined);
+    expect(environment.lookup(selector).data).toEqual({me: undefined});
   });
 });

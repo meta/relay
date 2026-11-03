@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<da8e5d645974de62844c9759f83677f0>>
+ * @generated SignedSource<<bfd62f913b1a6b7c5094df4be889750e>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -26,13 +26,13 @@ import type { TestResolverContextType } from "../../../relay-runtime/mutations/_
   args: void,
   context: TestResolverContextType,
 ) => LiveState<?number>);
-export type LiveResolversTestWithGCCounterQuery$variables = {};
-export type LiveResolversTestWithGCCounterQuery$data = {
+export type LiveResolversTestAfterFullGCQuery$variables = {};
+export type LiveResolversTestAfterFullGCQuery$data = {
   readonly counter_no_fragment: ?number,
 };
-export type LiveResolversTestWithGCCounterQuery = {
-  response: LiveResolversTestWithGCCounterQuery$data,
-  variables: LiveResolversTestWithGCCounterQuery$variables,
+export type LiveResolversTestAfterFullGCQuery = {
+  response: LiveResolversTestAfterFullGCQuery$data,
+  variables: LiveResolversTestAfterFullGCQuery$variables,
 };
 */
 
@@ -41,7 +41,7 @@ var node/*: ClientRequest*/ = {
     "argumentDefinitions": [],
     "kind": "Fragment",
     "metadata": null,
-    "name": "LiveResolversTestWithGCCounterQuery",
+    "name": "LiveResolversTestAfterFullGCQuery",
     "selections": [
       {
         "kind": "ClientExtension",
@@ -65,7 +65,7 @@ var node/*: ClientRequest*/ = {
   "operation": {
     "argumentDefinitions": [],
     "kind": "Operation",
-    "name": "LiveResolversTestWithGCCounterQuery",
+    "name": "LiveResolversTestAfterFullGCQuery",
     "selections": [
       {
         "kind": "ClientExtension",
@@ -83,20 +83,20 @@ var node/*: ClientRequest*/ = {
     ]
   },
   "params": {
-    "cacheID": "808e3eb8727818a6227ed8ffc08d62d4",
+    "cacheID": "b575a6f1a45a5e9f4c7f5702a8597be6",
     "id": null,
     "metadata": {},
-    "name": "LiveResolversTestWithGCCounterQuery",
+    "name": "LiveResolversTestAfterFullGCQuery",
     "operationKind": "query",
     "text": null
   }
 };
 
 if (__DEV__) {
-  (node/*:: as any*/).hash = "d5f3f474e332e781cf2651a9993722bb";
+  (node/*:: as any*/).hash = "ee3ec3397d35c524f30dc778818b6a48";
 }
 
 module.exports = ((node/*:: as any*/)/*:: as ClientQuery<
-  LiveResolversTestWithGCCounterQuery$variables,
-  LiveResolversTestWithGCCounterQuery$data,
+  LiveResolversTestAfterFullGCQuery$variables,
+  LiveResolversTestAfterFullGCQuery$data,
 >*/);

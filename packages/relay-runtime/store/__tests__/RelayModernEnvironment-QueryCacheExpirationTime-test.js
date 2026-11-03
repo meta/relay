@@ -157,7 +157,7 @@ describe('query cache expiration time', () => {
         ),
       );
       // data is not in the store
-      expect(snapshot2.data).toBe(undefined);
+      expect(snapshot2.data).toEqual({me: undefined});
     });
   });
 

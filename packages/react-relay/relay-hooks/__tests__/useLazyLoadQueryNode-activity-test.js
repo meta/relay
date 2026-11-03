@@ -34,6 +34,8 @@ const {
   __internal,
   RecordSource,
   RelayFeatureFlags,
+  ROOT_ID,
+  ROOT_TYPE,
   Store,
   createOperationDescriptor,
   graphql,
@@ -385,13 +387,17 @@ it('disposes and GCs the query when hiding past query TTL in the store', async (
   });
 
   expect(store.scheduleGC).toHaveBeenCalledTimes(1);
-  expect(source.toJSON()).toEqual({});
+  expect(source.toJSON()).toEqual({
+    [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+  });
 
   ReactTestingLibrary.act(() => {
     setMode('visible');
   });
 
-  expect(source.toJSON()).toEqual({});
+  expect(source.toJSON()).toEqual({
+    [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+  });
 });
 
 it('does not dispose the temporary retain when hiding before committing', async () => {

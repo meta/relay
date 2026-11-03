@@ -36,6 +36,8 @@ const ReactTestRenderer = require('react-test-renderer');
 const {
   __internal,
   RecordSource,
+  ROOT_ID,
+  ROOT_TYPE,
   Store,
   createOperationDescriptor,
   getFragment,
@@ -363,7 +365,9 @@ it('fetches and renders correctly if component unmounts before it can commit', (
   // Trigger timeout and GC to clear all references
   ReactTestRenderer.act(() => jest.runAllTimers());
   // Verify GC has run
-  expect(environment.getStore().getSource().toJSON()).toEqual({});
+  expect(environment.getStore().getSource().toJSON()).toEqual({
+    [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+  });
 
   renderFn.mockClear();
   // $FlowFixMe[method-unbinding] added when improving typing for this parameters

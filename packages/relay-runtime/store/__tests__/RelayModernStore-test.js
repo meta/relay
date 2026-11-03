@@ -208,7 +208,9 @@ function cloneEventWithSets(event: LogEvent) {
           dispose();
           expect(data).toEqual(initialData);
           jest.runAllTimers();
-          expect(source.toJSON()).toEqual({});
+          expect(source.toJSON()).toEqual({
+            [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+          });
         });
 
         it('only collects unreferenced data', () => {
@@ -2260,8 +2262,10 @@ function cloneEventWithSets(event: LogEvent) {
           disposable.dispose();
           jest.runAllTimers();
 
-          // After gc and immediate removal, the store is empty.
-          expect(source.toJSON()).toEqual({});
+          // After gc and immediate removal, only an empty root record is left.
+          expect(source.toJSON()).toEqual({
+            [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+          });
         });
 
         it('keeps published data retained in the release buffer if the data is not stale', () => {
@@ -2565,7 +2569,7 @@ function cloneEventWithSets(event: LogEvent) {
           expect(getStoreRecordIDs()).toEqual(['a', 'b', 'client:root']);
           // nothing retained, prunes the store in one scheduler job
           runNextScheduledJob();
-          expect(getStoreRecordIDs()).toEqual([]);
+          expect(getStoreRecordIDs()).toEqual([ROOT_ID]);
         });
 
         it('runs GC with partial cleanup when some retain is left', () => {
@@ -2704,7 +2708,7 @@ function cloneEventWithSets(event: LogEvent) {
             expect(schedulerQueue.length).toBe(0);
             gcHold.dispose();
             runNextScheduledJob();
-            expect(getStoreRecordIDs()).toEqual([]);
+            expect(getStoreRecordIDs()).toEqual([ROOT_ID]);
           });
         });
       });
@@ -2772,7 +2776,9 @@ function cloneEventWithSets(event: LogEvent) {
           expect(source.toJSON()).toEqual(initialData);
           gcHold.dispose();
           jest.runAllTimers();
-          expect(source.toJSON()).toEqual({});
+          expect(source.toJSON()).toEqual({
+            [ROOT_ID]: {__id: ROOT_ID, __typename: ROOT_TYPE},
+          });
         });
       });
     });
