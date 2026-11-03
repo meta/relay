@@ -1,0 +1,38 @@
+//- src/Fragments.js
+
+// An `@inline` spread inside a client fragment handed off from a server-owned
+// document is client-owned, as before.
+graphql`fragment ServerParent_user on User @server {
+  ...ClientCard_user @alias(as: "card")
+}`
+
+graphql`fragment ClientCard_user on User {
+  ...InlineName_user
+}`
+
+graphql`fragment InlineName_user on User @inline {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}

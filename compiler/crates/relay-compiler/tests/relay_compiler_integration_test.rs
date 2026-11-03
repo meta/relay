@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<e28388bb5758290a09f59f9b39889b86>>
+ * @generated SignedSource<<7510270416252cfe85d31d52f1a048af>>
  */
 
 mod relay_compiler_integration;
@@ -1455,6 +1455,13 @@ async fn server_fragment_client_boundary() {
 }
 
 #[tokio::test]
+async fn server_fragment_client_boundary_inline_data() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_client_boundary_inline_data.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_client_boundary_inline_data.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_client_boundary_inline_data.input", "relay_compiler_integration/fixtures/server_fragment_client_boundary_inline_data.expected", input, expected).await;
+}
+
+#[tokio::test]
 async fn server_fragment_client_boundary_requires_alias_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_fragment_client_boundary_requires_alias.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_client_boundary_requires_alias.invalid.expected");
@@ -1487,6 +1494,20 @@ async fn server_fragment_field_catch_unsupported_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_fragment_field_catch_unsupported.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_field_catch_unsupported.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_fragment_field_catch_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_fragment_field_catch_unsupported.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_inline_data() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_inline_data.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_inline_data.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_inline_data.input", "relay_compiler_integration/fixtures/server_fragment_inline_data.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_inline_data_client_fragment_spread_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_inline_data_client_fragment_spread.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_inline_data_client_fragment_spread.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_inline_data_client_fragment_spread.invalid.input", "relay_compiler_integration/fixtures/server_fragment_inline_data_client_fragment_spread.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1536,6 +1557,13 @@ async fn server_fragment_standalone_stream_server_owned_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_stream_server_owned.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_standalone_stream_server_owned.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_fragment_standalone_stream_server_owned.invalid.input", "relay_compiler_integration/fixtures/server_fragment_standalone_stream_server_owned.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_fragment_updatable_client_boundary_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_fragment_updatable_client_boundary.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_fragment_updatable_client_boundary.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_fragment_updatable_client_boundary.invalid.input", "relay_compiler_integration/fixtures/server_fragment_updatable_client_boundary.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]
@@ -1690,6 +1718,13 @@ async fn server_operation_incremental_validation_stream_connection_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_validation_stream_connection.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_incremental_validation_stream_connection.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_operation_incremental_validation_stream_connection.invalid.input", "relay_compiler_integration/fixtures/server_operation_incremental_validation_stream_connection.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_inline_fragment_cycle_invalid() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_inline_fragment_cycle.invalid.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_inline_fragment_cycle.invalid.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_inline_fragment_cycle.invalid.input", "relay_compiler_integration/fixtures/server_operation_inline_fragment_cycle.invalid.expected", input, expected).await;
 }
 
 #[tokio::test]

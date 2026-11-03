@@ -1,0 +1,45 @@
+//- src/Page.js
+// Two `@inline` fragments that spread each other under a server query are
+// reported as a cycle.
+graphql`query PageQuery @server {
+  me {
+    ...PageA_user
+  }
+}`
+graphql`fragment PageA_user on User @inline {
+  name
+  friend {
+    ...PageB_user
+  }
+}`
+graphql`fragment PageB_user on User @inline {
+  id
+  friend {
+    ...PageA_user
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  friend: User
+}

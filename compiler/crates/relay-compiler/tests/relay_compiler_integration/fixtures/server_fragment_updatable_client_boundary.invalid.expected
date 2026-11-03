@@ -1,0 +1,42 @@
+==================================== INPUT ====================================
+//- src/Fragments.js
+
+// An `@updatable` fragment has no standalone Reader artifact to hand off.
+graphql`fragment ServerParent_user on User @server {
+  ...UpdatableName_user @alias(as: "updatable")
+}`
+
+graphql`fragment UpdatableName_user on User @updatable {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Client fragment `UpdatableName_user` cannot cross a server boundary because it has no standalone Reader artifact.
+
+  src/Fragments.js:4:6
+    3 │ fragment ServerParent_user on User @server {
+    4 │   ...UpdatableName_user @alias(as: "updatable")
+      │      ^^^^^^^^^^^^^^^^^^
+    5 │ }

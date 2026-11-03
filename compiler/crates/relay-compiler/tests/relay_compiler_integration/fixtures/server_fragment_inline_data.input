@@ -1,0 +1,37 @@
+//- src/Fragments.js
+
+// An `@inline` fragment spread inside a server-owned document stays server-owned:
+// the server reads it with `readInlineData`, so it is not a client boundary.
+graphql`fragment ServerParent_user on User @server {
+  name
+  ...InlineName_user
+}`
+
+graphql`fragment InlineName_user on User @inline {
+  name
+  id
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID
+  name: String
+}

@@ -287,9 +287,34 @@ impl Transformer<'_> for ClientComponentBoundaryTransform<'_, '_> {
             return Transformed::Keep;
         }
 
-        if target.directives.named(*INLINE_DIRECTIVE_NAME).is_some()
-            || target.directives.named(*UPDATABLE_DIRECTIVE).is_some()
-        {
+        // `@inline` data is read by the code that holds the parent reference
+        // (`readInlineData`), here the server, so the spread stays inside the
+        // server-owned document instead of becoming a client hand-off.
+        if target.directives.named(*INLINE_DIRECTIVE_NAME).is_some() {
+            if let Some(client_spread) = find_inline_client_fragment_spread(
+                self.program,
+                &target.selections,
+                &mut FxHashSet::default(),
+            ) {
+                self.errors.push(
+                    Diagnostic::error(
+                        ValidationMessage::InlineFragmentSpreadsClientFragment {
+                            server_document_name: self.document_name_key(),
+                            inline_fragment_name: target.name.item,
+                            client_fragment_name: client_spread.fragment.item,
+                        },
+                        spread.fragment.location,
+                    )
+                    .annotate(
+                        "the client fragment is spread here",
+                        client_spread.fragment.location,
+                    ),
+                );
+            }
+            return Transformed::Keep;
+        }
+
+        if target.directives.named(*UPDATABLE_DIRECTIVE).is_some() {
             self.errors.push(Diagnostic::error(
                 ValidationMessage::ClientFragmentHasNoReaderArtifact {
                     fragment_name: target.name.item,
@@ -331,6 +356,43 @@ impl Transformer<'_> for ClientComponentBoundaryTransform<'_, '_> {
     }
 }
 
+/// The first client fragment spread that an `@inline` fragment's selections
+/// reach, including through nested `@inline` fragments. A spread of a
+/// server-owned fragment is rejected by the `@inline` fragment's own document.
+// `visited` stops at `@inline` fragments already searched: a cycle of spreads
+// is reported by `apply_fragment_arguments`.
+fn find_inline_client_fragment_spread<'program>(
+    program: &'program Program,
+    selections: &'program [Selection],
+    visited: &mut FxHashSet<FragmentDefinitionName>,
+) -> Option<&'program FragmentSpread> {
+    selections.iter().find_map(|selection| match selection {
+        Selection::FragmentSpread(spread) => {
+            let fragment = program.fragment(spread.fragment.item)?;
+            if fragment.directives.named(*INLINE_DIRECTIVE_NAME).is_some() {
+                if !visited.insert(fragment.name.item) {
+                    return None;
+                }
+                find_inline_client_fragment_spread(program, &fragment.selections, visited)
+            } else if fragment.directives.named(*SERVER_DIRECTIVE).is_some() {
+                None
+            } else {
+                Some(spread.as_ref())
+            }
+        }
+        Selection::LinkedField(field) => {
+            find_inline_client_fragment_spread(program, &field.selections, visited)
+        }
+        Selection::InlineFragment(fragment) => {
+            find_inline_client_fragment_spread(program, &fragment.selections, visited)
+        }
+        Selection::Condition(condition) => {
+            find_inline_client_fragment_spread(program, &condition.selections, visited)
+        }
+        Selection::ScalarField(_) => None,
+    })
+}
+
 #[derive(
     Clone,
     Debug,
@@ -363,6 +425,14 @@ enum ValidationMessage {
     )]
     PluralClientFragment {
         server_document_name: StringKey,
+        client_fragment_name: FragmentDefinitionName,
+    },
+    #[error(
+        "Server-owned document `{server_document_name}` cannot spread `@inline` fragment `{inline_fragment_name}` because it spreads client fragment `{client_fragment_name}`: the server reads `@inline` data, so that client fragment's data would not be handed off to the client. Spread `{client_fragment_name}` with `@alias` directly in the server-owned document instead."
+    )]
+    InlineFragmentSpreadsClientFragment {
+        server_document_name: StringKey,
+        inline_fragment_name: FragmentDefinitionName,
         client_fragment_name: FragmentDefinitionName,
     },
     #[error(

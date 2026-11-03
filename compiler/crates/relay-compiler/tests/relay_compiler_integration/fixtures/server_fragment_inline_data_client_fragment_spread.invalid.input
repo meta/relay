@@ -1,0 +1,41 @@
+//- src/Fragments.js
+
+// A server-owned document cannot spread an `@inline` fragment that spreads a
+// client fragment: the server reads the `@inline` data, so no client boundary
+// would hand the client fragment's data off to the client.
+graphql`fragment ServerParent_user on User @server {
+  ...InlineCard_user
+}`
+
+graphql`fragment InlineCard_user on User @inline {
+  name
+  ...ClientCard_user @alias(as: "card")
+}`
+
+graphql`fragment ClientCard_user on User {
+  picture
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+  picture: String
+}
