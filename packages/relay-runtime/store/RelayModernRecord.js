@@ -747,7 +747,69 @@ function areFieldValuesEqual(prevValue: unknown, nextValue: unknown): boolean {
   ) {
     return false;
   }
+  // Same result as areEqual() for the links setLinkedRecordID(s) write,
+  // `{[REF_KEY]: id}` and `{[REFS_KEY]: ids}`, without its generic deep walk.
+  const prevID = prevValue[REF_KEY];
+  if (typeof prevID === 'string') {
+    if (nextValue[REF_KEY] !== prevID) {
+      return false;
+    }
+    if (hasOnlyKey(prevValue, REF_KEY) && hasOnlyKey(nextValue, REF_KEY)) {
+      return true;
+    }
+  } else {
+    const prevIDs = prevValue[REFS_KEY];
+    const nextIDs = nextValue[REFS_KEY];
+    if (
+      Array.isArray(prevIDs) &&
+      Array.isArray(nextIDs) &&
+      hasOnlyKey(prevValue, REFS_KEY) &&
+      hasOnlyKey(nextValue, REFS_KEY)
+    ) {
+      return areLinkedIDsEqual(prevIDs, nextIDs);
+    }
+  }
   return areEqual(prevValue, nextValue);
+}
+
+// Whether `object`'s only enumerable property is `key`.
+function hasOnlyKey(
+  object: {readonly [string]: unknown},
+  key: string,
+): boolean {
+  for (const k in object) {
+    if (k !== key) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areLinkedIDsEqual(
+  prevIDs: ReadonlyArray<unknown>,
+  nextIDs: ReadonlyArray<unknown>,
+): boolean {
+  if (prevIDs === nextIDs) {
+    return true;
+  }
+  if (prevIDs.length !== nextIDs.length) {
+    return false;
+  }
+  // From the end, as areEqual() compares arrays: a list that only changed at
+  // its end is told apart at once.
+  for (let ii = prevIDs.length - 1; ii >= 0; ii--) {
+    const prevID = prevIDs[ii];
+    const nextID = nextIDs[ii];
+    if (prevID !== nextID) {
+      // IDs are strings or null; compare anything else like areEqual().
+      return (
+        typeof prevID === 'object' &&
+        typeof nextID === 'object' &&
+        areEqual(prevIDs, nextIDs)
+      );
+    }
+  }
+  return true;
 }
 
 /**

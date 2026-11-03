@@ -16,6 +16,7 @@ const {
 const deepFreeze = require('../../util/deepFreeze');
 const RelayModernRecord = require('../RelayModernRecord');
 const RelayStoreUtils = require('../RelayStoreUtils');
+const areEqual = require('areEqual');
 const RelayModernTestUtils = require('relay-test-utils-internal');
 
 const {ERRORS_KEY, ID_KEY, REF_KEY, REFS_KEY, TYPENAME_KEY} = RelayStoreUtils;
@@ -468,6 +469,48 @@ describe('RelayModernRecord', () => {
       const changedLink = RelayModernRecord.clone(prev);
       RelayModernRecord.setLinkedRecordID(changedLink, 'friend', '6');
       expect(RelayModernRecord.update(prev, changedLink)).not.toBe(prev);
+    });
+
+    it('compares links the way areEqual does', () => {
+      const pairs = [
+        [{__ref: '5'}, {__ref: '5'}],
+        [{__ref: '5'}, {__ref: '6'}],
+        [{__ref: '5'}, {__refs: ['5']}],
+        [{__refs: ['5']}, {__ref: '5'}],
+        [{__refs: ['5', '6']}, {__refs: ['5', '6']}],
+        [{__refs: ['5', '6']}, {__refs: ['5']}],
+        [{__refs: ['5', null]}, {__refs: ['5', null]}],
+        [{__refs: ['5', null]}, {__refs: ['5', '6']}],
+        [{__refs: []}, {__refs: []}],
+        // Other objects with these keys are compared deeply.
+        [
+          {__ref: '5', extra: 1},
+          {__ref: '5', extra: 1},
+        ],
+        [
+          {__ref: '5', extra: 1},
+          {__ref: '5', extra: 2},
+        ],
+        [{__ref: '5'}, {__ref: '5', extra: 1}],
+        [{__ref: 5}, {__ref: 5}],
+        [{__refs: [{id: '5'}]}, {__refs: [{id: '5'}]}],
+        [{__refs: [{id: '5'}]}, {__refs: [{id: '6'}]}],
+        [{__refs: ['5']}, {__refs: ['5'], extra: 1}],
+      ];
+      for (const [prevValue, nextValue] of pairs) {
+        const prev = RelayModernRecord.create('4', 'User');
+        RelayModernRecord.setValue(prev, 'friend', prevValue);
+        const next = RelayModernRecord.create('4', 'User');
+        RelayModernRecord.setValue(next, 'friend', nextValue);
+        expect([
+          prevValue,
+          nextValue,
+          RelayModernRecord.update(prev, next) === prev,
+        ]).toEqual([prevValue, nextValue, areEqual(prevValue, nextValue)]);
+        expect(RelayModernRecord.hasFieldChanged(prev, next, 'friend')).toBe(
+          !areEqual(prevValue, nextValue),
+        );
+      }
     });
 
     it('treats NaN as changed, like areEqual', () => {
