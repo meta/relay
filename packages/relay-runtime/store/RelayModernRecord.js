@@ -16,6 +16,7 @@ import type {DataID} from '../util/RelayRuntimeTypes';
 import type {TRelayFieldError} from './RelayErrorTrie';
 
 const deepFreeze = require('../util/deepFreeze');
+const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const {generateClientObjectClientID, isClientID} = require('./ClientID');
 const {
   isSuspenseSentinel,
@@ -344,6 +345,9 @@ function getInvalidationEpoch(record: ?Record): ?number {
  * if any fields have changed.
  */
 function update(prevRecord: Record, nextRecord: Record): Record {
+  if (RelayFeatureFlags.ENABLE_PERF_PUBLISH) {
+    return updatePerf(prevRecord, nextRecord);
+  }
   if (__DEV__) {
     const prevID = getDataID(prevRecord);
     const nextID = getDataID(nextRecord);
@@ -697,6 +701,9 @@ function hasFieldChanged(
   nextRecord: Record,
   storageKey: StorageKey,
 ): boolean {
+  if (RelayFeatureFlags.ENABLE_PERF_PUBLISH) {
+    return hasFieldChangedPerf(prevRecord, nextRecord, storageKey);
+  }
   if (!areEqual(prevRecord[storageKey], nextRecord[storageKey])) {
     return true;
   }
@@ -714,6 +721,127 @@ function toJSON<TMaybe extends ?empty = empty>(
   record: Record | TMaybe,
 ): RecordJSON | TMaybe {
   return record;
+}
+
+// ----------------------------------------------------------------------
+// Optimized variants (`*Perf`) of the functions above.
+// Used only when ENABLE_PERF_PUBLISH is on; with it off the code above runs
+// unchanged.
+
+// Same result as `areEqual`, without its bookkeeping for the common case: most
+// record fields hold scalars, which are equal only when identical (`areEqual`
+// treats +0 and -0 as different). Only two objects need the deep comparison.
+function areFieldValuesEqual(prevValue: unknown, nextValue: unknown): boolean {
+  if (prevValue === nextValue) {
+    return (
+      typeof prevValue !== 'number' ||
+      prevValue !== 0 ||
+      Object.is(prevValue, nextValue)
+    );
+  }
+  if (
+    prevValue == null ||
+    nextValue == null ||
+    typeof prevValue !== 'object' ||
+    typeof nextValue !== 'object'
+  ) {
+    return false;
+  }
+  return areEqual(prevValue, nextValue);
+}
+
+/**
+ * @public
+ *
+ * Compares the fields of a previous and new record, returning either the
+ * previous record if all fields are equal or a new record (with merged fields)
+ * if any fields have changed.
+ */
+function updatePerf(prevRecord: Record, nextRecord: Record): Record {
+  if (__DEV__) {
+    const prevID = getDataID(prevRecord);
+    const nextID = getDataID(nextRecord);
+    warning(
+      prevID === nextID,
+      'RelayModernRecord: Invalid record update, expected both versions of ' +
+        'the record to have the same id, got `%s` and `%s`.',
+      prevID,
+      nextID,
+    );
+    // note: coalesce null/undefined to null
+    const prevType = getType(prevRecord) ?? null;
+    const nextType = getType(nextRecord) ?? null;
+    warning(
+      (isClientID(nextID) && nextID !== ROOT_ID) || prevType === nextType,
+      'RelayModernRecord: Invalid record update, expected both versions of ' +
+        'record `%s` to have the same `%s` but got conflicting types `%s` ' +
+        'and `%s`. The GraphQL server likely violated the globally unique ' +
+        'id requirement by returning the same id for different objects.',
+      prevID,
+      TYPENAME_KEY,
+      prevType,
+      nextType,
+    );
+  }
+  const prevErrorsByKey = prevRecord[ERRORS_KEY];
+  const nextErrorsByKey = nextRecord[ERRORS_KEY];
+  let updated: Record | null = null;
+  if (prevErrorsByKey == null && nextErrorsByKey == null) {
+    for (const storageKey in nextRecord) {
+      if (
+        updated ||
+        !areFieldValuesEqual(prevRecord[storageKey], nextRecord[storageKey])
+      ) {
+        updated = updated !== null ? updated : {...prevRecord};
+        updated[storageKey] = nextRecord[storageKey];
+      }
+    }
+    return updated ?? prevRecord;
+  }
+  for (const storageKey in nextRecord) {
+    if (storageKey === ERRORS_KEY) {
+      continue;
+    }
+    const nextValue = nextRecord[storageKey];
+    const nextErrors = nextErrorsByKey?.[storageKey];
+    if (updated == null) {
+      const prevValue = prevRecord[storageKey];
+      const prevErrors = prevErrorsByKey?.[storageKey];
+      if (
+        areFieldValuesEqual(prevValue, nextValue) &&
+        areFieldValuesEqual(prevErrors, nextErrors)
+      ) {
+        continue;
+      }
+      updated = {...prevRecord};
+      if (prevErrorsByKey != null) {
+        // Make a copy of prevErrorsByKey so that our changes don't affect prevRecord
+        updated[ERRORS_KEY] = {...prevErrorsByKey};
+      }
+    }
+    setValue(updated, storageKey, nextValue);
+    setErrors(updated, storageKey, nextErrors);
+  }
+  return updated ?? prevRecord;
+}
+
+/**
+ * @public
+ *
+ * Returns true if the value of a field differs between two records.
+ * Unlike getValue(), this works for all field types (scalar, linked, plural linked).
+ */
+function hasFieldChangedPerf(
+  prevRecord: Record,
+  nextRecord: Record,
+  storageKey: StorageKey,
+): boolean {
+  if (!areFieldValuesEqual(prevRecord[storageKey], nextRecord[storageKey])) {
+    return true;
+  }
+  const prevErrors = prevRecord[ERRORS_KEY]?.[storageKey];
+  const nextErrors = nextRecord[ERRORS_KEY]?.[storageKey];
+  return !areFieldValuesEqual(prevErrors, nextErrors);
 }
 
 module.exports = {

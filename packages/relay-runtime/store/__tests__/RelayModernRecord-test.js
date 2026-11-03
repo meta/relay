@@ -444,6 +444,39 @@ describe('RelayModernRecord', () => {
       });
     });
 
+    it('compares field values the way areEqual does', () => {
+      const prev = RelayModernRecord.create('4', 'User');
+      RelayModernRecord.setValue(prev, 'zero', 0);
+      RelayModernRecord.setValue(prev, 'tags', ['a', 'b']);
+      RelayModernRecord.setValue(prev, 'config', {nested: {enabled: true}});
+      RelayModernRecord.setLinkedRecordID(prev, 'friend', '5');
+
+      const same = RelayModernRecord.clone(prev);
+      RelayModernRecord.setValue(same, 'tags', ['a', 'b']);
+      RelayModernRecord.setValue(same, 'config', {nested: {enabled: true}});
+      RelayModernRecord.setLinkedRecordID(same, 'friend', '5');
+      expect(RelayModernRecord.update(prev, same)).toBe(prev);
+
+      const negativeZero = RelayModernRecord.clone(prev);
+      RelayModernRecord.setValue(negativeZero, 'zero', -0);
+      expect(RelayModernRecord.update(prev, negativeZero)).not.toBe(prev);
+
+      const changedTags = RelayModernRecord.clone(prev);
+      RelayModernRecord.setValue(changedTags, 'tags', ['a', 'c']);
+      expect(RelayModernRecord.update(prev, changedTags)).not.toBe(prev);
+
+      const changedLink = RelayModernRecord.clone(prev);
+      RelayModernRecord.setLinkedRecordID(changedLink, 'friend', '6');
+      expect(RelayModernRecord.update(prev, changedLink)).not.toBe(prev);
+    });
+
+    it('treats NaN as changed, like areEqual', () => {
+      const prev = RelayModernRecord.create('4', 'User');
+      RelayModernRecord.setValue(prev, 'score', NaN);
+      const next = RelayModernRecord.clone(prev);
+      expect(RelayModernRecord.update(prev, next)).not.toBe(prev);
+    });
+
     it('discards errors from first argument where applicable', () => {
       const errors = [
         {
