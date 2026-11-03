@@ -19,7 +19,9 @@ const RelayRecordSource = require('../../store/RelayRecordSource');
 const RelayStoreUtils = require('../../store/RelayStoreUtils');
 const RelayRecordProxy = require('../RelayRecordProxy');
 const RelayRecordSourceMutator = require('../RelayRecordSourceMutator');
-const RelayRecordSourceProxy = require('../RelayRecordSourceProxy');
+const {
+  createRelayRecordSourceProxy,
+} = require('../RelayRecordSourceProxyOptimized');
 const {simpleClone} = require('relay-test-utils-internal');
 
 const {ID_KEY, REF_KEY, REFS_KEY, ROOT_ID, ROOT_TYPE, TYPENAME_KEY} =
@@ -77,7 +79,9 @@ describe('RelayRecordSourceProxy', () => {
     baseSource = new RelayRecordSource(simpleClone(initialData));
     sinkSource = new RelayRecordSource({});
     mutator = new RelayRecordSourceMutator(baseSource, sinkSource);
-    store = new RelayRecordSourceProxy(
+    // RelayRecordSourceProxy with ENABLE_PERF_PUBLISH off,
+    // RelayRecordSourceProxyOptimized in RelayRecordSourceProxy-ENABLE_PERF_PUBLISH-test.
+    store = createRelayRecordSourceProxy(
       mutator,
       defaultGetDataID,
       undefined,
@@ -106,6 +110,23 @@ describe('RelayRecordSourceProxy', () => {
 
     it('returns the same writer for the same id', () => {
       expect(store.get('4')).toBe(store.get('4'));
+    });
+
+    it('keeps answering for unfetched and deleted records', () => {
+      expect(store.get('unfetched')).toBe(undefined);
+      expect(store.get('unfetched')).toBe(undefined);
+      expect(store.get('deleted')).toBe(null);
+      expect(store.get('deleted')).toBe(null);
+    });
+
+    it('returns a new writer after a record is deleted and created again', () => {
+      const writer = store.create('new', 'User');
+      expect(store.get('new')).toBe(writer);
+      store.delete('new');
+      expect(store.get('new')).toBe(null);
+      const created = store.create('new', 'User');
+      expect(created).not.toBe(writer);
+      expect(store.get('new')).toBe(created);
     });
   });
 

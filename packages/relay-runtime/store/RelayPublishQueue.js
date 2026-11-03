@@ -32,7 +32,9 @@ import type {
 } from './RelayStoreTypes';
 
 const RelayRecordSourceMutator = require('../mutations/RelayRecordSourceMutator');
-const RelayRecordSourceProxy = require('../mutations/RelayRecordSourceProxy');
+const {
+  createRelayRecordSourceProxy,
+} = require('../mutations/RelayRecordSourceProxyOptimized');
 const RelayRecordSourceSelectorProxy = require('../mutations/RelayRecordSourceSelectorProxy');
 const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const RelayReader = require('./RelayReader');
@@ -365,7 +367,7 @@ class RelayPublishQueue implements PublishQueue {
       this._store.getSource(),
       source,
     );
-    const recordSourceProxy = new RelayRecordSourceProxy(
+    const recordSourceProxy = createRelayRecordSourceProxy(
       mutator,
       this._getDataID,
       this._handlerProvider,
@@ -437,7 +439,7 @@ class RelayPublishQueue implements PublishQueue {
           this._store.getSource(),
           sink,
         );
-        const recordSourceProxy = new RelayRecordSourceProxy(
+        const recordSourceProxy = createRelayRecordSourceProxy(
           mutator,
           this._getDataID,
           this._handlerProvider,
@@ -471,7 +473,7 @@ class RelayPublishQueue implements PublishQueue {
   _applyUpdates(): void {
     const sink = RelayRecordSource.create();
     const mutator = new RelayRecordSourceMutator(this._store.getSource(), sink);
-    const recordSourceProxy = new RelayRecordSourceProxy(
+    const recordSourceProxy = createRelayRecordSourceProxy(
       mutator,
       this._getDataID,
       this._handlerProvider,
