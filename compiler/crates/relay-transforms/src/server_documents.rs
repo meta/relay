@@ -44,6 +44,7 @@ use thiserror::Error;
 use crate::ConnectionConstants;
 use crate::INLINE_DIRECTIVE_NAME;
 use crate::MATCH_CONSTANTS;
+use crate::NO_INLINE_DIRECTIVE_NAME;
 use crate::REFETCHABLE_NAME;
 use crate::UPDATABLE_DIRECTIVE;
 use crate::fragment_alias_directive::FRAGMENT_ALIAS_DIRECTIVE_NAME;
@@ -63,8 +64,14 @@ static THROW_ON_FIELD_ERROR_DIRECTIVE: LazyLock<DirectiveName> =
     LazyLock::new(|| DirectiveName("throwOnFieldError".intern()));
 static ALLOWED_SERVER_OPERATION_EXTENSION_DIRECTIVES: LazyLock<[DirectiveName; 2]> =
     LazyLock::new(|| [*SERVER_DIRECTIVE, *RAW_RESPONSE_TYPE_DIRECTIVE]);
-static ALLOWED_SERVER_FRAGMENT_EXTENSION_DIRECTIVES: LazyLock<[DirectiveName; 2]> =
-    LazyLock::new(|| [*SERVER_DIRECTIVE, *THROW_ON_FIELD_ERROR_DIRECTIVE]);
+static ALLOWED_SERVER_FRAGMENT_EXTENSION_DIRECTIVES: LazyLock<[DirectiveName; 3]> =
+    LazyLock::new(|| {
+        [
+            *SERVER_DIRECTIVE,
+            *NO_INLINE_DIRECTIVE_NAME,
+            *THROW_ON_FIELD_ERROR_DIRECTIVE,
+        ]
+    });
 // A server-owned operation normalizes and hands off connections like any other
 // records. `@stream_connection` is admitted so that the incremental delivery
 // validation owns its diagnostic.

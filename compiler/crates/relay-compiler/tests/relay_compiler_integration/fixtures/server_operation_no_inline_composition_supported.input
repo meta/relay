@@ -1,0 +1,43 @@
+//- src/ServerUser.js
+
+// A `@server` operation composes a `@no_inline` server fragment, and the
+// client fragment that the server fragment hands off is still listed in the
+// operation's `serverHandoff`.
+
+graphql`query ServerUserQuery @server {
+  me {
+    ...ServerPanel_user
+  }
+}`
+
+graphql`fragment ServerPanel_user on User @server @no_inline {
+  ...ClientCard_user @alias(as: "clientCard")
+}`
+
+graphql`fragment ClientCard_user on User {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  name: String
+}

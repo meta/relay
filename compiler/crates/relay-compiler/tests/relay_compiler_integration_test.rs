@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<7510270416252cfe85d31d52f1a048af>>
+ * @generated SignedSource<<f20276fac595cb315b81389a12977813>>
  */
 
 mod relay_compiler_integration;
@@ -1732,6 +1732,13 @@ async fn server_operation_match_module_unsupported_invalid() {
     let input = include_str!("relay_compiler_integration/fixtures/server_operation_match_module_unsupported.invalid.input");
     let expected = include_str!("relay_compiler_integration/fixtures/server_operation_match_module_unsupported.invalid.expected");
     test_fixture(transform_fixture, file!(), "server_operation_match_module_unsupported.invalid.input", "relay_compiler_integration/fixtures/server_operation_match_module_unsupported.invalid.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn server_operation_no_inline_composition_supported() {
+    let input = include_str!("relay_compiler_integration/fixtures/server_operation_no_inline_composition_supported.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/server_operation_no_inline_composition_supported.expected");
+    test_fixture(transform_fixture, file!(), "server_operation_no_inline_composition_supported.input", "relay_compiler_integration/fixtures/server_operation_no_inline_composition_supported.expected", input, expected).await;
 }
 
 #[tokio::test]

@@ -169,6 +169,17 @@ impl Visitor for HandoffCollector<'_> {
         if !self.visited_fragments.insert(spread.fragment.item) {
             return;
         }
+        // A server-owned `@no_inline` fragment's selections live in its
+        // normalization operation, which a base project does not provide.
+        let program = self.program;
+        if NoInlineFragmentSpreadMetadata::find(&spread.directives).is_some()
+            && let Some(operation) =
+                program.operation(OperationDefinitionName(spread.fragment.item.0))
+        {
+            self.visit_selections(&operation.selections);
+            return;
+        }
+
         if NoInlineFragmentSpreadMetadata::find(&spread.directives).is_some() {
             self.errors.push(Diagnostic::error(
                 ValidationMessage::NoInlineFragmentUnsupported {
