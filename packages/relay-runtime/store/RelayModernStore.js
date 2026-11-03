@@ -879,11 +879,22 @@ class RelayModernStore implements Store {
   }
 
   _gcStep = () => {
-    if (this._gcRun) {
-      if (this._gcRun.next().done === true) {
-        this._gcRun = null;
-      } else {
-        this._gcScheduler(this._gcStep);
+    const run = this._gcRun;
+    if (run) {
+      // A collection that throws is over, so that later ones are scheduled.
+      // A step can also cancel its run and schedule another (e.g. through
+      // `holdGC()`), which then owns `_gcRun`.
+      let done = true;
+      try {
+        done = run.next().done === true;
+      } finally {
+        if (this._gcRun === run) {
+          if (done) {
+            this._gcRun = null;
+          } else {
+            this._gcScheduler(this._gcStep);
+          }
+        }
       }
     }
   };

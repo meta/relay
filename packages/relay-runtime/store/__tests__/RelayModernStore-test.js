@@ -42,6 +42,7 @@ const {createReaderSelector} = require('../RelayModernSelector');
 const RelayModernStore = require('../RelayModernStore');
 const RelayOptimisticRecordSource = require('../RelayOptimisticRecordSource');
 const RelayRecordSource = require('../RelayRecordSource');
+const RelayReferenceMarker = require('../RelayReferenceMarker');
 const {
   INVALIDATED_AT_KEY,
   REF_KEY,
@@ -2631,6 +2632,44 @@ function cloneEventWithSets(event: LogEvent) {
           // still nothing collected
           expect(getStoreRecordIDs()).toEqual(['a', 'b', 'client:root']);
           runNextScheduledJob(); // sweep
+          expect(getStoreRecordIDs()).toEqual(['b', 'client:root']);
+        });
+
+        it('schedules GC again after a collection throws', () => {
+          const retainA = writeAndRetainNode('a');
+          writeAndRetainNode('b');
+          const mark = jest
+            .spyOn(RelayReferenceMarker, 'mark')
+            .mockImplementationOnce(() => {
+              throw new Error('Marking failed');
+            });
+          retainA.dispose();
+          expect(() => runNextScheduledJob()).toThrow('Marking failed');
+          mark.mockRestore();
+
+          writeAndRetainNode('c').dispose();
+          expect(schedulerQueue.length).toBe(1);
+          runNextScheduledJob(); // mark the remaining operation
+          runNextScheduledJob(); // sweep
+          expect(getStoreRecordIDs()).toEqual(['b', 'client:root']);
+        });
+
+        it('keeps the collection a throwing step scheduled in its place', () => {
+          const retainA = writeAndRetainNode('a');
+          writeAndRetainNode('b');
+          const mark = jest
+            .spyOn(RelayReferenceMarker, 'mark')
+            .mockImplementationOnce(() => {
+              // E.g. an operation loader that holds GC, then fails.
+              store.holdGC().dispose();
+              throw new Error('Marking failed');
+            });
+          retainA.dispose();
+          expect(() => runNextScheduledJob()).toThrow('Marking failed');
+          mark.mockRestore();
+          while (schedulerQueue.length > 0) {
+            runNextScheduledJob();
+          }
           expect(getStoreRecordIDs()).toEqual(['b', 'client:root']);
         });
 
