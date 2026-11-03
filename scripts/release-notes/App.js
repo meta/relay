@@ -42,7 +42,6 @@ function CommitCard({
   message,
   summary,
   author,
-  date,
   selectedCategory,
   onCategoryChange,
   fullHash,
@@ -106,7 +105,6 @@ function App({commits, lastRelease}) {
                 message={commit.message}
                 summary={commit.summary}
                 author={commit.author}
-                date={commit.date}
                 fullHash={commit.fullHash}
                 diff={commit.diff}
                 selectedCategory={selectedCategories[commit.hash]}
