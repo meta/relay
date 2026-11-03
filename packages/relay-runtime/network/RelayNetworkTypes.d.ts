@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {OperationAvailability, OperationDescriptor} from '../store/RelayStoreTypes';
+import {OperationAvailability, OperationDescriptor, RecordSource} from '../store/RelayStoreTypes';
 import { RequestParameters } from '../util/RelayConcreteNode';
 import {CacheConfig, Disposable, Variables} from '../util/RelayRuntimeTypes';
 import {ObservableFromValue, RelayObservable} from './RelayObservable';
@@ -98,8 +98,19 @@ export type CheckOperation = (
     operation: OperationDescriptor,
 ) => OperationAvailability;
 
+// `CheckOperation` as if the records in `unpublished`, oldest first, were
+// published over the store. Like it, commits what missing-field handlers
+// supply; the records in `unpublished` stay unpublished.
+export type CheckOperationWithUnpublished = (
+    operation: OperationDescriptor,
+    unpublished: readonly RecordSource[],
+) => OperationAvailability;
+
 export interface OperationAvailabilityConfig {
     readonly checkOperation: CheckOperation;
+    // Set by environments that can also read records the caller holds without
+    // having published them.
+    readonly checkOperationWithUnpublished?: CheckOperationWithUnpublished | null | undefined;
     readonly parentOperation: OperationDescriptor | null | undefined;
 }
 

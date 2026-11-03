@@ -37,6 +37,7 @@ import type {
   OptimisticResponseConfig,
   OptimisticUpdateFunction,
   PublishQueue,
+  RecordSource,
   RelayFieldLogger,
   SelectorStoreUpdater,
   SingularReaderSelector,
@@ -62,6 +63,7 @@ const OperationExecutor = require('./OperationExecutor');
 const RelayModernStore = require('./RelayModernStore');
 const RelayPublishQueue = require('./RelayPublishQueue');
 const RelayRecordSource = require('./RelayRecordSource');
+const RelayRecordSourceOverlay = require('./RelayRecordSourceOverlay');
 const {ROOT_TYPE} = require('./RelayStoreUtils');
 const invariant = require('invariant');
 
@@ -250,6 +252,7 @@ class RelayModernEnvironment implements IEnvironment {
     return this._checkSelectorAndHandleMissingFields(
       operation,
       this._missingFieldHandlers,
+      this._store.getSource(),
     );
   }
 
@@ -331,9 +334,9 @@ class RelayModernEnvironment implements IEnvironment {
   _checkSelectorAndHandleMissingFields(
     operation: OperationDescriptor,
     handlers: ReadonlyArray<MissingFieldHandler>,
+    source: RecordSource,
   ): OperationAvailability {
     const target = RelayRecordSource.create();
-    const source = this._store.getSource();
     const result = this._store.check(operation, {
       defaultActorIdentifier: INTERNAL_ACTOR_IDENTIFIER_DO_NOT_USE,
       getSourceForActor(actorIdentifier: ActorIdentifier) {
@@ -353,6 +356,20 @@ class RelayModernEnvironment implements IEnvironment {
       });
     }
     return result;
+  }
+
+  // Commits what missing-field handlers supply, as `check()` does, since
+  // readers don't run them. A link to a record only `unpublished` holds reads
+  // as missing, as the field it fills did, until that record publishes.
+  _checkWithUnpublished(
+    operation: OperationDescriptor,
+    unpublished: ReadonlyArray<RecordSource>,
+  ): OperationAvailability {
+    return this._checkSelectorAndHandleMissingFields(
+      operation,
+      this._missingFieldHandlers,
+      new RelayRecordSourceOverlay(this._store.getSource(), unpublished),
+    );
   }
 
   _scheduleUpdates(task: () => void) {
@@ -390,6 +407,8 @@ class RelayModernEnvironment implements IEnvironment {
           {
             checkOperation: candidateOperation =>
               this.check(candidateOperation),
+            checkOperationWithUnpublished: (candidateOperation, unpublished) =>
+              this._checkWithUnpublished(candidateOperation, unpublished),
             parentOperation: operation,
           },
         );

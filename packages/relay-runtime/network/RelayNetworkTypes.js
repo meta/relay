@@ -14,6 +14,7 @@
 import type {
   OperationAvailability,
   OperationDescriptor,
+  RecordSource,
 } from '../store/RelayStoreTypes';
 import type {RequestParameters} from '../util/RelayConcreteNode';
 import type {CacheConfig, Variables} from '../util/RelayRuntimeTypes';
@@ -105,8 +106,19 @@ export type CheckOperation = (
   operation: OperationDescriptor,
 ) => OperationAvailability;
 
+// `CheckOperation` as if the records in `unpublished`, oldest first, were
+// published over the store. Like it, commits what missing-field handlers
+// supply; the records in `unpublished` stay unpublished.
+export type CheckOperationWithUnpublished = (
+  operation: OperationDescriptor,
+  unpublished: ReadonlyArray<RecordSource>,
+) => OperationAvailability;
+
 export type OperationAvailabilityConfig = Readonly<{
   checkOperation: CheckOperation,
+  // Set by environments that can also read records the caller holds without
+  // having published them.
+  checkOperationWithUnpublished?: ?CheckOperationWithUnpublished,
   // Preloadable queries can start their raw request before the AST is loaded.
   parentOperation: ?OperationDescriptor,
 }>;
