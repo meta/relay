@@ -79,11 +79,10 @@ impl FileSystem for StdFileSystem {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
 mod tests {
     use super::*;
 
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[test]
     fn std_file_system_reads_relative_to_its_root() {
         let dir = tempfile::tempdir().unwrap();

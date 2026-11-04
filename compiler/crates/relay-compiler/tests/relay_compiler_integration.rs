@@ -85,6 +85,11 @@ pub async fn transform_project_fixture(project_fixture: &ProjectFixture) -> Resu
     transform_project_fixture_with_extra_artifacts(project_fixture, true).await
 }
 
+/// The cwd is process-global but tests run in parallel. Without this, one test
+/// can record another's temp dir as its "original" cwd and fail to restore it
+/// once that dir has been deleted.
+static CWD_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn transform_project_fixture_with_extra_artifacts(
     project_fixture: &ProjectFixture,
     has_extra_artifacts: bool,
@@ -95,6 +100,7 @@ async fn transform_project_fixture_with_extra_artifacts(
 
     project_fixture.write_to_dir(test_dir.path());
 
+    let _cwd_guard = CWD_LOCK.lock().await;
     let original_cwd = std::env::current_dir().expect("Could not get cwd");
 
     std::env::set_current_dir(test_dir.path()).expect("Could not set cwd");
