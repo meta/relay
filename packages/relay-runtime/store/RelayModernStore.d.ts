@@ -45,6 +45,7 @@ export default class RelayModernStore implements Store {
     lookup(selector: SingularReaderSelector): Snapshot;
     notify(sourceOperation?: OperationDescriptor, invalidateStore?: boolean): readonly RequestDescriptor[];
     publish(source: RecordSource, idsMarkedForInvalidation?: Set<DataID>): void;
+    observeUpdatedRecordIDs(observer: (updatedRecordIDs: Set<DataID>) => void): Disposable;
     subscribe(snapshot: Snapshot, callback: (snapshot: Snapshot) => void): Disposable;
     holdGC(): Disposable;
     lookupInvalidationState(dataIDs: readonly DataID[]): InvalidationState;

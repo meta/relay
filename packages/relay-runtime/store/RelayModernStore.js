@@ -126,6 +126,7 @@ class RelayModernStore implements Store {
   _shouldScheduleGCAfterPublish: ?() => boolean;
   _storeSubscriptions: StoreSubscriptions;
   _updatedRecordIDs: DataIDSet;
+  _updatedRecordIDsObservers: Set<(updatedRecordIDs: DataIDSet) => void>;
   _resolverContext: ?ResolverContext;
   _actorIdentifier: ?ActorIdentifier;
   _treatMissingFieldsAsNull: boolean;
@@ -200,6 +201,7 @@ class RelayModernStore implements Store {
       this._resolverContext,
     );
     this._updatedRecordIDs = new Set();
+    this._updatedRecordIDsObservers = new Set();
     this._treatMissingFieldsAsNull = options?.treatMissingFieldsAsNull ?? false;
     this._deferDeduplicatedFields = options?.deferDeduplicatedFields ?? false;
     this._actorIdentifier = options?.actorIdentifier;
@@ -585,10 +587,21 @@ class RelayModernStore implements Store {
       });
     }
 
+    // Observers run after this notification's state is reset, so one that
+    // throws cannot leak its IDs into the next notification.
+    const updatedRecordIDs =
+      this._updatedRecordIDsObservers.size > 0
+        ? new Set(this._updatedRecordIDs)
+        : null;
     this._updatedRecordIDs.clear();
     this._invalidatedRecordIDs.clear();
     this._hasPendingSourceOperation = false;
 
+    if (updatedRecordIDs != null) {
+      this._updatedRecordIDsObservers.forEach(observer =>
+        observer(updatedRecordIDs),
+      );
+    }
     return updatedOwners;
   }
 
@@ -731,6 +744,25 @@ class RelayModernStore implements Store {
 
   getEpoch(): number {
     return this._currentWriteEpoch;
+  }
+
+  /**
+   * Calls `observer` after each `notify()` with the IDs of the records it
+   * updated: records that publishes and handlers wrote, optimistic writes
+   * included, and records that depend on them, such as Resolver results. Not
+   * invalidated records, and not the revert of an optimistic update, which
+   * restores subscriptions without writing records.
+   */
+  observeUpdatedRecordIDs(
+    observer: (updatedRecordIDs: DataIDSet) => void,
+  ): Disposable {
+    const entry = (updatedRecordIDs: DataIDSet) => observer(updatedRecordIDs);
+    this._updatedRecordIDsObservers.add(entry);
+    return {
+      dispose: () => {
+        this._updatedRecordIDsObservers.delete(entry);
+      },
+    };
   }
 
   // Internal API

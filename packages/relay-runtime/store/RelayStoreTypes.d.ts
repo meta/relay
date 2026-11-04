@@ -269,6 +269,13 @@ export interface Store {
     publish(source: RecordSource, idsMarkedForInvalidation?: DataIDSet): void;
 
     /**
+     * Calls `observer` after each `notify()` with the IDs of the records it
+     * updated (optimistic writes included; not invalidated records, and not the
+     * revert of an optimistic update).
+     */
+    observeUpdatedRecordIDs(observer: (updatedRecordIDs: DataIDSet) => void): Disposable;
+
+    /**
      * Ensure that all the records necessary to fulfill the given selector are
      * retained in-memory. The records will not be eligible for garbage collection
      * until the returned reference is disposed.

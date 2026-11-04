@@ -312,6 +312,15 @@ export interface Store {
   publish(source: RecordSource, idsMarkedForInvalidation?: DataIDSet): void;
 
   /**
+   * Calls `observer` after each `notify()` with the IDs of the records it
+   * updated (optimistic writes included; not invalidated records, and not the
+   * revert of an optimistic update).
+   */
+  observeUpdatedRecordIDs(
+    observer: (updatedRecordIDs: DataIDSet) => void,
+  ): Disposable;
+
+  /**
    * Publish on behalf of `sourceOperation` when no `notify()` will follow in
    * this turn. `publish()` also defers notification, but expects a `notify()`
    * imminently, and it is that call which records the operation as written.
