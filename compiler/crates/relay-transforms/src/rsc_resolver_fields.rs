@@ -6,6 +6,7 @@
  */
 
 use std::hash::Hasher;
+use std::path::MAIN_SEPARATOR;
 use std::sync::Arc;
 
 use common::ArgumentName;
@@ -667,9 +668,12 @@ fn rsc_definition_id(
     component_module_name: StringKey,
     component_export_name: StringKey,
 ) -> StringKey {
+    // The module name is a source path; normalize separators so the ID (and
+    // the artifacts that embed it) is the same on every platform.
+    let component_module_name = component_module_name.lookup().replace(MAIN_SEPARATOR, "/");
     let mut hasher = FnvHasher::default();
-    for value in [fragment_name.0, component_module_name] {
-        hasher.write(value.lookup().as_bytes());
+    for value in [fragment_name.0.lookup(), &component_module_name] {
+        hasher.write(value.as_bytes());
         hasher.write_u8(0);
     }
     hasher.write(component_export_name.lookup().as_bytes());
