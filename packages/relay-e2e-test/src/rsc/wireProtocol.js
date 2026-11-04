@@ -98,7 +98,14 @@ function parseFlightRows(bytes) {
     let end;
     if (LENGTH_PREFIXED_TAGS.includes(tag)) {
       const comma = bytes.indexOf(0x2c, start);
-      end = comma + 1 + parseInt(bytes.toString('latin1', start, comma), 16);
+      const length =
+        comma === -1 ? NaN : parseInt(bytes.toString('latin1', start, comma), 16);
+      end = comma + 1 + length;
+      if (Number.isNaN(length) || end > bytes.length) {
+        throw new Error(
+          `relay-e2e-test: React Flight row ${id.toString(16)} is truncated.`,
+        );
+      }
       start = comma + 1;
       i = end;
     } else {

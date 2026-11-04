@@ -164,10 +164,13 @@ async function startRscServer({fixtureDir, host}) {
       )
       .subscribe({
         next: payload => res.write(JSON.stringify(payload) + '\n'),
-        error: error =>
-          res.end(
-            JSON.stringify({errors: [{message: String(error.message)}]}) + '\n',
-          ),
+        // The response is already a 200 and may have sent payloads: log the
+        // failure, so it shows in the fixture's `## Server Console`.
+        error: error => {
+          const message = String(error?.message ?? error);
+          console.error(`POST /graphql ${name} failed: ${message}`);
+          res.end(JSON.stringify({errors: [{message}]}) + '\n');
+        },
         complete: () => res.end(),
       });
   }

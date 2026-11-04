@@ -157,6 +157,13 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
   const wireLog = [];
   // The Flight bytes of each page the browser loaded.
   const pages = [];
+  // Page requests that failed. A failure is a harness failure even after the
+  // page rendered: React Flight ignores a stream error once the chunks it
+  // decodes have arrived.
+  const transportErrors = [];
+  function recordTransportError(request, error) {
+    transportErrors.push(`${request}: ${String(error?.message ?? error)}`);
+  }
 
   function logRequest(method, pathname, label) {
     const entry = {bytes: [], label, method, pathname, status: null, type: ''};
@@ -235,10 +242,30 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
         controller = streamController;
       },
     });
+    let flightEnded = false;
+    const endFlight = error => {
+      if (!flightEnded) {
+        flightEnded = true;
+        if (error == null) {
+          controller.close();
+        } else {
+          controller.error(error);
+        }
+      }
+    };
     return new Promise((resolve, reject) => {
+      // After the shell resolved, only the Flight stream (and so hydration)
+      // can still fail.
+      const fail = error => {
+        recordTransportError('GET /', error);
+        entry.end();
+        endFlight(error);
+        reject(error);
+      };
       http
         .get(`${ssr.origin}/`, response => {
           logResponse(entry, response);
+          response.on('error', fail);
           let html = '';
           let scanned = -1;
           response.setEncoding('utf-8');
@@ -291,18 +318,16 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
             }
           });
           response.on('end', () => {
-            controller.close();
             // E.g. a Flight stream error before the shell: fail now rather
             // than at the test's timeout.
             if (scanned === -1) {
-              reject(new Error('The SSR document ended before its shell.'));
+              fail(new Error('The SSR document ended before its shell.'));
+            } else {
+              endFlight(null);
             }
           });
         })
-        .on('error', error => {
-          entry.end();
-          reject(error);
-        });
+        .on('error', fail);
     });
   }
 
@@ -313,19 +338,22 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
     return createFromReadableStream(
       new ReadableStream({
         start(controller) {
+          const fail = error => {
+            recordTransportError(`GET /page${search}`, error);
+            entry.end();
+            controller.error(error);
+          };
           http
             .get(`${rscOrigin}/page${search}`, response => {
               logResponse(entry, response);
+              response.on('error', fail);
               response.on('data', chunk => {
                 page.bytes.push(Buffer.from(chunk));
                 controller.enqueue(new Uint8Array(chunk));
               });
               response.on('end', () => controller.close());
             })
-            .on('error', error => {
-              entry.end();
-              controller.error(error);
-            });
+            .on('error', fail);
         },
       }),
     );
@@ -412,6 +440,9 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
       );
       if (crash != null) {
         throw new Error(`A server process failed: ${crash}`);
+      }
+      if (transportErrors.length > 0) {
+        throw new Error(`A page request failed: ${transportErrors[0]}`);
       }
       const browserModules = [
         ...new Set([...clientModules.keys(), ...evaluatedModules]),
