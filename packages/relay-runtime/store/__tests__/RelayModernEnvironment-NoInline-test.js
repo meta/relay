@@ -157,7 +157,10 @@ async function runViaNormalizationEngine(
   // settle (Promise.allSettled isn't in the test env's Promise polyfill).
   const settled = await Promise.all(
     engineResult.pendingModules.map(p =>
-      p.then<{kind: 'ok'} | {kind: 'err', reason: unknown}>(
+      p.then<
+        {kind: 'ok'} | {kind: 'err', reason: unknown},
+        {kind: 'err', reason: unknown},
+      >(
         () => ({kind: 'ok'}),
         (reason: unknown) => ({kind: 'err', reason}),
       ),
