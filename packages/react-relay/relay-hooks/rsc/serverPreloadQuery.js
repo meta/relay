@@ -42,9 +42,9 @@ function serverPreloadQuery<TVariables extends Variables, TData>(
   const queryId =
     request.params.id ?? request.params.cacheID ?? request.params.name;
 
-  const response: Promise<PreloadedQueryResponse<TData>> =
-    // $FlowFixMe[incompatible-type] PayloadData -> TData; shape validated by the Relay compiler
-    observable.toPromise().then(rawResponse => {
+  const response: Promise<PreloadedQueryResponse<TData>> = observable
+    .toPromise()
+    .then(rawResponse => {
       invariant(rawResponse != null, 'Unexpected null response from execute');
       // TODO: @defer returns batched responses; this only handles the first payload
       invariant(
@@ -52,7 +52,8 @@ function serverPreloadQuery<TVariables extends Variables, TData>(
         '@defer is not yet supported in serverPreloadQuery',
       );
       return {
-        data: rawResponse.data,
+        // $FlowFixMe[incompatible-type] PayloadData -> TData; shape validated by the Relay compiler
+        data: rawResponse.data as TData,
         errors: rawResponse.errors,
       };
     });
