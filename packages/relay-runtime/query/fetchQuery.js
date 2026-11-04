@@ -19,7 +19,6 @@ import type {
 import type {
   CacheConfig,
   FetchQueryFetchPolicy,
-  OperationType,
   Query,
   Variables,
 } from '../util/RelayRuntimeTypes';
@@ -146,9 +145,7 @@ function fetchQuery<TVariables extends Variables, TData, TRawResponse>(
 
   switch (fetchPolicy) {
     case 'network-only': {
-      return getNetworkObservable<$FlowFixMe>(environment, operation).map(
-        readData,
-      );
+      return getNetworkObservable(environment, operation).map(readData);
     }
     case 'store-or-network': {
       const queryAvailability = environment.check(operation);
@@ -159,10 +156,7 @@ function fetchQuery<TVariables extends Variables, TData, TRawResponse>(
           environment.lookup(operation.fragment),
         ).map(readData);
       } else {
-        observable = getNetworkObservable<$FlowFixMe>(
-          environment,
-          operation,
-        ).map(readData);
+        observable = getNetworkObservable(environment, operation).map(readData);
       }
       environment.__log({
         name: 'fetchquery.fetch',
@@ -179,10 +173,10 @@ function fetchQuery<TVariables extends Variables, TData, TRawResponse>(
   }
 }
 
-function getNetworkObservable<TQuery extends OperationType>(
+function getNetworkObservable(
   environment: IEnvironment,
   operation: OperationDescriptor,
-): RelayObservable<TQuery['response']> {
+): RelayObservable<Snapshot> {
   return fetchQueryInternal
     .fetchQuery(environment, operation)
     .map(() => environment.lookup(operation.fragment));
