@@ -133,6 +133,19 @@ function copyFields(source: Record, sink: Record): void {
 /**
  * @public
  *
+ * Copies one field, and its errors, if `source` has it.
+ */
+function copyField(source: Record, sink: Record, storageKey: StorageKey): void {
+  if (!source.hasOwnProperty(storageKey)) {
+    return;
+  }
+  sink[storageKey] = source[storageKey];
+  setErrors(sink, storageKey, getErrors(source, storageKey));
+}
+
+/**
+ * @public
+ *
  * Create a new record.
  */
 function create(dataID: DataID, typeName: string): Record {
@@ -908,6 +921,7 @@ function hasFieldChangedPerf(
 
 module.exports = {
   clone,
+  copyField,
   copyFields,
   create,
   freeze,

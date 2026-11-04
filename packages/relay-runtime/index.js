@@ -60,6 +60,7 @@ const RelayModernSelector = require('./store/RelayModernSelector');
 const RelayModernStore = require('./store/RelayModernStore');
 const RelayOperationTracker = require('./store/RelayOperationTracker');
 const RelayRecordSource = require('./store/RelayRecordSource');
+const RelayReferenceMarker = require('./store/RelayReferenceMarker');
 const RelayStoreUtils = require('./store/RelayStoreUtils');
 const ResolverFragments = require('./store/ResolverFragments');
 const ViewerPattern = require('./store/ViewerPattern');
@@ -339,6 +340,7 @@ const __internal = {
   defaultGetDataID: defaultGetDataID,
   getOperationVariables: RelayConcreteVariables.getOperationVariables,
   getLocalVariables: RelayConcreteVariables.getLocalVariables,
+  markReferences: RelayReferenceMarker.mark,
   fetchQuery: fetchQueryInternal.fetchQuery,
   fetchQueryDeduped: fetchQueryInternal.fetchQueryDeduped,
   getPromiseForActiveRequest: fetchQueryInternal.getPromiseForActiveRequest,
