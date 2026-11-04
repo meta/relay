@@ -94,6 +94,7 @@ use crate::artifact_map::ArtifactMap;
 use crate::artifact_map::ArtifactSourceKey;
 use crate::compiler_state::ArtifactMapKind;
 use crate::compiler_state::CompilerState;
+use crate::compiler_state::SchemaChangeCheck;
 use crate::config::Config;
 use crate::config::ProjectConfig;
 use crate::errors::BuildProjectError;
@@ -340,6 +341,7 @@ pub fn build_programs(
             &project_config.schema_config,
             Some(&schema),
             config.schema_diff_changed_sources_only,
+            SchemaChangeCheck::Project,
         );
         match project_schema_change {
             SchemaChangeSafety::Unsafe => BuildMode::Full,
@@ -361,6 +363,7 @@ pub fn build_programs(
                             &project_config.schema_config,
                             None,
                             config.schema_diff_changed_sources_only,
+                            SchemaChangeCheck::BaseProject,
                         )
                     }
                 } else {
@@ -394,6 +397,9 @@ pub fn build_programs(
         } else {
             build_mode
         }
+    }
+    if let BuildMode::IncrementalWithSchemaChanges(changes) = &build_mode {
+        log_event.number("incremental_schema_change_count", changes.len());
     }
     log_event.bool(
         "is_incremental_build",

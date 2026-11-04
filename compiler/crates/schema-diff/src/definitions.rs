@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::BTreeMap;
 use std::fmt;
 
 pub use graphql_syntax::TypeAnnotation;
@@ -114,6 +115,31 @@ impl fmt::Debug for DefinitionChange {
     }
 }
 
+impl DefinitionChange {
+    /// The name of the variant, e.g. `ObjectChanged`.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            DefinitionChange::EnumAdded(_) => "EnumAdded",
+            DefinitionChange::EnumChanged { .. } => "EnumChanged",
+            DefinitionChange::EnumRemoved(_) => "EnumRemoved",
+            DefinitionChange::UnionAdded(_) => "UnionAdded",
+            DefinitionChange::UnionChanged { .. } => "UnionChanged",
+            DefinitionChange::UnionRemoved(_) => "UnionRemoved",
+            DefinitionChange::ScalarAdded(_) => "ScalarAdded",
+            DefinitionChange::ScalarRemoved(_) => "ScalarRemoved",
+            DefinitionChange::InputObjectAdded(_) => "InputObjectAdded",
+            DefinitionChange::InputObjectChanged { .. } => "InputObjectChanged",
+            DefinitionChange::InputObjectRemoved(_) => "InputObjectRemoved",
+            DefinitionChange::InterfaceAdded(_) => "InterfaceAdded",
+            DefinitionChange::InterfaceChanged { .. } => "InterfaceChanged",
+            DefinitionChange::InterfaceRemoved(_) => "InterfaceRemoved",
+            DefinitionChange::ObjectAdded(_) => "ObjectAdded",
+            DefinitionChange::ObjectChanged { .. } => "ObjectChanged",
+            DefinitionChange::ObjectRemoved { .. } => "ObjectRemoved",
+        }
+    }
+}
+
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
 pub struct ArgumentChange {
     pub name: StringKey,
@@ -168,6 +194,25 @@ pub enum SchemaChange {
     GenericChange,
     InvalidSchema,
     DefinitionChanges(Vec<DefinitionChange>),
+}
+
+impl SchemaChange {
+    /// How many definitions changed of each kind, sorted by kind, e.g.
+    /// `EnumChanged:2,ObjectAdded:1`. Empty unless the change lists definitions.
+    pub fn kind_counts(&self) -> String {
+        let SchemaChange::DefinitionChanges(changes) = self else {
+            return String::new();
+        };
+        let mut counts: BTreeMap<&'static str, usize> = BTreeMap::new();
+        for change in changes {
+            *counts.entry(change.kind()).or_default() += 1;
+        }
+        counts
+            .iter()
+            .map(|(kind, count)| format!("{kind}:{count}"))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
 }
 
 impl fmt::Display for SchemaChange {

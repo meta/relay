@@ -2563,6 +2563,41 @@ fn test_schema_diff_identical_complex_schema() {
     assert_eq!(diff_from_schemas(schema, schema), SchemaChange::None);
 }
 
+#[test]
+fn test_kind_counts() {
+    let change = diff(
+        r"
+        enum A {
+            X
+            Y
+        }
+        type B {
+            x: Int
+        }
+        type C {
+            y: Int
+        }
+        type D {
+            z: Int
+        }
+        #",
+        r"
+        enum A {
+            X
+        }
+        type B {
+            x: String
+        }
+        #",
+    );
+    assert_eq!(
+        change.kind_counts(),
+        "EnumChanged:1,ObjectAdded:2,ObjectChanged:1",
+        "kinds should be sorted by name with their counts"
+    );
+    assert_eq!(SchemaChange::GenericChange.kind_counts(), "");
+}
+
 fn sort_change(change: &mut SchemaChange) {
     if let SchemaChange::DefinitionChanges(changes) = change {
         changes.sort();

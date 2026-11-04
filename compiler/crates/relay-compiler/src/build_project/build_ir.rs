@@ -99,6 +99,7 @@ pub fn build_ir(
             .enable_exec_time_resolvers_directive
             || has_exec_time_resolver_context(&ir)))
     .then_some(project_asts.removed_spread_names);
+    let definition_count = ir.len();
     let affected_ir: Vec<graphql_ir::ExecutableDefinition> = match build_mode {
         BuildMode::Incremental => get_reachable_ir(
             ir,
@@ -120,6 +121,11 @@ pub fn build_ir(
         ),
         BuildMode::Full => ir,
     };
+
+    if !is_full_build {
+        log_event.number("definition_count", definition_count);
+        log_event.number("affected_definition_count", affected_ir.len());
+    }
 
     let source_hashes = if is_full_build {
         SourceHashes::from_definitions(&asts, None)

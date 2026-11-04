@@ -765,6 +765,7 @@ impl CompilerState {
         schema_config: &SchemaConfig,
         built_schema: Option<&SDLSchema>,
         diff_changed_sources_only: bool,
+        check: SchemaChangeCheck,
     ) -> SchemaChangeSafety {
         if let Some(extension) = self.extensions.get(&project_name)
             && !extension.pending.is_empty()
@@ -797,6 +798,7 @@ impl CompilerState {
                         SDLSchema::InMemory(schema::compact::deserialize_parallel(old));
                     let schema_change =
                         detect_changes_from_schemas(&current_schema, &previous_schema);
+                    log_schema_change_kinds(log_event, &schema_change, check);
                     let schema_change_string = schema_change_for_logging(&schema_change);
                     let schema_change_safety = if schema_change == SchemaChange::None {
                         SchemaChangeSafety::Safe
@@ -827,12 +829,13 @@ impl CompilerState {
             && !schema_sources.pending.is_empty()
         {
             let schema_change = self.get_schema_change(
-                // A project's own check passes its built schema; log only that
-                // one so the base project's check doesn't overwrite it.
-                built_schema.map(|_| log_event),
+                // Only the project's own check logs these, so that the base
+                // project's check on the same event doesn't overwrite them.
+                (check == SchemaChangeCheck::Project).then_some(log_event),
                 schema_sources,
                 diff_changed_sources_only,
             );
+            log_schema_change_kinds(log_event, &schema_change, check);
             let schema_change_string = schema_change_for_logging(&schema_change);
             let schema_change_safety = if schema_change == SchemaChange::None {
                 SchemaChangeSafety::Safe
@@ -1334,6 +1337,35 @@ impl Write for LoggedSchemaChange {
     }
 }
 
+/// Logs the number of changed definitions and the count of each kind. Unlike
+/// `schema_change`, which is cut off, these hold for the whole diff and are
+/// logged whatever the safety of the change.
+fn log_schema_change_kinds(
+    log_event: &impl PerfLogEvent,
+    schema_change: &SchemaChange,
+    check: SchemaChangeCheck,
+) {
+    if let SchemaChange::DefinitionChanges(changes) = schema_change {
+        let (count_key, kinds_key) = match check {
+            SchemaChangeCheck::Project => ("schema_change_count", "schema_change_kinds"),
+            SchemaChangeCheck::BaseProject => {
+                ("base_schema_change_count", "base_schema_change_kinds")
+            }
+        };
+        log_event.number(count_key, changes.len());
+        log_event.string(kinds_key, schema_change.kind_counts());
+    }
+}
+
+/// Whose schema change `CompilerState::schema_change_safety` checks for a
+/// project's build: the project's own, or its base project's. They log to the
+/// same perf event, so the base project's counts get their own keys.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SchemaChangeCheck {
+    Project,
+    BaseProject,
+}
+
 /// Formats `schema_change` for the perf log, cut off after
 /// `MAX_LOGGED_SCHEMA_CHANGE_LEN` bytes.
 fn schema_change_for_logging(schema_change: &SchemaChange) -> String {
@@ -1513,6 +1545,75 @@ mod tests {
 
     fn project(name: &str) -> ProjectName {
         name.intern().into()
+    }
+
+    /// Records the keys logged to it.
+    #[derive(Default)]
+    struct RecordingLogEvent {
+        keys: std::sync::Mutex<Vec<&'static str>>,
+    }
+
+    impl PerfLogEvent for RecordingLogEvent {
+        type Timer = ();
+        fn number(&self, name: &'static str, _number: usize) {
+            self.keys.lock().unwrap().push(name);
+        }
+        fn bool(&self, name: &'static str, _value: bool) {
+            self.keys.lock().unwrap().push(name);
+        }
+        fn string(&self, name: &'static str, _value: String) {
+            self.keys.lock().unwrap().push(name);
+        }
+        fn start(&self, _name: &'static str) -> Self::Timer {}
+        fn stop(&self, _timer: Self::Timer) {}
+        fn complete(self) {}
+    }
+
+    #[test]
+    fn schema_change_safety_logs_base_project_kinds_under_their_own_keys() {
+        let mut state = CompilerState::default();
+        let proj = project("my_project");
+        let mut schemas: SchemaSources = IncrementalSources::default();
+        schemas.processed.insert(
+            PathBuf::from("schema.graphql"),
+            "type Query { hello: String }".to_string(),
+        );
+        schemas.pending.insert(
+            PathBuf::from("schema.graphql"),
+            "type Query { hello: Int }".to_string(),
+        );
+        state.schemas.insert(proj, schemas);
+
+        let log_event = RecordingLogEvent::default();
+        state.schema_change_safety(
+            &log_event,
+            proj,
+            &Default::default(),
+            None,
+            true,
+            SchemaChangeCheck::Project,
+        );
+        state.schema_change_safety(
+            &log_event,
+            proj,
+            &Default::default(),
+            None,
+            true,
+            SchemaChangeCheck::BaseProject,
+        );
+        let keys = log_event.keys.into_inner().unwrap();
+        for key in [
+            "schema_change_count",
+            "schema_change_kinds",
+            "base_schema_change_count",
+            "base_schema_change_kinds",
+        ] {
+            assert_eq!(
+                keys.iter().filter(|logged| **logged == key).count(),
+                1,
+                "{key} should be logged once in {keys:?}"
+            );
+        }
     }
 
     #[test]
@@ -2140,6 +2241,7 @@ mod tests {
                     &Default::default(),
                     Some(&schema),
                     true,
+                    SchemaChangeCheck::Project,
                 ),
                 SchemaChangeSafety::SafeWithIncrementalBuild(_)
             ),
@@ -2154,6 +2256,7 @@ mod tests {
                     &Default::default(),
                     built_schema,
                     changed_sources_only,
+                    SchemaChangeCheck::Project,
                 )
             };
             assert_eq!(safety(true), safety(false));
@@ -2188,6 +2291,7 @@ mod tests {
                 &Default::default(),
                 Some(&schema),
                 changed_sources_only,
+                SchemaChangeCheck::Project,
             )
         };
 

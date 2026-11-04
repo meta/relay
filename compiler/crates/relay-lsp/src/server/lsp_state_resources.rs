@@ -34,6 +34,7 @@ use relay_compiler::build_project::validate_reader_program;
 use relay_compiler::build_raw_program;
 use relay_compiler::build_schema;
 use relay_compiler::compiler_state::CompilerState;
+use relay_compiler::compiler_state::SchemaChangeCheck;
 use relay_compiler::config::Config;
 use relay_compiler::config::ProjectConfig;
 use relay_compiler::errors::BuildProjectError;
@@ -446,6 +447,7 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
                 &project_config.schema_config,
                 None,
                 self.lsp_state.config.schema_diff_changed_sources_only,
+                SchemaChangeCheck::Project,
             );
             match project_schema_change {
                 SchemaChangeSafety::Unsafe => BuildMode::Full,
@@ -457,6 +459,7 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
                             &project_config.schema_config,
                             None,
                             self.lsp_state.config.schema_diff_changed_sources_only,
+                            SchemaChangeCheck::BaseProject,
                         )
                     } else {
                         SchemaChangeSafety::Safe
