@@ -40,6 +40,11 @@ function relayPackagePaths(): {[string]: Array<string>} {
 
 export async function setupTempDir(
   codeBlocks: Array<CodeBlock>,
+  options: {
+    // Overrides `relayRsc.mode` in relay.config.json, so a Server Component
+    // fixture compiles for each RSC host it runs under.
+    relayRscMode?: ?string,
+  } = {},
 ): Promise<string> {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'relay-e2e-'));
 
@@ -51,14 +56,25 @@ export async function setupTempDir(
   for (const block of codeBlocks) {
     const filePath = path.join(templateDir, block.filename);
     await mkdir(path.dirname(filePath), {recursive: true});
-    await writeFile(filePath, block.content);
+    let content = block.content;
+    if (block.filename === 'relay.config.json' && options.relayRscMode) {
+      const config = JSON.parse(content);
+      config.relayRsc = {...config.relayRsc, mode: options.relayRscMode};
+      content = JSON.stringify(config, null, 2) + '\n';
+    }
+    await writeFile(filePath, content);
   }
 
-  // Copy GratsNetwork.ts from project root
-  await cp(
-    path.join(PROJECT_ROOT, 'GratsNetwork.ts'),
-    path.join(tempDir, 'GratsNetwork.ts'),
+  // Copy the shared network from project root, and for a Server Component
+  // fixture (one with a Page.tsx) the Server Component API
+  const isServerComponentFixture = codeBlocks.some(
+    block => block.filename === 'Page.tsx',
   );
+  for (const file of isServerComponentFixture
+    ? ['GratsNetwork.ts', 'RelayRscHost.ts']
+    : ['GratsNetwork.ts']) {
+    await cp(path.join(PROJECT_ROOT, file), path.join(tempDir, file));
+  }
 
   // The tsconfig is generated rather than copied: `paths` has to hold absolute
   // paths to the Relay packages, because the temp dir lives outside the repo

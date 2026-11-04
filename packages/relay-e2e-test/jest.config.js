@@ -42,6 +42,10 @@ module.exports = {
     '^react/(.*)$': '<rootDir>/node_modules/react/$1',
     '^react-dom$': '<rootDir>/node_modules/react-dom',
     '^react-dom/(.*)$': '<rootDir>/node_modules/react-dom/$1',
+    // The browser half of React Flight, for Server Component fixtures. The
+    // server half runs in separate processes (src/rsc/).
+    '^react-server-dom-webpack/client$':
+      '<rootDir>/node_modules/react-server-dom-webpack/client.browser.js',
     // Point to Relay source files directly
     // resolveRelayPackage checks packages/ (GitHub) then oss/ (internal)
     '^relay-runtime$': relayRuntimePath,

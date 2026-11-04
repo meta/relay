@@ -7,12 +7,40 @@
 
 import { Network, Observable, GraphQLResponse } from "relay-runtime";
 import type { RelayObservable } from "relay-runtime/lib/network/RelayObservable";
-import type { AsyncExecutionResult, ExecutionResult } from "graphql";
+import type {
+  AsyncExecutionResult,
+  ExecutionResult,
+  GraphQLSchemaConfig,
+} from "graphql";
 import type { PromiseOrValue } from "graphql/jsutils/PromiseOrValue";
-import { execute, subscribe, parse } from "graphql";
+import { GraphQLSchema, execute, subscribe, parse } from "graphql";
 import { getSchema } from "./schema";
 
-const executableSchema = getSchema();
+// The processes of a Server Component fixture (src/rsc/) execute `@defer`
+// and `@stream` incrementally, which this graphql build does only for a
+// schema created with `enableDeferStream` (its type declarations leave the
+// option out). They pass payloads on as JSON, as a GraphQL server sends them:
+// graphql-js builds result objects with null prototypes, which React Flight
+// refuses to pass from a Server Component to a Client Component.
+const serverComponents =
+  (
+    globalThis as unknown as {
+      process?: { env: { [name: string]: string | undefined } };
+    }
+  ).process?.env.RELAY_E2E_SERVER_COMPONENTS === "1";
+
+const executableSchema = serverComponents
+  ? new GraphQLSchema({
+      ...getSchema().toConfig(),
+      enableDeferStream: true,
+    } as GraphQLSchemaConfig)
+  : getSchema();
+
+function toPayload(value: unknown): GraphQLResponse {
+  return serverComponents
+    ? JSON.parse(JSON.stringify(value))
+    : (value as GraphQLResponse);
+}
 
 // The async branch yields `AsyncExecutionResult`, not `ExecutionResult`: under
 // incremental delivery each payload after the first is an `ExecutionPatchResult`,
@@ -29,10 +57,10 @@ function toObservable(result: GraphQLResult): RelayObservable<GraphQLResponse> {
       const resolved = await result;
       if (Symbol.asyncIterator in resolved) {
         for await (const value of resolved) {
-          sink.next(value as GraphQLResponse);
+          sink.next(toPayload(value));
         }
       } else {
-        sink.next(resolved as GraphQLResponse);
+        sink.next(toPayload(resolved));
       }
       sink.complete();
     })().catch((err) => sink.error(err));

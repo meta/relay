@@ -2,6 +2,8 @@
 
 Markdown-driven end-to-end tests for Relay. Each test is a self-contained `.md` file that defines a GraphQL server (via [Grats](https://grats.capt.dev/)), a Relay-powered React component, and optional interaction steps. The test harness extracts the code blocks, compiles them with Grats + relay-compiler, typechecks them with `tsc`, renders with React Testing Library, runs interactions, and snapshot-tests the output.
 
+A fixture with a `Page.tsx` instead of an `App.tsx` tests React Server Components: it runs in separate RSC and SSR processes with real React Flight, and the browser realm hydrates the server-rendered page. See the [Server Component guide](.llms/skills/relay-e2e-test/references/server-components.md).
+
 Tests run against **Relay runtime packages from source** (`packages/relay-runtime/` and `packages/react-relay/`), so changes are reflected immediately without a build step.
 
 ## Running tests

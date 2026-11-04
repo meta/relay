@@ -23,7 +23,10 @@ const fixtureFiles = readdirSync(fixturesDir, {recursive: true})
   .map(f => String(f))
   .filter(f => f.endsWith('.md') && !f.endsWith('.snap.md'));
 
-function formatConsoleArgs(args: Array<mixed>): string {
+function formatConsoleArgs(
+  args: Array<mixed>,
+  serverComponents: boolean = false,
+): string {
   if (args.length === 0) {return '';}
   const first = args[0];
   if (typeof first === 'string' && args.length > 1) {
@@ -31,6 +34,11 @@ function formatConsoleArgs(args: Array<mixed>): string {
     const formatted = first.replace(/%[sdioOcf%]/g, match => {
       if (match === '%%') {return '%';}
       if (i >= args.length) {return match;}
+      // `%c` styles the text after it, as in React's replayed server logs.
+      if (serverComponents && match === '%c') {
+        i++;
+        return '';
+      }
       return String(args[i++]);
     });
     const rest = args.slice(i);
@@ -39,47 +47,111 @@ function formatConsoleArgs(args: Array<mixed>): string {
   return args.map(String).join(' ');
 }
 
-for (const file of fixtureFiles) {
-  const name = file.slice(0, -'.md'.length);
-  const snapPath = path.join(fixturesDir, name + '.snap.md');
+/**
+ * A fixture with a `Page.tsx` renders through the reference RSC host
+ * (src/rsc/). A `hosts` block runs it once per host, compiled with that
+ * host's `relayRsc.mode`; without one it runs once, under its config's mode.
+ */
+function getRscHosts(
+  codeBlocks: Array<{filename: string, content: string}>,
+  hosts: Array<string>,
+): Array<?string> {
+  if (!codeBlocks.some(block => block.filename === 'Page.tsx')) {
+    return [null];
+  }
+  if (hosts.length > 0) {
+    return hosts;
+  }
+  const config = codeBlocks.find(
+    block => block.filename === 'relay.config.json',
+  );
+  return [JSON.parse(config?.content ?? '{}').relayRsc?.mode ?? 'nextjs'];
+}
 
-  test(name, async () => {
+// Every host must render a fixture exactly as its first host did, whatever
+// the snapshot update mode: under `-u`, hosts that disagree would otherwise
+// each rewrite the one snapshot, and the last would win.
+const firstHostOutputs: Map<string, string> = new Map();
+
+// One test per fixture, as before; a Server Component fixture with a `hosts`
+// block gets one per host. The hosts are found when tests are collected; a
+// fixture that cannot be parsed then gets one test, which reports the error.
+function getRuns(file: string) {
+  const name = file.slice(0, -'.md'.length);
+  let rscHosts: Array<?string> = [null];
+  try {
+    const {codeBlocks, hosts} = parseMarkdown(
+      readFileSync(path.join(fixturesDir, file), 'utf-8'),
+    );
+    rscHosts = getRscHosts(codeBlocks, hosts);
+  } catch {}
+  return rscHosts.map(rscHost => ({
+    file,
+    name,
+    rscHost,
+    snapPath: path.join(fixturesDir, name + '.snap.md'),
+    testName: rscHosts.length > 1 ? `${name} [${String(rscHost)}]` : name,
+  }));
+}
+
+for (const run of fixtureFiles.flatMap(getRuns)) {
+  const {file, name, rscHost, snapPath, testName} = run;
+  test(testName, async () => {
     const markdown = readFileSync(path.join(fixturesDir, file), 'utf-8');
-    const {codeBlocks, steps} = parseMarkdown(markdown);
-    const tempDir = await setupTempDir(codeBlocks);
+    const {codeBlocks, hosts, steps} = parseMarkdown(markdown);
+    const tempDir = await setupTempDir(codeBlocks, {
+      relayRscMode: hosts.length > 0 ? rscHost : null,
+    });
 
     const logs: Array<string> = [];
     const logSpy = jest
       .spyOn(console, 'log')
       .mockImplementation((...args: Array<mixed>) => {
-        logs.push(formatConsoleArgs(args));
+        logs.push(formatConsoleArgs(args, rscHost != null));
       });
     const warnSpy = jest
       .spyOn(console, 'warn')
       .mockImplementation((...args: Array<mixed>) => {
-        logs.push(`warn: ${formatConsoleArgs(args)}`);
+        logs.push(`warn: ${formatConsoleArgs(args, rscHost != null)}`);
       });
     const errorSpy = jest
       .spyOn(console, 'error')
       .mockImplementation((...args: Array<mixed>) => {
-        logs.push(`error: ${formatConsoleArgs(args)}`);
+        logs.push(`error: ${formatConsoleArgs(args, rscHost != null)}`);
       });
 
+    let rsc = null;
     try {
       const typeErrors = await runFixture(tempDir);
 
-      // Dynamic import of the built App component
-      // Jest's transform will handle TSX compilation
-      const appPath = path.join(tempDir, 'template', 'App.tsx');
-      const appModule = await import(appPath);
-      const TestApp = appModule.default;
+      let container;
+      if (rscHost == null) {
+        // Dynamic import of the built App component
+        // Jest's transform will handle TSX compilation
+        const appPath = path.join(tempDir, 'template', 'App.tsx');
+        const appModule = await import(appPath);
+        const TestApp = appModule.default;
 
-      // Render with React Testing Library
-      const {container} = render(<TestApp />);
+        // Render with React Testing Library
+        ({container} = render(<TestApp />));
+      } else {
+        // Server Components render in a separate react-server process; this
+        // realm hydrates the server-rendered HTML with the Flight stream.
+        // Loaded only for Server Component fixtures.
+        const {createRscSession} = require('../src/rsc/rscClient');
+        rsc = createRscSession({
+          fixtureDir: tempDir,
+          // Gated content cannot finish before the steps release it, so the
+          // HTML is sent as soon as the shell is ready.
+          flushOnShell: steps.some(step => /^release\s/.test(step)),
+          host: rscHost,
+        });
+        container = await rsc.render();
+      }
 
       // Run interactions from the steps block
       if (steps.length > 0) {
-        await runInteractions(steps);
+        await runInteractions(steps, rsc?.steps);
       }
 
       // Build snapshot string
@@ -98,10 +170,30 @@ for (const file of fixtureFiles) {
         sections.push('```\n' + logs.join('\n') + '\n```\n');
       }
 
+      for (const [title, language, text] of rsc?.snapshotSections() ?? []) {
+        sections.push(`## ${title}\n`);
+        sections.push('```' + language + '\n' + text + '\n```\n');
+      }
+
       sections.push('## HTML\n');
       sections.push('```html\n' + container.innerHTML + '\n```\n');
 
-      const actual = sections.join('\n');
+      // In a Server Component fixture, the temporary directory differs per run
+      // (and per host), and React's development error stacks in the HTML can
+      // include it.
+      const actual =
+        rscHost == null
+          ? sections.join('\n')
+          : sections.join('\n').split(tempDir + '/').join('');
+
+      if (rscHost != null) {
+        const first = firstHostOutputs.get(name);
+        if (first == null) {
+          firstHostOutputs.set(name, actual);
+        } else {
+          expect(actual).toBe(first);
+        }
+      }
 
       // File-based snapshot comparison
       let expected: string | null = null;
@@ -155,12 +247,27 @@ for (const file of fixtureFiles) {
         snapshotState.unmatched++;
         expect(actual).toBe(expected);
       }
+    } catch (error) {
+      // A Server Component failure usually starts in another process: report
+      // every console with it.
+      if (rsc != null && error instanceof Error) {
+        error.message += `\n\nBrowser console:\n${logs.join('\n')}\n\n${rsc
+          .snapshotSections()
+          .map(([title, , text]) => `${title}:\n${text}`)
+          .join('\n\n')}`;
+      }
+      throw error;
     } finally {
       logSpy.mockRestore();
       warnSpy.mockRestore();
       errorSpy.mockRestore();
       cleanup();
-      await rm(tempDir, {recursive: true, force: true});
+      await rsc?.dispose();
+      if (process.env.RELAY_E2E_KEEP_TEMP_DIR) {
+        process.stderr.write(`Kept ${testName} in ${tempDir}\n`);
+      } else {
+        await rm(tempDir, {recursive: true, force: true});
+      }
     }
   });
 }

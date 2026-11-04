@@ -14,11 +14,32 @@ export type CodeBlock = {
 
 export type ParsedFixture = {
   codeBlocks: Array<CodeBlock>,
+  // The RSC hosts a Server Component fixture runs under, from a `hosts` block.
+  hosts: Array<string>,
   steps: Array<string>,
 };
 
 /**
- * Extracts code fences with `title="filename"` and `steps` blocks from markdown.
+ * The trimmed, non-empty lines of the fixture's one ```<info> block, if any.
+ */
+function parseLines(markdown: string, info: string): Array<string> {
+  const matches = [
+    ...markdown.matchAll(new RegExp('^```' + info + '\\s*\\n([\\s\\S]*?)^```$', 'gm')),
+  ];
+  if (matches.length > 1) {
+    throw new Error(
+      `Expected at most one ${info} block, found ${matches.length}.`,
+    );
+  }
+  return (matches[0]?.[1] ?? '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Extracts code fences with `title="filename"`, and the `steps` and `hosts`
+ * blocks, from markdown.
  */
 export function parseMarkdown(markdown: string): ParsedFixture {
   const codeBlocks: Array<CodeBlock> = [];
@@ -31,22 +52,13 @@ export function parseMarkdown(markdown: string): ParsedFixture {
     });
   }
 
-  const steps: Array<string> = [];
-  const stepsRegex = /^```steps\s*\n([\s\S]*?)^```$/gm;
-  const stepsMatches = [...markdown.matchAll(stepsRegex)];
-  if (stepsMatches.length > 1) {
-    throw new Error(
-      `Expected at most one steps block, found ${stepsMatches.length}.`,
-    );
-  }
-  for (const stepsMatch of stepsMatches) {
-    for (const line of stepsMatch[1].split('\n')) {
-      const trimmed = line.trim();
-      if (trimmed) {
-        steps.push(trimmed);
-      }
-    }
-  }
-
-  return {codeBlocks, steps};
+  return {
+    codeBlocks,
+    // Only a Server Component fixture (one with a Page.tsx) has hosts; other
+    // fixtures ignore a `hosts` fence like any other.
+    hosts: codeBlocks.some(block => block.filename === 'Page.tsx')
+      ? parseLines(markdown, 'hosts')
+      : [],
+    steps: parseLines(markdown, 'steps'),
+  };
 }

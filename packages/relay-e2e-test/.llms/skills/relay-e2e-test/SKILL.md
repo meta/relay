@@ -18,5 +18,6 @@ Tests run against **Relay runtime packages from source**, so changes are reflect
 Read the appropriate reference file based on your task:
 
 - **[Writing fixtures](references/writing-fixtures.md)** — fixture format, example, server/client code patterns, interaction DSL, snapshots. Read when creating or modifying test fixtures.
+- **[Server Component fixtures](references/server-components.md)** — fixtures with a `Page.tsx`: the RSC and SSR processes, `'use client'` modules, server APIs, extra steps and snapshot sections. Read when testing Relay with React Server Components.
 - **[Running tests (internal)](references/running-tests-internal.md)** — setup, commands, and compiler resolution for fbsource / OD. Read when running tests internally.
 - **[Running tests (GitHub)](references/running-tests-github.md)** — setup, commands, and compiler resolution for the OSS repo. Read when running tests on GitHub.

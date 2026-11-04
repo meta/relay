@@ -8,6 +8,8 @@ Every fixture needs three code blocks:
 2. **`server.ts`** - Grats schema and resolvers
 3. **`App.tsx`** - React component that default-exports the test app
 
+A fixture with a `Page.tsx` instead of an `App.tsx` renders React Server Components through a reference host; see [server-components.md](server-components.md).
+
 Each code block **must** include a `title="<filename>"` attribute on the code fence (e.g. `` ```json title="relay.config.json" ``). The title determines the output filename — the language tag is only for syntax highlighting.
 
 Each code block should be preceded by a `##` heading describing its contents (`## Relay Config`, `## Server`, `## App`, `## Steps`). Additional files get their own descriptive heading (e.g. `## Counter Store`). A short note can be added between the heading and the code block when something is non-obvious.

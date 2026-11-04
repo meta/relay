@@ -76,8 +76,42 @@ const modulesCommonjs = require.resolve(
 );
 const rewriteModules = path.join(RELAY_ROOT, 'scripts', 'rewrite-modules');
 
+// A fixture's files live in a `mkdtemp` directory: `relay-e2e-` and six
+// random characters.
+const FIXTURE_FILE = /[\\/]relay-e2e-[A-Za-z0-9]{6}[\\/](.+)$/;
+
+function isServerComponentFixture(filename, fixtureFile) {
+  const tempDir = filename.slice(0, filename.length - fixtureFile[1].length);
+  return fs.existsSync(path.join(tempDir, 'template', 'Page.tsx'));
+}
+
 module.exports = {
   process(src, filename) {
+    const isTypeScript = /\.tsx?$/.test(filename);
+    const isRelaySource = /\/packages\/(relay-runtime|react-relay)\//.test(
+      filename,
+    );
+    const fixtureFile = FIXTURE_FILE.exec(filename);
+    return module.exports.transformSource(src, filename, {
+      // Convert ES modules to CommonJS for Jest — but skip for TypeScript
+      // fixture files so import() returns clean ESM without nested defaults.
+      commonjs: !isTypeScript || isRelaySource,
+      // In a Server Component fixture (one with a Page.tsx), every fixture
+      // module the browser realm evaluates reports itself, so the fixture can
+      // list what reached the browser.
+      evaluationHook:
+        fixtureFile == null || !isServerComponentFixture(filename, fixtureFile)
+          ? null
+          : fixtureFile[1].split(path.sep).join('/'),
+    });
+  },
+
+  /**
+   * Also used by the Server Component fixture processes
+   * (src/rsc/serverModuleLoader.js), always with `commonjs`, so every realm
+   * runs identically transformed code.
+   */
+  transformSource(src, filename, {commonjs, evaluationHook}) {
     const isTypeScript = /\.tsx?$/.test(filename);
     const isRelaySource = /\/packages\/(relay-runtime|react-relay)\//.test(
       filename,
@@ -112,10 +146,23 @@ module.exports = {
       },
     ]);
 
-    // Convert ES modules to CommonJS for Jest — but skip for TypeScript
-    // fixture files so import() returns clean ESM without nested defaults.
-    if (!isTypeScript || isRelaySource) {
+    if (commonjs) {
       plugins.push(modulesCommonjs);
+    }
+
+    if (evaluationHook != null) {
+      // Runs first, after the directives, so the module is recorded even if
+      // the rest of its body throws.
+      const report = `globalThis.__RELAY_E2E_MODULE_EVALUATED__?.(${JSON.stringify(
+        evaluationHook,
+      )});`;
+      plugins.push(({template}) => ({
+        visitor: {
+          Program(programPath) {
+            programPath.unshiftContainer('body', template.statement.ast(report));
+          },
+        },
+      }));
     }
 
     return babel.transformSync(src, {

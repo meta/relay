@@ -19,6 +19,7 @@
     "grats": "0.0.0-main-db08606c",
     "react": "0.0.0-experimental-7670501b-20241124",
     "react-dom": "0.0.0-experimental-7670501b-20241124",
+    "react-server-dom-webpack": "0.0.0-experimental-7670501b-20241124",
     "relay-compiler": "^20.1.1",
     "typescript": "^5.9.3"
   }
