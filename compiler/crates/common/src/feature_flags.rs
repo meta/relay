@@ -240,18 +240,6 @@ pub struct FeatureFlags {
     #[serde(default)]
     pub enforce_module_name_prefix_for_non_haste: bool,
 
-    /// Deprecated: has no effect. Generated artifacts no longer include the
-    /// `@nogrep` annotation. Still accepted so existing configs parse; it
-    /// will be removed in a future version of Relay.
-    #[serde(default)]
-    pub emit_nogrep_annotation: FeatureFlag,
-
-    /// Deprecated: has no effect. Generated Hack artifacts no longer include
-    /// the `@nogrep` annotation. Still accepted so existing configs parse; it
-    /// will be removed once no config sets it.
-    #[serde(default)]
-    pub emit_nogrep_annotation_hack: FeatureFlag,
-
     /// Disable the generation of a more precise raw response type
     /// for selections on abstract types.
     #[serde(default)]
@@ -340,8 +328,6 @@ impl Default for FeatureFlags {
             enable_shadow_resolvers: Default::default(),
             allow_legacy_relay_resolver_tag: Default::default(),
             enforce_module_name_prefix_for_non_haste: Default::default(),
-            emit_nogrep_annotation: Default::default(),
-            emit_nogrep_annotation_hack: Default::default(),
             disable_more_precise_abstract_selection_raw_response_type: Default::default(),
             enable_typename_discriminated_unions: Default::default(),
             emit_document_type_registry: Default::default(),

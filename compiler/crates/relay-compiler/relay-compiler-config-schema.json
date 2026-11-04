@@ -706,20 +706,6 @@
             "kind": "disabled"
           }
         },
-        "emit_nogrep_annotation": {
-          "description": "Deprecated: has no effect. Generated artifacts no longer include the\n`@nogrep` annotation. Still accepted so existing configs parse; it\nwill be removed in a future version of Relay.",
-          "$ref": "#/$defs/FeatureFlag",
-          "default": {
-            "kind": "disabled"
-          }
-        },
-        "emit_nogrep_annotation_hack": {
-          "description": "Deprecated: has no effect. Generated Hack artifacts no longer include\nthe `@nogrep` annotation. Still accepted so existing configs parse; it\nwill be removed once no config sets it.",
-          "$ref": "#/$defs/FeatureFlag",
-          "default": {
-            "kind": "disabled"
-          }
-        },
         "enable_3d_branch_arg_generation": {
           "type": "boolean",
           "default": false
@@ -1049,12 +1035,6 @@
               "kind": "disabled"
             },
             "emit_document_type_registry": {
-              "kind": "disabled"
-            },
-            "emit_nogrep_annotation": {
-              "kind": "disabled"
-            },
-            "emit_nogrep_annotation_hack": {
               "kind": "disabled"
             },
             "enable_3d_branch_arg_generation": false,
