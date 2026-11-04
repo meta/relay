@@ -38,7 +38,7 @@ declare function readInlineData<TFragmentType extends FragmentType, TData>(
 
 function readInlineData(
   fragment: GraphQLTaggedNode,
-  fragmentRef: unknown,
+  fragmentRef: ?{[string]: {[string]: unknown}, ...},
 ): unknown {
   const inlineDataFragment = getInlineDataFragment(fragment);
   if (fragmentRef == null) {
@@ -49,7 +49,6 @@ function readInlineData(
     'readInlineData(): Expected an object, got `%s`.',
     typeof fragmentRef,
   );
-  // $FlowFixMe[incompatible-use]
   const inlineData = fragmentRef[FRAGMENTS_KEY]?.[inlineDataFragment.name];
   invariant(
     inlineData != null,
