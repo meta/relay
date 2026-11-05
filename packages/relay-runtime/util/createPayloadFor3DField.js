@@ -20,8 +20,7 @@ const {
 } = require('../store/RelayStoreUtils');
 
 export opaque type Local3DPayload<
-  // eslint-disable-next-line no-unused-vars
-  out DocumentName extends string,
+  out _DocumentName extends string,
   out Response extends {...},
 > = Response;
 
