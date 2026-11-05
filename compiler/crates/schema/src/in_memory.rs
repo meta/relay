@@ -72,6 +72,12 @@ pub struct InMemorySchema {
     objects: Vec<Object>,
     scalars: Vec<Scalar>,
     unions: Vec<Union>,
+
+    /// Field-name lookup for the root operation types, built by
+    /// `finalize_root_field_lookup`. Roots without an entry use the linear
+    /// scan in `named_field`.
+    #[serde(skip)]
+    root_field_lookup: Option<HashMap<ObjectID, StringKeyMap<FieldID>>>,
 }
 
 impl Schema for InMemorySchema {
@@ -187,6 +193,13 @@ impl Schema for InMemorySchema {
         let fields = match parent_type {
             Type::Object(id) => {
                 let object = &self.objects[id.as_usize()];
+                if let Some(root_fields) = self
+                    .root_field_lookup
+                    .as_ref()
+                    .and_then(|lookup| lookup.get(&id))
+                {
+                    return root_fields.get(&name).copied();
+                }
                 &object.fields
             }
             Type::Interface(id) => {
@@ -242,6 +255,7 @@ impl Schema for InMemorySchema {
             objects,
             scalars,
             unions,
+            root_field_lookup: _root_field_lookup,
         } = self;
         let ordered_type_map: BTreeMap<_, _> = type_map.iter().collect();
 
@@ -350,6 +364,34 @@ impl InMemorySchema {
 
     pub fn has_type(&self, type_name: StringKey) -> bool {
         self.type_map.contains_key(&type_name)
+    }
+
+    /// Builds a field-name lookup for the query, mutation and subscription
+    /// types so `named_field` avoids scanning their (often very long) field
+    /// lists. Call once the schema is complete; later mutations that can
+    /// change root membership or field names drop the lookup.
+    pub fn finalize_root_field_lookup(&mut self) {
+        let lookup = [self.query_type, self.mutation_type, self.subscription_type]
+            .into_iter()
+            .flatten()
+            .filter_map(|id| Some((id, self.build_root_fields(id)?)))
+            .collect();
+        self.root_field_lookup = Some(lookup);
+    }
+
+    /// Maps each field name of the object to its first field ID, or returns
+    /// `None` if the object or one of its field IDs is out of range, leaving
+    /// that object to the linear scan.
+    fn build_root_fields(&self, id: ObjectID) -> Option<StringKeyMap<FieldID>> {
+        let object = self.objects.get(id.as_usize())?;
+        object
+            .fields
+            .iter()
+            .try_fold(StringKeyMap::default(), |mut fields, field_id| {
+                let field = self.fields.get(field_id.as_usize())?;
+                fields.entry(field.name.item).or_insert(*field_id);
+                Some(fields)
+            })
     }
 
     pub fn add_directive(&mut self, directive: Directive) -> DiagnosticsResult<()> {
@@ -476,6 +518,7 @@ impl InMemorySchema {
         obj_id: ObjectID,
         field_id: FieldID,
     ) -> DiagnosticsResult<ObjectID> {
+        self.root_field_lookup = None;
         let object = self.objects.get_mut(obj_id.as_usize()).unwrap();
         object.fields.push(field_id);
         Ok(obj_id)
@@ -572,6 +615,7 @@ impl InMemorySchema {
     /// Replaces the definition of object type, but keeps the same id.
     /// Existing references to the old type now reference the replacement.
     pub fn replace_object(&mut self, id: ObjectID, object: Object) -> DiagnosticsResult<()> {
+        self.root_field_lookup = None;
         if id.as_usize() >= self.objects.len() {
             return todo_add_location(SchemaError::UnknownTypeID(
                 id.as_usize(),
@@ -638,6 +682,7 @@ impl InMemorySchema {
     /// Replaces the definition of field, but keeps the same id.
     /// Existing references to the old field now reference the replacement.
     pub fn replace_field(&mut self, id: FieldID, field: Field) -> DiagnosticsResult<()> {
+        self.root_field_lookup = None;
         let id = id.as_usize();
         if id >= self.fields.len() {
             return Err(vec![Diagnostic::error(
@@ -711,6 +756,7 @@ impl InMemorySchema {
             objects,
             scalars,
             unions,
+            root_field_lookup: None,
         };
         schema.load_defaults();
         schema
@@ -755,6 +801,7 @@ impl InMemorySchema {
             objects: Vec::new(),
             scalars: Vec::new(),
             unions: Vec::new(),
+            root_field_lookup: None,
         }
     }
 
@@ -949,6 +996,7 @@ impl InMemorySchema {
             objects: Vec::with_capacity(next_object_id.try_into().unwrap()),
             scalars: Vec::with_capacity(next_scalar_id.try_into().unwrap()),
             unions: Vec::with_capacity(next_union_id.try_into().unwrap()),
+            root_field_lookup: None,
         };
 
         for document in schema_documents.iter() {
@@ -1210,6 +1258,7 @@ impl InMemorySchema {
     // This is not standard GraphQL behavior, and we might want to remove
     // this at some point.
     fn load_default_root_types(&mut self) {
+        self.root_field_lookup = None;
         if self.query_type.is_none()
             && let Some(Type::Object(id)) = self.type_map.get(&"Query".intern())
         {
@@ -1448,6 +1497,7 @@ impl InMemorySchema {
         location_key: &SourceLocationKey,
         is_extension: bool,
     ) -> DiagnosticsResult<()> {
+        self.root_field_lookup = None;
         match definition {
             TypeSystemDefinition::SchemaDefinition(SchemaDefinition {
                 operation_types, ..
@@ -1956,6 +2006,7 @@ impl InMemorySchema {
         operation_types: &[OperationTypeDefinition],
         location_key: &SourceLocationKey,
     ) -> DiagnosticsResult<()> {
+        self.root_field_lookup = None;
         for OperationTypeDefinition {
             operation, type_, ..
         } in operation_types
@@ -2481,6 +2532,389 @@ mod tests {
             schema.get_type_name(name_arg.type_.inner()).lookup(),
             "String",
             "is_fulfilled__ `name` argument must be String!"
+        );
+    }
+
+    fn build_test_schema(sdl: &str) -> InMemorySchema {
+        let sdl = format!("{sdl}\nscalar Boolean\nscalar ID\nscalar String");
+        InMemorySchema::build(
+            &[
+                graphql_syntax::parse_schema_document(&sdl, SourceLocationKey::generated())
+                    .unwrap(),
+            ],
+            &[],
+        )
+        .expect("schema should build")
+    }
+
+    fn object_id(schema: &InMemorySchema, name: &str) -> ObjectID {
+        match schema.get_type(name.intern()) {
+            Some(Type::Object(id)) => id,
+            other => panic!("expected object type {name}, got {other:?}"),
+        }
+    }
+
+    fn renamed_field(schema: &InMemorySchema, id: FieldID, name: &str) -> Field {
+        Field {
+            name: WithLocation::generated(name.intern()),
+            ..schema.field(id).clone()
+        }
+    }
+
+    /// Every object/interface field name, plus an absent name and a meta
+    /// field, resolves the same with and without the root lookup.
+    fn assert_lookup_matches_linear_scan(finalized: &InMemorySchema, linear: &InMemorySchema) {
+        let parents =
+            linear
+                .objects
+                .iter()
+                .enumerate()
+                .map(|(i, object)| (Type::Object(ObjectID(i as u32)), &object.fields))
+                .chain(linear.interfaces.iter().enumerate().map(|(i, interface)| {
+                    (Type::Interface(InterfaceID(i as u32)), &interface.fields)
+                }));
+        for (parent, field_ids) in parents {
+            let names = field_ids
+                .iter()
+                .map(|id| linear.field(*id).name.item)
+                .chain(["absent".intern(), "__typename".intern()]);
+            for name in names {
+                assert_eq!(
+                    finalized.named_field(parent, name),
+                    linear.named_field(parent, name),
+                    "lookup of {name} on {parent:?} should match the linear scan"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_root_field_lookup_matches_linear_scan() {
+        let linear = build_test_schema(
+            "
+            schema { query: RootQuery mutation: RootMutation }
+            type RootQuery { a: String b: Other }
+            type RootMutation { c: String }
+            type Other implements Node { id: ID a: String }
+            interface Node { id: ID }
+            ",
+        );
+        let mut finalized = linear.clone();
+        finalized.finalize_root_field_lookup();
+
+        let lookup = finalized
+            .root_field_lookup
+            .as_ref()
+            .expect("lookup should be built");
+        assert_eq!(
+            lookup.len(),
+            2,
+            "only the query and mutation roots should be indexed"
+        );
+        assert_lookup_matches_linear_scan(&finalized, &linear);
+    }
+
+    #[test]
+    fn test_root_field_lookup_shared_root_is_indexed_once() {
+        let mut schema = build_test_schema(
+            "
+            schema { query: Root mutation: Root }
+            type Root { a: String }
+            ",
+        );
+        schema.finalize_root_field_lookup();
+
+        let root = object_id(&schema, "Root");
+        let lookup = schema
+            .root_field_lookup
+            .as_ref()
+            .expect("lookup should be built");
+        assert_eq!(lookup.len(), 1, "a shared root should have one entry");
+        assert!(lookup.contains_key(&root));
+    }
+
+    #[test]
+    fn test_root_field_lookup_keeps_first_duplicate_and_shared_fields() {
+        let mut schema = build_test_schema(
+            "
+            type Query { a: String }
+            type Other { shared: String }
+            ",
+        );
+        let query = object_id(&schema, "Query");
+        let other = object_id(&schema, "Other");
+        let first_a = schema
+            .named_field(Type::Object(query), "a".intern())
+            .unwrap();
+        let second_a = schema
+            .add_field(renamed_field(&schema, first_a, "a"))
+            .unwrap();
+        schema.add_field_to_object(query, second_a).unwrap();
+        let shared = schema
+            .named_field(Type::Object(other), "shared".intern())
+            .unwrap();
+        schema.add_field_to_object(query, shared).unwrap();
+        let linear = schema.clone();
+
+        schema.finalize_root_field_lookup();
+
+        assert_eq!(
+            schema.named_field(Type::Object(query), "a".intern()),
+            Some(first_a),
+            "the first field with a duplicate name should win"
+        );
+        assert_eq!(
+            schema.named_field(Type::Object(query), "shared".intern()),
+            Some(shared)
+        );
+        assert_lookup_matches_linear_scan(&schema, &linear);
+    }
+
+    #[test]
+    fn test_root_field_lookup_covered_empty_root() {
+        let mut schema = build_test_schema(
+            "
+            type Query { a: String }
+            ",
+        );
+        let query = object_id(&schema, "Query");
+        let empty_query = Object {
+            fields: vec![],
+            ..schema.object(query).clone()
+        };
+        schema.replace_object(query, empty_query).unwrap();
+        schema.finalize_root_field_lookup();
+
+        let lookup = schema.root_field_lookup.as_ref().unwrap();
+        assert!(
+            lookup.get(&query).is_some_and(|fields| fields.is_empty()),
+            "an empty root should be covered by an empty map"
+        );
+        assert_eq!(schema.named_field(Type::Object(query), "a".intern()), None);
+        assert_eq!(
+            schema.named_field(Type::Object(query), "__typename".intern()),
+            Some(schema.typename_field()),
+            "meta fields should resolve before the root lookup"
+        );
+    }
+
+    #[test]
+    fn test_root_field_lookup_skips_root_with_invalid_field_id() {
+        let mut schema = build_test_schema(
+            "
+            type Query { a: String }
+            ",
+        );
+        let query = object_id(&schema, "Query");
+        let a = schema
+            .named_field(Type::Object(query), "a".intern())
+            .unwrap();
+        let malformed_query = Object {
+            fields: vec![a, FieldID(u32::MAX)],
+            ..schema.object(query).clone()
+        };
+        schema.replace_object(query, malformed_query).unwrap();
+        schema.finalize_root_field_lookup();
+
+        assert!(
+            !schema
+                .root_field_lookup
+                .as_ref()
+                .unwrap()
+                .contains_key(&query),
+            "a root with an invalid field ID should stay on the linear scan"
+        );
+        assert_eq!(
+            schema.named_field(Type::Object(query), "a".intern()),
+            Some(a),
+            "the linear scan should still find fields before the invalid ID"
+        );
+    }
+
+    #[test]
+    fn test_root_field_lookup_dropped_by_mutations() {
+        let mut schema = build_test_schema(
+            "
+            type Query { a: String }
+            ",
+        );
+        let query = object_id(&schema, "Query");
+        let a = schema
+            .named_field(Type::Object(query), "a".intern())
+            .unwrap();
+
+        schema.finalize_root_field_lookup();
+        schema
+            .replace_field(a, renamed_field(&schema, a, "renamed"))
+            .unwrap();
+        assert!(schema.root_field_lookup.is_none());
+        assert_eq!(schema.named_field(Type::Object(query), "a".intern()), None);
+        assert_eq!(
+            schema.named_field(Type::Object(query), "renamed".intern()),
+            Some(a)
+        );
+
+        schema.finalize_root_field_lookup();
+        let added = schema
+            .add_field(renamed_field(&schema, a, "added"))
+            .unwrap();
+        schema.add_field_to_object(query, added).unwrap();
+        assert!(schema.root_field_lookup.is_none());
+        assert_eq!(
+            schema.named_field(Type::Object(query), "added".intern()),
+            Some(added)
+        );
+
+        schema.finalize_root_field_lookup();
+        let extension = graphql_syntax::parse_schema_document(
+            "extend type Query { extended: String }",
+            SourceLocationKey::generated(),
+        )
+        .unwrap();
+        let Some(TypeSystemDefinition::ObjectTypeExtension(extension)) =
+            extension.definitions.into_iter().next()
+        else {
+            panic!("expected an object type extension");
+        };
+        schema
+            .add_object_type_extension(extension, SourceLocationKey::generated())
+            .unwrap();
+        assert!(schema.root_field_lookup.is_none());
+        assert!(
+            schema
+                .named_field(Type::Object(query), "extended".intern())
+                .is_some()
+        );
+
+        schema.finalize_root_field_lookup();
+        let unknown_object = ObjectID(schema.objects.len() as u32);
+        let replacement = schema.object(query).clone();
+        assert!(schema.replace_object(unknown_object, replacement).is_err());
+        assert!(
+            schema.root_field_lookup.is_none(),
+            "a failed mutation should still drop the lookup"
+        );
+    }
+
+    #[test]
+    fn test_root_field_lookup_dropped_when_root_type_changes() {
+        let mut schema = build_test_schema(
+            "
+            type Query { a: String }
+            type OtherQuery { b: String }
+            ",
+        );
+        schema.finalize_root_field_lookup();
+
+        let document = graphql_syntax::parse_schema_document(
+            "schema { query: OtherQuery }",
+            SourceLocationKey::generated(),
+        )
+        .unwrap();
+        let result = schema.add_definition(
+            &document.definitions[0],
+            &SourceLocationKey::generated(),
+            false,
+        );
+        assert!(
+            schema.root_field_lookup.is_none(),
+            "redefining a root type should drop the lookup (result: {result:?})"
+        );
+    }
+
+    #[test]
+    fn test_root_field_lookup_dropped_when_extension_fails_after_append() {
+        let extension = || {
+            let document = graphql_syntax::parse_schema_document(
+                "extend type Query implements Missing { appended: String }",
+                SourceLocationKey::generated(),
+            )
+            .unwrap();
+            let Some(TypeSystemDefinition::ObjectTypeExtension(extension)) =
+                document.definitions.into_iter().next()
+            else {
+                panic!("expected an object type extension");
+            };
+            extension
+        };
+        let mut linear = build_test_schema(
+            "
+            type Query { a: String }
+            ",
+        );
+        let mut finalized = linear.clone();
+        finalized.finalize_root_field_lookup();
+        let query = object_id(&linear, "Query");
+
+        let linear_result =
+            linear.add_object_type_extension(extension(), SourceLocationKey::generated());
+        let finalized_result =
+            finalized.add_object_type_extension(extension(), SourceLocationKey::generated());
+
+        assert!(
+            finalized_result.is_err(),
+            "extending with an unknown interface should fail"
+        );
+        assert_eq!(
+            format!("{finalized_result:?}"),
+            format!("{linear_result:?}")
+        );
+        assert!(finalized.root_field_lookup.is_none());
+        assert!(
+            finalized
+                .named_field(Type::Object(query), "appended".intern())
+                .is_some(),
+            "the field appended before the failure should be visible"
+        );
+        assert_lookup_matches_linear_scan(&finalized, &linear);
+    }
+
+    #[test]
+    fn test_root_field_lookup_not_serialized() {
+        let unfinalized = build_test_schema(
+            "
+            type Query { a: String }
+            ",
+        );
+        let mut finalized = unfinalized.clone();
+        finalized.finalize_root_field_lookup();
+
+        let bytes = rmp_serde::to_vec(&finalized).unwrap();
+        assert_eq!(
+            bytes,
+            rmp_serde::to_vec(&unfinalized).unwrap(),
+            "the lookup should not change the serialized schema"
+        );
+        let deserialized: InMemorySchema = rmp_serde::from_slice(&bytes).unwrap();
+        assert!(deserialized.root_field_lookup.is_none());
+        assert_lookup_matches_linear_scan(&deserialized, &unfinalized);
+    }
+
+    #[test]
+    fn test_root_field_lookup_clone_is_independent() {
+        let mut original = build_test_schema(
+            "
+            type Query { a: String }
+            ",
+        );
+        original.finalize_root_field_lookup();
+        let query = object_id(&original, "Query");
+        let a = original
+            .named_field(Type::Object(query), "a".intern())
+            .unwrap();
+
+        let mut copy = original.clone();
+        copy.replace_field(a, renamed_field(&copy, a, "renamed"))
+            .unwrap();
+
+        assert_eq!(
+            original.named_field(Type::Object(query), "a".intern()),
+            Some(a)
+        );
+        assert_eq!(copy.named_field(Type::Object(query), "a".intern()), None);
+        assert_eq!(
+            copy.named_field(Type::Object(query), "renamed".intern()),
+            Some(a)
         );
     }
 }

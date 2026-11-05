@@ -136,6 +136,7 @@ fn build_schema_impl(
             maybe_validate_schema(project_config, &schema)
         })?;
 
+        finalize_root_field_lookup(&mut schema);
         return Ok(Arc::new(schema));
     }
 
@@ -213,7 +214,16 @@ fn build_schema_impl(
         maybe_validate_schema(project_config, &schema)
     })?;
 
+    finalize_root_field_lookup(&mut schema);
     Ok(Arc::new(schema))
+}
+
+/// Builds the root operation type field lookup used by `named_field`. Only
+/// in-memory schemas have one.
+fn finalize_root_field_lookup(schema: &mut SDLSchema) {
+    if let SDLSchema::InMemory(in_memory_schema) = schema {
+        in_memory_schema.finalize_root_field_lookup();
+    }
 }
 
 /// Returns the SDL schema path for File/Directory schema locations,
