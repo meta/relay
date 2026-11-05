@@ -429,7 +429,14 @@ pub struct CompilerState {
     /// sharing the same schema source can reuse the parsed ASTs instead of
     /// re-parsing the same SDL text independently.
     #[serde(skip)]
-    pub parsed_server_asts_cache: FnvHashMap<PathBuf, Arc<Vec<graphql_syntax::SchemaDocument>>>,
+    pub(crate) parsed_server_asts_cache: FnvHashMap<PathBuf, ParsedServerAsts>,
+}
+
+/// Server schema ASTs parsed from the schema sources of `source_project`.
+#[derive(Debug)]
+pub(crate) struct ParsedServerAsts {
+    pub(crate) source_project: ProjectName,
+    pub(crate) documents: Arc<Vec<graphql_syntax::SchemaDocument>>,
 }
 
 /// Stringify a path such that it's stable across operating systems.
@@ -739,6 +746,7 @@ impl CompilerState {
     }
 
     fn build_schema_for_safety_check(
+        &self,
         sources: &SchemaSources,
     ) -> std::result::Result<SDLSchema, ()> {
         let current_sources_with_location = sources
@@ -747,11 +755,38 @@ impl CompilerState {
             .map(|(schema, location_key)| (schema.as_str(), location_key))
             .collect::<Vec<_>>();
 
+        if let Some(server_asts) = self.parsed_server_asts_for(&current_sources_with_location) {
+            return relay_schema::build_schema_with_extensions_from_asts(server_asts, vec![])
+                .map_err(|_| ());
+        }
+
         relay_schema::build_schema_with_extensions_parallel(
             &current_sources_with_location,
             &Vec::<(&str, SourceLocationKey)>::new(),
         )
         .map_err(|_| ())
+    }
+
+    /// The pre-parsed server ASTs of a project whose schema sources are
+    /// exactly `sources`: the same text and location keys, in the same order.
+    fn parsed_server_asts_for(
+        &self,
+        sources: &[(&str, SourceLocationKey)],
+    ) -> Option<&[graphql_syntax::SchemaDocument]> {
+        self.parsed_server_asts_cache
+            .values()
+            .find(|cached| {
+                self.schemas
+                    .get(&cached.source_project)
+                    .is_some_and(|cached_sources| {
+                        cached_sources
+                            .get_sources_with_location()
+                            .into_iter()
+                            .map(|(schema, location_key)| (schema.as_str(), location_key))
+                            .eq(sources.iter().copied())
+                    })
+            })
+            .map(|cached| cached.documents.as_slice())
     }
 
     /// This method is looking at the pending schema changes to see if they may be breaking (removed types, renamed field, etc)
@@ -842,7 +877,7 @@ impl CompilerState {
             } else if let Some(schema) = built_schema {
                 schema_change.get_safety(schema, schema_config)
             } else {
-                match Self::build_schema_for_safety_check(schema_sources) {
+                match self.build_schema_for_safety_check(schema_sources) {
                     Ok(schema) => schema_change.get_safety(&schema, schema_config),
                     Err(_) => SchemaChangeSafety::Unsafe,
                 }
@@ -2300,5 +2335,188 @@ mod tests {
             "adding a field is safe once the whole definition is diffed",
         );
         assert!(matches!(safety(false), SchemaChangeSafety::Safe));
+    }
+
+    // --- Reusing pre-parsed server ASTs in the base project safety check ---
+
+    fn sources_with_location(sources: &SchemaSources) -> Vec<(&str, SourceLocationKey)> {
+        sources
+            .get_sources_with_location()
+            .into_iter()
+            .map(|(schema, location_key)| (schema.as_str(), location_key))
+            .collect()
+    }
+
+    /// Caches server ASTs for `source_project` the way
+    /// `preparse_unique_server_schemas` does: parsed from its schema sources.
+    fn cache_preparsed_server_asts(state: &mut CompilerState, source_project: ProjectName) {
+        let documents = schema::parse_schema_with_extensions_parallel::<_, &str>(
+            &sources_with_location(&state.schemas[&source_project]),
+            &[],
+        )
+        .unwrap()
+        .server;
+        state.parsed_server_asts_cache.insert(
+            PathBuf::from("schema"),
+            ParsedServerAsts {
+                source_project,
+                documents: Arc::new(documents),
+            },
+        );
+    }
+
+    /// Caches server ASTs parsed from `sdl` for `source_project`, whatever its
+    /// schema sources hold, so a test can tell whether they were used.
+    fn cache_server_asts_from(state: &mut CompilerState, source_project: ProjectName, sdl: &str) {
+        let documents = schema::parse_schema_with_extensions_parallel::<_, &str>(
+            &[(sdl, SourceLocationKey::generated())],
+            &[],
+        )
+        .unwrap()
+        .server;
+        state.parsed_server_asts_cache.insert(
+            PathBuf::from("schema"),
+            ParsedServerAsts {
+                source_project,
+                documents: Arc::new(documents),
+            },
+        );
+    }
+
+    #[test]
+    fn parsed_server_asts_need_the_exact_sources_of_their_source_project() {
+        let base = project("base");
+        let producer = project("producer");
+        let base_sources = [
+            ("0.graphql", "type Query { a: A }"),
+            ("1.graphql", "type A { id: ID }"),
+        ];
+        let has_match = |producer_sources: &[(&str, &str)]| {
+            let mut state = CompilerState::default();
+            state
+                .schemas
+                .insert(base, schema_sources(&base_sources, &[]));
+            if !producer_sources.is_empty() {
+                state
+                    .schemas
+                    .insert(producer, schema_sources(producer_sources, &[]));
+            }
+            cache_server_asts_from(&mut state, producer, "type Query { a: Int }");
+            state
+                .parsed_server_asts_for(&sources_with_location(&state.schemas[&base]))
+                .is_some()
+        };
+
+        assert!(has_match(&base_sources), "same text, files and order");
+        assert!(
+            !has_match(&[
+                ("0.graphql", "type Query { a: A }"),
+                ("1.graphql", "type A { id: ID name: String }"),
+            ]),
+            "different text"
+        );
+        assert!(
+            !has_match(&[
+                ("0.graphql", "type Query { a: A }"),
+                ("2.graphql", "type A { id: ID }"),
+            ]),
+            "same text in a differently named file, so a different location key"
+        );
+        assert!(
+            !has_match(&[
+                ("0.graphql", "type A { id: ID }"),
+                ("1.graphql", "type Query { a: A }"),
+            ]),
+            "same texts in a different order"
+        );
+        assert!(
+            !has_match(&[("0.graphql", "type Query { a: A }")]),
+            "fewer files"
+        );
+        assert!(!has_match(&[]), "source project without schema sources");
+    }
+
+    #[test]
+    fn safety_check_schema_is_built_from_matching_cached_server_asts() {
+        use schema::Schema;
+
+        let base = project("base");
+        let mut state = CompilerState::default();
+        state.schemas.insert(
+            base,
+            schema_sources(&[("0.graphql", "type Query { a: Int }")], &[]),
+        );
+        let has_query_field = |schema: &SDLSchema, name: &str| {
+            schema
+                .named_field(schema.query_type().unwrap(), name.intern())
+                .is_some()
+        };
+
+        let schema = state
+            .build_schema_for_safety_check(&state.schemas[&base])
+            .unwrap();
+        assert!(
+            has_query_field(&schema, "a"),
+            "without a cache entry the schema is parsed from the sources"
+        );
+
+        cache_server_asts_from(&mut state, base, "type Query { b: Int }");
+        let schema = state
+            .build_schema_for_safety_check(&state.schemas[&base])
+            .unwrap();
+        assert!(
+            has_query_field(&schema, "b") && !has_query_field(&schema, "a"),
+            "a matching cache entry is used instead of parsing the sources"
+        );
+
+        cache_server_asts_from(&mut state, base, "type Query { a: Missing }");
+        assert!(
+            state
+                .build_schema_for_safety_check(&state.schemas[&base])
+                .is_err(),
+            "cached ASTs that parsed but do not build still fail the build"
+        );
+    }
+
+    #[test]
+    fn base_project_safety_is_the_same_with_cached_server_asts() {
+        let base = project("base");
+        let producer = project("producer");
+        let processed = [(
+            "0.graphql",
+            "type Query { a: A }\ntype A { id: ID name: String }",
+        )];
+        for pending in [
+            // An added field.
+            "type Query { a: A }\ntype A { id: ID name: String other: String }",
+            // A removed field.
+            "type Query { a: A }\ntype A { id: ID }",
+            // A field of an unknown type: parses, but does not build.
+            "type Query { a: A }\ntype A { id: ID name: String other: Missing }",
+        ] {
+            let mut state = CompilerState::default();
+            let sources = || schema_sources(&processed, &[("0.graphql", pending)]);
+            state.schemas.insert(base, sources());
+            state.schemas.insert(producer, sources());
+            let safety = |state: &CompilerState| {
+                state.schema_change_safety(
+                    &NoopPerfLoggerEvent,
+                    base,
+                    &Default::default(),
+                    None,
+                    true,
+                    SchemaChangeCheck::BaseProject,
+                )
+            };
+
+            let parsed_from_text = safety(&state);
+            cache_preparsed_server_asts(&mut state, producer);
+            assert!(
+                state
+                    .parsed_server_asts_for(&sources_with_location(&state.schemas[&base]))
+                    .is_some()
+            );
+            assert_eq!(safety(&state), parsed_from_text, "pending: {pending}");
+        }
     }
 }

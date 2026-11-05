@@ -31,6 +31,7 @@ use super::build_resolvers_schema::extend_schema_with_field_ir;
 use super::build_resolvers_schema::extract_docblock_ir;
 use crate::GraphQLAsts;
 use crate::compiler_state::CompilerState;
+use crate::compiler_state::ParsedServerAsts;
 use crate::config::Config;
 use crate::config::ProjectConfig;
 
@@ -144,7 +145,8 @@ fn build_schema_impl(
     // are available in the cache (shared across projects with the same schema
     // source), reuse them and only parse the project-specific extensions.
     let cached_server_asts = schema_location_sdl_path(&project_config.schema_location)
-        .and_then(|path| compiler_state.parsed_server_asts_cache.get(path));
+        .and_then(|path| compiler_state.parsed_server_asts_cache.get(path))
+        .map(|cached| &cached.documents);
     log_event.number(
         "parse_schema_cache_hit",
         cached_server_asts.is_some() as usize,
@@ -244,7 +246,7 @@ fn parse_extension_documents(
 pub(crate) fn preparse_unique_server_schemas(
     config: &Config,
     compiler_state: &CompilerState,
-) -> FnvHashMap<PathBuf, Arc<Vec<SchemaDocument>>> {
+) -> FnvHashMap<PathBuf, ParsedServerAsts> {
     // Group enabled SDL projects by schema location path.
     let mut schema_groups: FnvHashMap<&Path, Vec<&ProjectConfig>> = FnvHashMap::default();
     for project_config in config.enabled_projects() {
@@ -278,7 +280,15 @@ pub(crate) fn preparse_unique_server_schemas(
             // through the normal per-project error path.
             parse_schema_with_extensions_parallel(&schema_sources, &no_extensions)
                 .ok()
-                .map(|docs| (path.to_path_buf(), Arc::new(docs.server)))
+                .map(|docs| {
+                    (
+                        path.to_path_buf(),
+                        ParsedServerAsts {
+                            source_project: projects[0].name,
+                            documents: Arc::new(docs.server),
+                        },
+                    )
+                })
         })
         .collect()
 }
