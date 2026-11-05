@@ -2284,6 +2284,147 @@ describe('QueryResource', () => {
     });
   });
 
+  describe('prepare, when a fetch lands after the cache entry has been disposed', () => {
+    // Regression test: a cache entry that has been disposed (e.g. by
+    // an expired temporary retain on a render that never committed —
+    // StrictMode cleanup, navigation away mid-fetch, suspended subtree
+    // discarded by concurrent rendering) must NOT be resurrected by a
+    // late `next` or `error` from its still-live network subscription.
+    // Resurrecting it would leave a refcount-0 zombie in the LRU with
+    // no useEffect to dispose it, which a later mount computing the
+    // same cacheIdentifier would happily reuse — bypassing the fetch
+    // path and potentially reading store records that have since been
+    // GC'd.
+    it.each([
+      ['network-only', 'full'],
+      ['network-only', 'partial'],
+      ['store-and-network', 'full'],
+      ['store-and-network', 'partial'],
+      ['store-or-network', 'full'],
+      ['store-or-network', 'partial'],
+    ])(
+      'does not resurrect the entry on late `next` (fetchPolicy: %s, renderPolicy: %s)',
+      (testFetchPolicy: FetchPolicy, testRenderPolicy: RenderPolicy) => {
+        let sink;
+        const lateFetchObservable = Observable.create<$FlowFixMe>(s => {
+          sink = s;
+        });
+
+        // Initial render: creates the cache entry and starts the fetch.
+        // No `QueryResource.retain` is called — simulates a render
+        // whose commit never happens.
+        try {
+          QueryResource.prepare(
+            queryMissingData,
+            lateFetchObservable,
+            testFetchPolicy,
+            testRenderPolicy,
+          );
+        } catch (thrown) {
+          // Network-only (and any path with no committed data) throws
+          // a Promise to suspend; that's fine for this test.
+          expect(typeof thrown.then).toBe('function');
+        }
+        expect(
+          QueryResource.TESTS_ONLY__getCacheEntry(
+            queryMissingData,
+            testFetchPolicy,
+            testRenderPolicy,
+          ),
+        ).not.toBeUndefined();
+
+        // Temporary retain expires (the render never committed) — the
+        // cache entry is disposed.
+        jest.runAllTimers();
+        expect(release).toBeCalledTimes(1);
+        expect(
+          QueryResource.TESTS_ONLY__getCacheEntry(
+            queryMissingData,
+            testFetchPolicy,
+            testRenderPolicy,
+          ),
+        ).toBeUndefined();
+
+        // Late payload after dispose. The subscription is still alive
+        // (regular, non-live queries don't unsubscribe on dispose so
+        // that other live entries deduped onto the same fetch can
+        // receive their value). The disposed entry must stay disposed.
+        if (sink == null) {
+          throw new Error('Expected sink to be defined');
+        }
+        environment.commitPayload(queryMissingData, {
+          node: {
+            __typename: 'User',
+            id: '4',
+            name: 'User 4',
+          },
+        });
+        const snapshot = environment.lookup(queryMissingData.fragment);
+        sink.next(snapshot as $FlowFixMe);
+        sink.complete();
+
+        expect(
+          QueryResource.TESTS_ONLY__getCacheEntry(
+            queryMissingData,
+            testFetchPolicy,
+            testRenderPolicy,
+          ),
+        ).toBeUndefined();
+      },
+    );
+
+    it('does not resurrect the entry on late `error`', () => {
+      fetchPolicy = 'network-only';
+      renderPolicy = 'partial';
+
+      let sink;
+      const lateErrorFetchObservable = Observable.create<$FlowFixMe>(s => {
+        sink = s;
+      });
+
+      try {
+        QueryResource.prepare(
+          queryMissingData,
+          lateErrorFetchObservable,
+          fetchPolicy,
+          renderPolicy,
+        );
+      } catch (thrown) {
+        expect(typeof thrown.then).toBe('function');
+      }
+      expect(
+        QueryResource.TESTS_ONLY__getCacheEntry(
+          queryMissingData,
+          fetchPolicy,
+          renderPolicy,
+        ),
+      ).not.toBeUndefined();
+
+      jest.runAllTimers();
+      expect(release).toBeCalledTimes(1);
+      expect(
+        QueryResource.TESTS_ONLY__getCacheEntry(
+          queryMissingData,
+          fetchPolicy,
+          renderPolicy,
+        ),
+      ).toBeUndefined();
+
+      if (sink == null) {
+        throw new Error('Expected sink to be defined');
+      }
+      sink.error(new Error('Oops'));
+
+      expect(
+        QueryResource.TESTS_ONLY__getCacheEntry(
+          queryMissingData,
+          fetchPolicy,
+          renderPolicy,
+        ),
+      ).toBeUndefined();
+    });
+  });
+
   describe('retain', () => {
     beforeEach(() => {
       fetchPolicy = 'store-or-network';
