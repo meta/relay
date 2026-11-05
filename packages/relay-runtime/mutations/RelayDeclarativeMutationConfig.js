@@ -36,7 +36,7 @@ const RangeOperations = Object.freeze({
 export type RangeOperation = Values<typeof RangeOperations>;
 
 type RangeBehaviorsFunction = (connectionArgs: {
-  [name: string]: $FlowFixMe,
+  [name: string]: unknown,
   ...
 }) => RangeOperation;
 type RangeBehaviorsObject = {[key: string]: RangeOperation, ...};
