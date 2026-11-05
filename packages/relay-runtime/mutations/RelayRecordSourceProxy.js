@@ -188,7 +188,10 @@ class RelayRecordSourceProxy implements RecordSourceProxy {
     );
   }
 
-  readUpdatableFragment<TFragmentType extends FragmentType, TData>(
+  readUpdatableFragment<
+    TFragmentType extends FragmentType,
+    TData extends {...},
+  >(
     fragment: UpdatableFragment<TFragmentType, TData>,
     fragmentReference: HasUpdatableSpread<TFragmentType>,
   ): UpdatableData<TData> {

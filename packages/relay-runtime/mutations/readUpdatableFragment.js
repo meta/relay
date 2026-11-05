@@ -27,7 +27,10 @@ const {createUpdatableProxy} = require('./createUpdatableProxy');
 const invariant = require('invariant');
 
 // Note: plural fragment references are currently not supported
-function readUpdatableFragment<TFragmentType extends FragmentType, TData>(
+function readUpdatableFragment<
+  TFragmentType extends FragmentType,
+  TData extends {...},
+>(
   fragment: UpdatableFragment<TFragmentType, TData>,
   fragmentReference: HasUpdatableSpread<TFragmentType>,
   proxy: RecordSourceProxy,
@@ -48,7 +51,6 @@ function readUpdatableFragment<TFragmentType extends FragmentType, TData>(
   );
 
   return {
-    // $FlowFixMe[incompatible-type]
     updatableData: createUpdatableProxy<TData>(
       fragmentRoot,
       fragmentVariables,

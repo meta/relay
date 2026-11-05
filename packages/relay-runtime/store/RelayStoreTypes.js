@@ -552,7 +552,10 @@ export interface RecordSourceProxy {
     query: UpdatableQuery<TVariables, TData>,
     variables: TVariables,
   ): UpdatableData<TData>;
-  readUpdatableFragment<TFragmentType extends FragmentType, TData>(
+  readUpdatableFragment<
+    TFragmentType extends FragmentType,
+    TData extends {...},
+  >(
     fragment: UpdatableFragment<TFragmentType, TData>,
     fragmentReference: HasUpdatableSpread<TFragmentType>,
   ): UpdatableData<TData>;
