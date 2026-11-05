@@ -28,7 +28,6 @@ const useRelayEnvironment = require('./useRelayEnvironment');
 const {
   useCallback,
   useEffect,
-  // $FlowFixMe[prop-missing] Remove once callers are migrated to official API
   useInsertionEffect,
   useRef,
   useState,
@@ -228,7 +227,6 @@ hook useQueryLoader_EXPERIMENTAL<
     };
   }, [preloadableRequest, queryReference]);
 
-  // $FlowFixMe[not-a-function]
   useInsertionEffect(() => {
     // We use an insertion effect to ensure that we cleanup the final query
     // reference when the component truly unmounts. Note that a regular
