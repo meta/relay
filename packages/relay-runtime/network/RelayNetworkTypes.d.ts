@@ -84,6 +84,36 @@ export type GraphQLSingularResponse =
 export type GraphQLResponse = GraphQLSingularResponse | readonly GraphQLSingularResponse[];
 
 /**
+ * A response in GraphQL's incremental delivery format, as graphql-js 17's
+ * `experimentalExecuteIncrementally` produces it: later results are addressed
+ * by the `id` of a `pending` entry, and a deferred fragment leaves out fields
+ * another result already sent. Every response of an incremental result has
+ * `hasNext`; a result without incremental delivery is a plain response.
+ */
+export interface IncrementalDeliveryResponse {
+    readonly data?: PayloadData | null | undefined;
+    readonly errors?: readonly PayloadError[] | undefined;
+    readonly extensions?: PayloadExtensions | undefined;
+    readonly pending?: ReadonlyArray<{
+        readonly id: string;
+        readonly path: ReadonlyArray<string | number>;
+        readonly label?: string | undefined;
+    }> | undefined;
+    readonly incremental?: ReadonlyArray<{
+        readonly id: string;
+        readonly data?: PayloadData | undefined;
+        readonly items?: readonly unknown[] | undefined;
+        readonly subPath?: ReadonlyArray<string | number> | undefined;
+        readonly errors?: readonly PayloadError[] | undefined;
+    }> | undefined;
+    readonly completed?: ReadonlyArray<{
+        readonly id: string;
+        readonly errors?: readonly PayloadError[] | undefined;
+    }> | undefined;
+    readonly hasNext: boolean;
+}
+
+/**
  * A function that returns an Observable representing the response of executing
  * a GraphQL operation.
  */

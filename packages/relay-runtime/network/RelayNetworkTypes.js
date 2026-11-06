@@ -94,6 +94,36 @@ export type GraphQLResponse =
   GraphQLSingularResponse | ReadonlyArray<GraphQLSingularResponse>;
 
 /**
+ * A response in GraphQL's incremental delivery format, as graphql-js 17's
+ * `experimentalExecuteIncrementally` produces it: later results are addressed
+ * by the `id` of a `pending` entry, and a deferred fragment leaves out fields
+ * another result already sent. Every response of an incremental result has
+ * `hasNext`; a result without incremental delivery is a plain response.
+ */
+export type IncrementalDeliveryResponse = {
+  readonly data?: ?PayloadData,
+  readonly errors?: ReadonlyArray<PayloadError>,
+  readonly extensions?: PayloadExtensions,
+  readonly pending?: ReadonlyArray<{
+    readonly id: string,
+    readonly path: ReadonlyArray<string | number>,
+    readonly label?: string,
+  }>,
+  readonly incremental?: ReadonlyArray<{
+    readonly id: string,
+    readonly data?: PayloadData,
+    readonly items?: ReadonlyArray<unknown>,
+    readonly subPath?: ReadonlyArray<string | number>,
+    readonly errors?: ReadonlyArray<PayloadError>,
+  }>,
+  readonly completed?: ReadonlyArray<{
+    readonly id: string,
+    readonly errors?: ReadonlyArray<PayloadError>,
+  }>,
+  readonly hasNext: boolean,
+};
+
+/**
  * A function that pre-process the response at the network layer. This
  * function is invoked right after the network operation and before cache
  * operations.
