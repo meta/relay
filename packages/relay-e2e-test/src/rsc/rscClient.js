@@ -55,7 +55,12 @@ function createFromReadableStream(stream) {
 function startProcess(options, execArgv) {
   const child = fork(HOST_PROCESS, [JSON.stringify(options)], {
     // See GratsNetwork.ts.
-    env: {...process.env, NODE_OPTIONS: '', RELAY_E2E_SERVER_COMPONENTS: '1'},
+    env: {
+      ...process.env,
+      NODE_OPTIONS: '',
+      RELAY_E2E_GRAPHQL: path.dirname(require.resolve('graphql/package.json')),
+      RELAY_E2E_SERVER_COMPONENTS: '1',
+    },
     execArgv,
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });

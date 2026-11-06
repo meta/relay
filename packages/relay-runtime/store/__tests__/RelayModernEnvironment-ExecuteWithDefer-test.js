@@ -323,13 +323,12 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
       });
 
       it('processes deferred payloads with deduplicated fields', () => {
-        // This functionality prevents Relay from throwing an error when missing
-        // fields are received in a deferred response. This is required for the
-        // latest `@defer` spec proposal, which does not send duplicate fields
-        // in deferred responses. While Relay does not yet attempt to support the latest
-        // spec proposal (https://github.com/graphql/defer-stream-wg/discussions/69),
-        // this option allows users to transform responses into a format that Relay
-        // can accept.
+        // This option stops Relay from warning about fields missing from a
+        // deferred response. Relay reads the latest `@defer` spec proposal's
+        // format, which does not send duplicate fields in deferred responses
+        // (https://github.com/graphql/defer-stream-wg/discussions/69), without
+        // it; the option is for networks that transform such responses into
+        // label/path payloads themselves.
         environment = new RelayModernEnvironment({
           network: RelayNetwork.create(fetch),
           store,

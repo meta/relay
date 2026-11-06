@@ -16,6 +16,7 @@
     "babel-plugin-relay": "^20.1.1",
     "fbjs": "^3.0.2",
     "graphql": "16.1.0-experimental-stream-defer.6",
+    "graphql17": "npm:graphql@17.0.2",
     "grats": "0.0.0-main-db08606c",
     "react": "0.0.0-experimental-7670501b-20241124",
     "react-dom": "0.0.0-experimental-7670501b-20241124",

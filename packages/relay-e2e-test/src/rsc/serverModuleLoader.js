@@ -33,6 +33,8 @@ const E2E_NODE_MODULES = path.join(E2E_ROOT, 'node_modules');
 const E2E_PACKAGE =
   /^(react|react-dom|react-server-dom-webpack|scheduler|graphql)(\/|$)/;
 const RELAY_PACKAGE = /^(relay-runtime|react-relay)(?:\/(.+))?$/;
+// The graphql package of the jest realm that started this process.
+const GRAPHQL = process.env.RELAY_E2E_GRAPHQL;
 
 // Each process compiles all of Relay; caching its output on disk keeps the
 // processes of later fixtures fast. Fixture files change every run and are
@@ -101,6 +103,9 @@ function installServerModuleLoader({clientReferences, fixtureDir}) {
       E2E_PACKAGE.test(request) &&
       !parent?.filename?.startsWith(E2E_NODE_MODULES + path.sep)
     ) {
+      if (GRAPHQL != null) {
+        request = request.replace(/^graphql(?=\/|$)/, GRAPHQL);
+      }
       options = {paths: [E2E_ROOT]};
     }
     return resolveFilename.call(this, request, parent, isMain, options);

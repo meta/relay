@@ -22,7 +22,7 @@ yarn test:e2e -- --testNamePattern defer
 
 ### First-time setup
 
-The e2e package has its own `node_modules` (isolated `react@19`, `graphql@16`):
+The e2e package has its own `node_modules` (isolated `react@19`, and `graphql@16` and `graphql@17`, which every fixture runs on in turn):
 
 ```
 cd packages/relay-e2e-test && yarn install

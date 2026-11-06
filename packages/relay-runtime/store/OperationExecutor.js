@@ -61,6 +61,7 @@ const {stableCopy} = require('../util/stableCopy');
 const withStartAndDuration = require('../util/withStartAndDuration');
 const {generateClientID, generateUniqueClientID} = require('./ClientID');
 const {getLocalVariables} = require('./RelayConcreteVariables');
+const RelayIncrementalDeliveryConverter = require('./RelayIncrementalDeliveryConverter');
 const RelayModernRecord = require('./RelayModernRecord');
 const {
   createNormalizationSelector,
@@ -154,6 +155,9 @@ class Executor<TMutation extends MutationParameters> {
   readonly _getPublishQueue: (actorIdentifier: ActorIdentifier) => PublishQueue;
   _scheduler: ?TaskScheduler;
   _sink: Sink<GraphQLResponse>;
+  // Reads responses in GraphQL's incremental delivery format (graphql-js 17)
+  // as label/path payloads.
+  _incrementalDelivery: RelayIncrementalDeliveryConverter;
   _source: Map<
     string,
     {
@@ -221,6 +225,7 @@ class Executor<TMutation extends MutationParameters> {
     this._scheduler = scheduler;
     this._sink = sink;
     this._source = new Map();
+    this._incrementalDelivery = new RelayIncrementalDeliveryConverter();
     this._state = 'started';
     this._getStore = getStore;
     this._subscriptions = new Map();
@@ -630,7 +635,9 @@ class Executor<TMutation extends MutationParameters> {
     }
     this._seenActors.clear();
 
-    const responses = Array.isArray(response) ? response : [response];
+    const responses = (Array.isArray(response) ? response : [response]).flatMap(
+      singular => this._incrementalDelivery.convert(singular),
+    );
     const responsesWithData = this._handleErrorResponse(responses);
 
     if (responsesWithData.length === 0) {
@@ -1394,11 +1401,20 @@ class Executor<TMutation extends MutationParameters> {
       record: nextParentRecord,
     });
 
+    // A deferred fragment graphql-js left out is applied whole, which places
+    // the fragments deferred inside it.
+    const unannounced =
+      placeholder.kind === 'defer'
+        ? this._incrementalDelivery.unannouncedFragment(label, path)
+        : null;
     // If there were any queued responses, process them now that placeholders
     // are in place
-    if (pendingResponses != null) {
-      const payloadFollowups =
-        this._processIncrementalResponses(pendingResponses);
+    const responses: ?ReadonlyArray<IncrementalGraphQLResponse> =
+      unannounced != null
+        ? [{label, path, response: unannounced}, ...(pendingResponses ?? [])]
+        : pendingResponses;
+    if (responses != null) {
+      const payloadFollowups = this._processIncrementalResponses(responses);
       this._processPayloadFollowups(payloadFollowups);
     }
   }

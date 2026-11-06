@@ -162,6 +162,8 @@ The section is omitted entirely when a fixture is clean, so a passing fixture's 
 
 `fixtures/typechecking/unselected-field.md` is the worked example: it selects `greeting` but reads `farewell`, a field that exists on `Query` but was not selected. The GraphQL is valid, the Relay compiler is happy, and at runtime the field is `undefined` and renders as nothing — so the component works and the `wait` step passes. Only the typecheck catches it. Use it as the template when adding a fixture whose whole point is a type error.
 
+Every fixture runs twice, on graphql 16 and on graphql 17 (see `jest.config.js`), and both runs must match its one snapshot. They differ in how they send `@defer` and `@stream` results: graphql 16 as label/path payloads, graphql 17 in GraphQL's incremental delivery format.
+
 Always commit the `.snap.md` alongside the fixture. Jest treats a CI environment as `--ci` automatically (via `ci-info`, which checks `CI` among others), so a fixture landed without its snapshot fails there rather than silently writing one and passing forever.
 
 ## Relay docs

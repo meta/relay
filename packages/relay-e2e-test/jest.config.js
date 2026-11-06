@@ -10,7 +10,7 @@
  *
  * Dependencies come from two locations:
  * - Root node_modules: jest, babel, build tooling
- * - E2E node_modules: react@19, graphql@16, @testing-library (isolated versions)
+ * - E2E node_modules: react@19, graphql@16 and graphql@17, @testing-library (isolated versions)
  * - Relay source: packages/relay-runtime, packages/react-relay (from source)
  */
 
@@ -23,7 +23,7 @@ const mainRoot = getMainRepoRoot();
 const relayRuntimePath = resolveRelayPackage('relay-runtime');
 const reactRelayPath = resolveRelayPackage('react-relay');
 
-module.exports = {
+const config = {
   testMatch: ['<rootDir>/**/__tests__/*-test.js'],
   transform: {
     '\\.[jt]sx?$': '<rootDir>/jest-transform.js',
@@ -66,7 +66,26 @@ module.exports = {
   // Use jsdom for DOM testing with @testing-library
   testEnvironment: 'jest-environment-jsdom',
   roots: ['<rootDir>'],
+  setupFiles: ['<rootDir>/jest-setup.js'],
+};
+
+module.exports = {
   // Increase timeout for fixture compilation (grats + relay-compiler)
   testTimeout: 30000,
-  setupFiles: ['<rootDir>/jest-setup.js'],
+  // The fixtures run twice, against each snapshot: on graphql 16, which sends
+  // `@defer` and `@stream` results as label/path payloads, and on graphql 17,
+  // which sends them in GraphQL's incremental delivery format.
+  projects: [
+    {...config, displayName: 'graphql 16'},
+    {
+      ...config,
+      displayName: 'graphql 17',
+      testMatch: ['<rootDir>/__tests__/fixtures-test.js'],
+      moduleNameMapper: {
+        ...config.moduleNameMapper,
+        '^graphql$': '<rootDir>/node_modules/graphql17',
+        '^graphql/(.*)$': '<rootDir>/node_modules/graphql17/$1',
+      },
+    },
+  ],
 };
