@@ -1782,7 +1782,7 @@ class RelayReader {
     let fragmentPointers = data[FRAGMENTS_KEY];
     if (fragmentPointers == null) {
       fragmentPointers = data[FRAGMENTS_KEY] = {} as {
-        [string]: Arguments,
+        [key: string]: Arguments,
       };
     }
     invariant(
@@ -1823,7 +1823,7 @@ class RelayReader {
   ): void {
     let fragmentPointers = data[FRAGMENTS_KEY];
     if (fragmentPointers == null) {
-      fragmentPointers = data[FRAGMENTS_KEY] = {} as {[string]: {...}};
+      fragmentPointers = data[FRAGMENTS_KEY] = {} as {[key: string]: {...}};
     }
     invariant(
       typeof fragmentPointers === 'object' && fragmentPointers != null,
@@ -3800,7 +3800,7 @@ class RelayReaderOptimized {
     let fragmentPointers = data[FRAGMENTS_KEY];
     if (fragmentPointers == null) {
       fragmentPointers = data[FRAGMENTS_KEY] = {} as {
-        [string]: Arguments,
+        [key: string]: Arguments,
       };
     }
     invariant(
@@ -3846,7 +3846,7 @@ class RelayReaderOptimized {
   ): void {
     let fragmentPointers = data[FRAGMENTS_KEY];
     if (fragmentPointers == null) {
-      fragmentPointers = data[FRAGMENTS_KEY] = {} as {[string]: {...}};
+      fragmentPointers = data[FRAGMENTS_KEY] = {} as {[key: string]: {...}};
     }
     invariant(
       typeof fragmentPointers === 'object' && fragmentPointers != null,

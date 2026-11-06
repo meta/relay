@@ -68,15 +68,15 @@ type Traversable = {
   readonly isAbstractType: ?boolean,
   readonly name: ?string,
   readonly alias: ?string,
-  readonly args: ?{[string]: unknown, ...},
+  readonly args: ?{[key: string]: unknown, ...},
 };
-type MockData = {[string]: unknown, ...};
+type MockData = {[key: string]: unknown, ...};
 export type MockResolverContext = {
   readonly parentType: ?string,
   readonly name: ?string,
   readonly alias: ?string,
   readonly path: ?ReadonlyArray<string>,
-  readonly args: ?{[string]: unknown, ...},
+  readonly args: ?{[key: string]: unknown, ...},
 };
 type MockResolver = (
   context: MockResolverContext,
@@ -658,7 +658,7 @@ class RelayMockPayloadGenerator {
     mockData: ?MockData,
     defaultValues: ?MockData,
   ): MockData {
-    const data = mockData ?? ({} as {[string]: unknown});
+    const data = mockData ?? ({} as {[key: string]: unknown});
     const applicationName = field.alias ?? field.name;
     if (data.hasOwnProperty(applicationName) && field.name !== TYPENAME_KEY) {
       return data;
@@ -857,7 +857,7 @@ class RelayMockPayloadGenerator {
     fieldName: ?string,
     fieldAlias: ?string,
     path: ReadonlyArray<string>,
-    args: ?{[string]: unknown, ...},
+    args: ?{[key: string]: unknown, ...},
   ): ?MockData {
     let data;
     if (typeName != null && this._mockResolvers[typeName] != null) {
@@ -882,8 +882,8 @@ class RelayMockPayloadGenerator {
   /**
    * Get object with variables for field
    */
-  _getFieldArgs(field: NormalizationField): {[string]: unknown, ...} {
-    const args: {[string]: unknown} = {};
+  _getFieldArgs(field: NormalizationField): {[key: string]: unknown, ...} {
+    const args: {[key: string]: unknown} = {};
     if (field.args != null) {
       field.args.forEach(arg => {
         args[arg.name] = this._getArgValue(arg);
@@ -899,7 +899,7 @@ class RelayMockPayloadGenerator {
       case 'Variable':
         return this._getVariableValue(arg.variableName);
       case 'ObjectValue': {
-        const value: {[string]: unknown} = {};
+        const value: {[key: string]: unknown} = {};
         arg.fields.forEach(field => {
           value[field.name] = this._getArgValue(field);
         });

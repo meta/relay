@@ -23,7 +23,7 @@ function withProvidedVariables(
   cache: Map<() => unknown, unknown>,
 ): Variables {
   if (providedVariables != null) {
-    const operationVariables: {[string]: unknown} = {};
+    const operationVariables: {[key: string]: unknown} = {};
     // $FlowFixMe[unsafe-object-assign]
     Object.assign(operationVariables, userSuppliedVariables);
     Object.keys(providedVariables).forEach((varName: string) => {

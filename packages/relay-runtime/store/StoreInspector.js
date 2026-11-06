@@ -138,7 +138,7 @@ if (__DEV__) {
   const getWrappedRecord = (
     source: RecordSource,
     dataID: string,
-  ): ?{[string]: unknown} => {
+  ): ?{[key: string]: unknown} => {
     const record = source.get(dataID);
     if (record == null) {
       // $FlowFixMe[incompatible-type]

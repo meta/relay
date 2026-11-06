@@ -66,7 +66,7 @@ export type LinkedField =
 export type ChunkField = ScalarField | Array<ScalarField> | LinkedField;
 
 export type ChunkFields = {
-  [string]: ChunkField,
+  [key: string]: ChunkField,
 };
 
 export type RecordChunk = {
@@ -74,13 +74,13 @@ export type RecordChunk = {
   $streamID: number,
   __id: string,
   __typename: string,
-  [string]: ChunkField,
+  [key: string]: ChunkField,
 };
 
 export type ExtendChunk = {
   $kind: 'Extend',
   $streamID: number,
-  [string]: ChunkField,
+  [key: string]: ChunkField,
 };
 
 export type CompleteChunk = {

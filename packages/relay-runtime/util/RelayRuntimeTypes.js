@@ -33,7 +33,7 @@ export type Disposable = interface {dispose(): void};
 export type DataID = string;
 
 // Variables
-export type Variables = {readonly [string]: $FlowFixMe};
+export type Variables = {readonly [key: string]: $FlowFixMe};
 
 /**
  * Generated operation flow types are subtypes of this.

@@ -45,7 +45,7 @@ disallowWarnings();
 // `data.me.combined_pages` (a list) with runtime checks so the test can assert
 // on it without an `any` cast or a `$FlowFixMe` suppression.
 function getCombinedPages(
-  data: ?{readonly [string]: unknown},
+  data: ?{readonly [key: string]: unknown},
 ): ReadonlyArray<unknown> | void {
   const me = data?.me;
   if (me == null || typeof me !== 'object') {

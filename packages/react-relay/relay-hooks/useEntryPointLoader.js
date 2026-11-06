@@ -55,7 +55,7 @@ const initialNullEntryPointReferenceState: NullEntryPointReference = {
 hook useLoadEntryPoint<
   TEntryPointParams extends {...},
   // $FlowExpectedError[unclear-type] Need any to make it supertype of all PreloadedQuery
-  TPreloadedQueries extends {readonly [string]: PreloadedQuery<any>},
+  TPreloadedQueries extends {readonly [key: string]: PreloadedQuery<any>},
   TPreloadedEntryPoints extends {...},
   TRuntimeProps extends {...},
   TExtraProps,

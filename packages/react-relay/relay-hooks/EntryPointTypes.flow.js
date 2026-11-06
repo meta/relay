@@ -48,7 +48,7 @@ export type LoadQueryOptions = {
   readonly __nameForWarning?: ?string,
 };
 
-export type EnvironmentProviderOptions = {readonly [string]: unknown, ...};
+export type EnvironmentProviderOptions = {readonly [key: string]: unknown, ...};
 
 export type PreloadedQuery<
   out TQuery extends OperationType,
@@ -180,7 +180,7 @@ export type EntryPointComponent<
 // Return type of the `getPreloadProps(...)` of the entry point
 export type PreloadProps<
   // $FlowExpectedError[unclear-type] Need any to make it supertype of all PreloadedQuery
-  TPreloadedQueries extends {readonly [string]: ?PreloadedQuery<any>},
+  TPreloadedQueries extends {readonly [key: string]: ?PreloadedQuery<any>},
   TPreloadedEntryPoints extends {...},
   TExtraProps = null,
   TEnvironmentProviderOptions = EnvironmentProviderOptions,
@@ -264,8 +264,10 @@ type ExtractThinQueryParams<T, TEnvironmentProviderOptions> = [
 
 export type ExtractQueryTypes<
   TEnvironmentProviderOptions,
-  // $FlowExpectedError[unclear-type] Need any to make it supertype of all PreloadedQuery
-  PreloadedQueries extends {readonly [string]: ?PreloadedQuery<any>} | void,
+  PreloadedQueries extends {
+    // $FlowExpectedError[unclear-type] Need any to make it supertype of all PreloadedQuery
+    readonly [key: string]: ?PreloadedQuery<any>,
+  } | void,
 > = {
   [K in keyof PreloadedQueries]: ExtractThinQueryParams<
     PreloadedQueries[K],

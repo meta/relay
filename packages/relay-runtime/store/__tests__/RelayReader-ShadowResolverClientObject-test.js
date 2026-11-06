@@ -44,7 +44,9 @@ disallowWarnings();
 // `read()` returns a loosely-typed `SelectorData` (an index map of `unknown`).
 // This helper walks `data.me.combined_page.title` with runtime checks so the
 // test can assert on it without an `any` cast or a `$FlowFixMe` suppression.
-function getCombinedPageTitle(data: ?{readonly [string]: unknown}): unknown {
+function getCombinedPageTitle(
+  data: ?{readonly [key: string]: unknown},
+): unknown {
   const me = data?.me;
   if (me == null || typeof me !== 'object') {
     return undefined;
@@ -100,7 +102,7 @@ describe('RelayReader shadow resolver via ClientObject (unified path)', () => {
       readonly __typename: string,
       readonly id: string,
     },
-    serverObjectOperations: {[string]: ConcreteRequest} | null = null,
+    serverObjectOperations: {[key: string]: ConcreteRequest} | null = null,
   ): ReaderFragment => ({
     argumentDefinitions: [],
     kind: 'Fragment',

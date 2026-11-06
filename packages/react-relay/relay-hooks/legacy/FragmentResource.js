@@ -567,11 +567,11 @@ class FragmentResourceImpl {
   }
 
   readSpec(
-    fragmentNodes: {[string]: ReaderFragment, ...},
-    fragmentRefs: {[string]: unknown, ...},
+    fragmentNodes: {[key: string]: ReaderFragment, ...},
+    fragmentRefs: {[key: string]: unknown, ...},
     componentDisplayName: string,
-  ): {[string]: FragmentResult, ...} {
-    const result: {[string]: FragmentResult} = {};
+  ): {[key: string]: FragmentResult, ...} {
+    const result: {[key: string]: FragmentResult} = {};
     for (const key in fragmentNodes) {
       result[key] = this.read(
         fragmentNodes[key],
@@ -677,7 +677,7 @@ class FragmentResourceImpl {
   }
 
   subscribeSpec(
-    fragmentResults: {[string]: FragmentResult, ...},
+    fragmentResults: {[key: string]: FragmentResult, ...},
     callback: () => void,
   ): Disposable {
     const disposables = Object.keys(fragmentResults).map(key =>
@@ -789,7 +789,7 @@ class FragmentResourceImpl {
   }
 
   checkMissedUpdatesSpec(fragmentResults: {
-    [string]: FragmentResult,
+    [key: string]: FragmentResult,
     ...
   }): boolean {
     return Object.keys(fragmentResults).some(

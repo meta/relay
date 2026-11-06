@@ -50,7 +50,7 @@ export type RenderProps<T> = {
  * constructor, just reuse the query fetcher and wait for the response.
  */
 const requestCache: {
-  [string]: void | {
+  [key: string]: void | {
     queryFetcher: ReactRelayQueryFetcher,
     snapshot: ?Snapshot,
   },

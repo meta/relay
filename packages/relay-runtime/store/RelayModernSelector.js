@@ -220,7 +220,7 @@ function getSelectorsFromObject(
   fragments: {[key: string]: ReaderFragment, ...},
   object: {[key: string]: unknown, ...},
 ): {[key: string]: ?ReaderSelector, ...} {
-  const selectors: {[string]: ?ReaderSelector} = {};
+  const selectors: {[key: string]: ?ReaderSelector} = {};
   for (const key in fragments) {
     if (fragments.hasOwnProperty(key)) {
       const fragment = fragments[key];
@@ -244,7 +244,7 @@ function getDataIDsFromObject(
   fragments: {[key: string]: ReaderFragment, ...},
   object: {[key: string]: unknown, ...},
 ): {[key: string]: ?(DataID | Array<DataID>), ...} {
-  const ids: {[string]: ?(DataID | Array<DataID>)} = {};
+  const ids: {[key: string]: ?(DataID | Array<DataID>)} = {};
   for (const key in fragments) {
     if (fragments.hasOwnProperty(key)) {
       const fragment = fragments[key];

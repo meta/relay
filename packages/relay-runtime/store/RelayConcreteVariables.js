@@ -45,7 +45,7 @@ function getFragmentVariables(
   if (fragment.argumentDefinitions == null) {
     return argumentVariables;
   }
-  let variables: {[string]: $FlowFixMe};
+  let variables: {[key: string]: $FlowFixMe};
   fragment.argumentDefinitions.forEach(definition => {
     if (argumentVariables.hasOwnProperty(definition.name)) {
       return;
@@ -97,7 +97,7 @@ function getOperationVariables(
   providedVariables: ?ProvidedVariablesType,
   variables: Variables,
 ): Variables {
-  const operationVariables: {[string]: unknown} = {};
+  const operationVariables: {[key: string]: unknown} = {};
   operation.argumentDefinitions.forEach(def => {
     let value = def.defaultValue;
     if (variables[def.name] != null) {

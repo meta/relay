@@ -45,8 +45,8 @@ disallowWarnings();
 // `data.me.thing.<field>` with runtime checks so the test can assert without an
 // `any` cast or a `$FlowFixMe` suppression.
 function getThing(
-  data: ?{readonly [string]: unknown},
-): ?{readonly [string]: unknown} {
+  data: ?{readonly [key: string]: unknown},
+): ?{readonly [key: string]: unknown} {
   const me = data?.me;
   if (me == null || typeof me !== 'object') {
     return undefined;

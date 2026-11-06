@@ -38,7 +38,7 @@ declare function readInlineData<TFragmentType extends FragmentType, TData>(
 
 function readInlineData(
   fragment: GraphQLTaggedNode,
-  fragmentRef: ?{[string]: {[string]: unknown}, ...},
+  fragmentRef: ?{[key: string]: {[key: string]: unknown}, ...},
 ): unknown {
   const inlineDataFragment = getInlineDataFragment(fragment);
   if (fragmentRef == null) {

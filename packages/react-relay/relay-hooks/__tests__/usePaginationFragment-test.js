@@ -236,7 +236,7 @@ function createMockEnvironment() {
     },
   );
   const environment = new Environment({
-    getDataID: (data: {readonly [string]: unknown}, typename: string) => {
+    getDataID: (data: {readonly [key: string]: unknown}, typename: string) => {
       // This is the default, but making it explicit in case we need to override
       return data.id;
     },

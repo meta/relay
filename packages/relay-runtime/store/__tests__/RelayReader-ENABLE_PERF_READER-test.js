@@ -90,8 +90,8 @@ describe('data of fragments with many fields', () => {
     },
   };
   const record: RecordJSON = {__id: '1', __typename: 'User'};
-  const expected: {[string]: unknown} = {};
-  const narrow: {[string]: unknown} = {};
+  const expected: {[key: string]: unknown} = {};
+  const narrow: {[key: string]: unknown} = {};
   for (let ii = 0; ii < FIELD_COUNT; ii++) {
     record[fieldName(ii)] = `value ${ii}`;
     expected[fieldName(ii)] = `value ${ii}`;
@@ -102,7 +102,7 @@ describe('data of fragments with many fields', () => {
   const expectRead = (
     fragment: ReaderFragment,
     showMore: boolean,
-    data: {[string]: unknown},
+    data: {[key: string]: unknown},
   ) => {
     const read_ = read(
       RelayRecordSource.create({'1': record}),
@@ -181,7 +181,7 @@ describe('shapes kept for data of 17 to 64 keys', () => {
   const readTwice = (fieldCount: number): Array<number> => {
     const fragment = wideFragment(fieldCount);
     const record: RecordJSON = {__id: '1', __typename: 'User'};
-    const expected: {[string]: unknown} = {};
+    const expected: {[key: string]: unknown} = {};
     for (let ii = 0; ii < fieldCount; ii++) {
       record[`wide${ii}`] = ii;
       expected[`wide${ii}`] = ii;

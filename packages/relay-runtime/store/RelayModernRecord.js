@@ -38,7 +38,7 @@ const warning = require('warning');
 
 export type StorageKey = Exclude<string, typeof ERRORS_KEY>;
 
-type RelayFieldErrors = {[StorageKey]: ReadonlyArray<TRelayFieldError>};
+type RelayFieldErrors = {[key: StorageKey]: ReadonlyArray<TRelayFieldError>};
 
 export type RecordJSON = {
   /**
@@ -46,7 +46,7 @@ export type RecordJSON = {
    * not support types with multiple indexers.
    */
   __errors?: RelayFieldErrors,
-  [StorageKey]: unknown,
+  [key: StorageKey]: unknown,
   ...
 };
 
@@ -587,7 +587,7 @@ function setLinkedRecordID(
   linkedID: DataID,
 ): void {
   // See perf note above for why we aren't using computed property access.
-  const link: {[string]: DataID} = {};
+  const link: {[key: string]: DataID} = {};
   link[REF_KEY] = linkedID;
   record[storageKey] = link;
 }
@@ -603,7 +603,7 @@ function setLinkedRecordIDs(
   linkedIDs: Array<?DataID>,
 ): void {
   // See perf note above for why we aren't using computed property access.
-  const links: {[string]: Array<?DataID>} = {};
+  const links: {[key: string]: Array<?DataID>} = {};
   links[REFS_KEY] = linkedIDs;
   record[storageKey] = links;
 }
@@ -620,7 +620,7 @@ function setActorLinkedRecordID(
   linkedID: DataID,
 ): void {
   // See perf note above for why we aren't using computed property access.
-  const link: {[string]: ActorIdentifier | DataID} = {};
+  const link: {[key: string]: ActorIdentifier | DataID} = {};
   link[REF_KEY] = linkedID;
   link[ACTOR_IDENTIFIER_KEY] = actorIdentifier;
   record[storageKey] = link;
@@ -787,7 +787,7 @@ function areFieldValuesEqual(prevValue: unknown, nextValue: unknown): boolean {
 
 // Whether `object`'s only enumerable property is `key`.
 function hasOnlyKey(
-  object: {readonly [string]: unknown},
+  object: {readonly [key: string]: unknown},
   key: string,
 ): boolean {
   for (const k in object) {

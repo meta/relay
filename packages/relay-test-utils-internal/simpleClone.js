@@ -21,7 +21,7 @@ function simpleClone<T>(value: T): T {
     // $FlowFixMe[incompatible-type]
     return value.map(simpleClone);
   } else if (value != null && typeof value === 'object') {
-    const result: {[string]: unknown} = {};
+    const result: {[key: string]: unknown} = {};
     for (const key in value) {
       result[key] = simpleClone(value[key]);
     }

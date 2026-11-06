@@ -237,7 +237,7 @@ export interface RecordSource {
 /**
  * A collection of records keyed by id.
  */
-export type RecordSourceJSON = {readonly [DataID]: ?RecordJSON};
+export type RecordSourceJSON = {readonly [key: DataID]: ?RecordJSON};
 
 /**
  * A read/write interface for accessing and updating graph data.

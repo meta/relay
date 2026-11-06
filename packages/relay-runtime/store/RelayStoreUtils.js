@@ -36,7 +36,7 @@ const invariant = require('invariant');
 
 export type Arguments = {
   readonly FRAGMENT_POINTER_IS_WITHIN_UNMATCHED_TYPE_REFINEMENT?: boolean,
-  readonly [string]: unknown,
+  readonly [key: string]: unknown,
 };
 
 const {VARIABLE, LITERAL, OBJECT_VALUE, LIST_VALUE} = RelayConcreteNode;
@@ -59,7 +59,7 @@ function getArgumentValue(
     // The Relay compiler generates stable ConcreteArgument values.
     return arg.value;
   } else if (arg.kind === OBJECT_VALUE) {
-    const value: {[string]: unknown} = {};
+    const value: {[key: string]: unknown} = {};
     arg.fields.forEach(field => {
       value[field.name] = getArgumentValue(field, variables);
     });
@@ -84,7 +84,7 @@ function getArgumentValues(
 ): Arguments {
   const values: {
     FRAGMENT_POINTER_IS_WITHIN_UNMATCHED_TYPE_REFINEMENT?: boolean,
-    [string]: unknown,
+    [key: string]: unknown,
   } = {};
   if (isWithinUnmatchedTypeRefinement) {
     values[

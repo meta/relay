@@ -44,7 +44,9 @@ disallowWarnings();
 // `read()` returns a loosely-typed `SelectorData`. This helper walks
 // `data.me.page_stats.likeCount` with runtime checks so the test can assert on
 // it without an `any` cast or a `$FlowFixMe` suppression.
-function getPageStatsLikeCount(data: ?{readonly [string]: unknown}): unknown {
+function getPageStatsLikeCount(
+  data: ?{readonly [key: string]: unknown},
+): unknown {
   const me = data?.me;
   if (me == null || typeof me !== 'object') {
     return undefined;

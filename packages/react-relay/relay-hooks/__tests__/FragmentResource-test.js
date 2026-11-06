@@ -744,7 +744,7 @@ describe('FragmentResource', () => {
       const fragmentNodes = {
         user: getFragment(UserFragmentMissing),
       };
-      const fragmentRefs: {[string]: unknown} = {
+      const fragmentRefs: {[key: string]: unknown} = {
         user: {
           __id: '4',
           __fragments: {

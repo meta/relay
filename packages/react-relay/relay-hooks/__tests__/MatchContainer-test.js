@@ -38,7 +38,7 @@ function createMatchPointer({
     __module_component: module,
     $fragmentSpreads: {},
     [FRAGMENT_OWNER_KEY]: null,
-    [FRAGMENTS_KEY]: {} as {[string]: {...}},
+    [FRAGMENTS_KEY]: {} as {[key: string]: {...}},
     [ID_KEY]: id,
   };
   if (fragment != null && variables != null) {

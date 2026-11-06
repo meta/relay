@@ -73,7 +73,7 @@ const invariant = require('invariant');
 const warning = require('warning');
 
 export type GetDataID = (
-  fieldValue: {readonly [string]: unknown},
+  fieldValue: {readonly [key: string]: unknown},
   typeName: string,
 ) => unknown;
 

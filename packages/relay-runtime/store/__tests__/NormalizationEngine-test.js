@@ -39,7 +39,7 @@ describe('NormalizationEngine', () => {
 
   function createEngine(
     query: ConcreteRequest,
-    variables?: {[string]: unknown} = {},
+    variables?: {[key: string]: unknown} = {},
     config?: {operationLoader?: $FlowFixMe},
   ): NormalizationEngine {
     const operation = createOperationDescriptor(query, variables);

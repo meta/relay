@@ -328,9 +328,9 @@ export type ReaderClientEdgeToClientObject = {
   readonly kind: 'ClientEdgeToClientObject',
   readonly concreteType: string | null,
   readonly modelResolvers: {
-    [string]: ReaderRelayResolver | ReaderRelayLiveResolver,
+    [key: string]: ReaderRelayResolver | ReaderRelayLiveResolver,
   } | null,
-  readonly serverObjectOperations?: {[string]: ConcreteRequest} | null,
+  readonly serverObjectOperations?: {[key: string]: ConcreteRequest} | null,
   readonly linkedField: ReaderLinkedField,
   readonly backingField:
     ReaderRelayResolver | ReaderRelayLiveResolver | ReaderClientExtension,

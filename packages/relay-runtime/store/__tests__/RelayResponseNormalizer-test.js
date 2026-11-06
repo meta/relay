@@ -1846,8 +1846,8 @@ describe('RelayResponseNormalizer', () => {
 
     const getDataID = jest.fn(
       (
-        fieldValue: string | {readonly [string]: unknown},
-        typename: string | {readonly [string]: unknown},
+        fieldValue: string | {readonly [key: string]: unknown},
+        typename: string | {readonly [key: string]: unknown},
       ) => {
         return `${
           typeof fieldValue === 'string' ? fieldValue : String(fieldValue.id)
@@ -1857,8 +1857,8 @@ describe('RelayResponseNormalizer', () => {
 
     const getNullAsDataID = jest.fn(
       (
-        fieldValue: string | {readonly [string]: unknown},
-        typename: string | {readonly [string]: unknown},
+        fieldValue: string | {readonly [key: string]: unknown},
+        typename: string | {readonly [key: string]: unknown},
       ) => {
         return null;
       },
@@ -4283,7 +4283,7 @@ describe('RelayResponseNormalizer', () => {
   });
 
   describe('Prototype-less objects (e.g., from graphql-js executor)', () => {
-    const createPrototypeLessObject = (data: {[string]: unknown}) => {
+    const createPrototypeLessObject = (data: {[key: string]: unknown}) => {
       const obj = Object.create(null);
       // $FlowFixMe[unsafe-object-assign] - assigning to prototype-less object
       Object.assign(obj, data);

@@ -468,7 +468,7 @@ function readRootFragment(
   fragment: ReaderFragment,
   dataID: string,
   operation: OperationDescriptor,
-  variables: {[string]: unknown} = {},
+  variables: {[key: string]: unknown} = {},
 ): Snapshot {
   return read(
     source,

@@ -25,7 +25,7 @@ export type NormalizationOperation = {
   readonly argumentDefinitions: ReadonlyArray<NormalizationLocalArgumentDefinition>,
   readonly selections: ReadonlyArray<NormalizationSelection>,
   readonly clientAbstractTypes?: {
-    readonly [string]: ReadonlyArray<string>,
+    readonly [key: string]: ReadonlyArray<string>,
   },
   readonly has_client_to_server_resolvers?: boolean,
   readonly has_server_to_client_resolvers?: boolean,
@@ -210,7 +210,7 @@ export type NormalizationLiveResolverField = {
 };
 
 export type NormalizationModelResolvers = {
-  [string]: {
+  [key: string]: {
     readonly resolverModule: ResolverModule,
   },
 };

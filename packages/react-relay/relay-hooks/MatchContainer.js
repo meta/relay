@@ -146,7 +146,7 @@ component MatchContainer<
     // output of subscriptions already has a stable identity.
     if (__fragmentPropName != null && __id != null && __fragments != null) {
       const fragProps: {
-        [string]: {
+        [key: string]: {
           __fragmentOwner: $FlowFixMe,
           __fragments: $FlowFixMe,
           __id: string,

@@ -45,7 +45,7 @@ function buildReactRelayContainer<TBase extends component(...empty)>(
   const containerName = getContainerName(ComponentClass);
   assertFragmentMap(getComponentName(ComponentClass), fragmentSpec);
 
-  const fragments: {[string]: ReaderFragment} = {};
+  const fragments: {[key: string]: ReaderFragment} = {};
   for (const key in fragmentSpec) {
     fragments[key] = getFragment(fragmentSpec[key]);
   }
