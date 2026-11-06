@@ -10,5 +10,5 @@ license = "MIT"
 
 [dependencies]
 fnv = "1.0"
-parking_lot = { version = "0.12.1", features = ["arc_lock", "send_guard", "serde"] }
+parking_lot = { version = "0.13.0", features = ["arc_lock", "send_guard", "serde"] }
 serde = { version = "1.0.229", features = ["derive", "rc"] }

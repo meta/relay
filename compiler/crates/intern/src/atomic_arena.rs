@@ -257,7 +257,7 @@ impl<'a, T> AtomicArena<'a, T> {
                 AtomicPtr::new(ptr::null_mut()),
                 AtomicPtr::new(ptr::null_mut()),
             ],
-            bucket_alloc_mutex: parking_lot::const_mutex(()),
+            bucket_alloc_mutex: Mutex::new(()),
         }
     }
 
@@ -655,7 +655,7 @@ impl<T> AtomicArena<'static, T> {
                 AtomicPtr::new(ptr::null_mut()),
                 AtomicPtr::new(p),
             ],
-            bucket_alloc_mutex: parking_lot::const_mutex(()),
+            bucket_alloc_mutex: Mutex::new(()),
         }
     }
 }
