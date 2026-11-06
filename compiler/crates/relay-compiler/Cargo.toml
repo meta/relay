@@ -43,7 +43,7 @@ extract-graphql = { path = "../extract-graphql" }
 fnv = "1.0"
 futures = { version = "0.3.34", features = ["async-await", "compat"] }
 glob = "0.3.4"
-globset = { version = "0.4.20", features = ["serde1"] }
+globset = { version = "0.4.21", features = ["serde1"] }
 graphql-cli = { path = "../graphql-cli" }
 graphql-ir = { path = "../graphql-ir" }
 graphql-syntax = { path = "../graphql-syntax" }

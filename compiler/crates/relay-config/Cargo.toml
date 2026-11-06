@@ -11,7 +11,7 @@ license = "MIT"
 [dependencies]
 common = { path = "../common" }
 fnv = "1.0"
-globset = { version = "0.4.20", features = ["serde1"] }
+globset = { version = "0.4.21", features = ["serde1"] }
 indexmap = { version = "2.14.2", features = ["arbitrary", "rayon", "serde"] }
 intern = { path = "../intern" }
 pathdiff = "0.2"
