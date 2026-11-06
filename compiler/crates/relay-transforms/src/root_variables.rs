@@ -271,13 +271,18 @@ impl Visitor for VariablesVisitor<'_, '_> {
         // recover the expected type from the corresponding argument definitions.
         if !fragment.variable_definitions.is_empty() {
             for arg in spread.arguments.iter() {
-                if let Value::Variable(var) = &arg.value.item
-                    && let Some(def) = fragment
+                if let Value::Variable(var) = &arg.value.item {
+                    if let Some(def) = fragment
                         .variable_definitions
                         .named(VariableName(arg.name.item.0))
-                    && self.is_root_variable(var.name.item)
-                {
-                    self.record_root_variable_usage(&var.name, &def.type_);
+                        && self.is_root_variable(var.name.item)
+                    {
+                        self.record_root_variable_usage(&var.name, &def.type_);
+                    }
+                } else {
+                    // Root variables nested inside an object or list literal,
+                    // e.g. `@arguments(input: {text: $text})`.
+                    self.visit_value(&arg.value.item);
                 }
             }
         }

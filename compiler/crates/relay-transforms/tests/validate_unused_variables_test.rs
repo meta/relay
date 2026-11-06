@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<4d8584b4ed41dabea8eb7e0b80ec52a2>>
+ * @generated SignedSource<<2b4d905511dfd08364ef968a1236bccd>>
  */
 
 mod validate_unused_variables;
@@ -66,6 +66,13 @@ async fn query_with_variables_shadowed_by_local_variable_and_used_as_root_variab
     let input = include_str!("validate_unused_variables/fixtures/query-with-variables-shadowed-by-local-variable-and-used-as-root-variable.graphql");
     let expected = include_str!("validate_unused_variables/fixtures/query-with-variables-shadowed-by-local-variable-and-used-as-root-variable.expected");
     test_fixture(transform_fixture, file!(), "query-with-variables-shadowed-by-local-variable-and-used-as-root-variable.graphql", "validate_unused_variables/fixtures/query-with-variables-shadowed-by-local-variable-and-used-as-root-variable.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn variable_in_fragment_argument_object() {
+    let input = include_str!("validate_unused_variables/fixtures/variable-in-fragment-argument-object.graphql");
+    let expected = include_str!("validate_unused_variables/fixtures/variable-in-fragment-argument-object.expected");
+    test_fixture(transform_fixture, file!(), "variable-in-fragment-argument-object.graphql", "validate_unused_variables/fixtures/variable-in-fragment-argument-object.expected", input, expected).await;
 }
 
 #[tokio::test]
