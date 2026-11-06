@@ -145,7 +145,7 @@ function update(store: RecordSourceProxy, payload: HandleFieldPayload): void {
       connection.setLinkedRecord(prevPageInfo, PAGE_INFO);
     }
 
-    let nextEdges: Array<?RecordProxy> = [];
+    let nextEdges: ?Array<?RecordProxy> = [];
     const args = payload.args;
     if (prevEdges && serverEdges) {
       if (args.after != null) {
@@ -167,8 +167,10 @@ function update(store: RecordSourceProxy, payload: HandleFieldPayload): void {
         //         client then we're just filling out the rest of this page.
         if (isAddingEdgesAfterCurrentPage || isFillingOutCurrentPage) {
           const nodeIDs = new Set<unknown>();
-          mergeEdges(prevEdges, nextEdges, nodeIDs);
-          mergeEdges(serverEdges, nextEdges, nodeIDs);
+          const mergedEdges: Array<?RecordProxy> = [];
+          mergeEdges(prevEdges, mergedEdges, nodeIDs);
+          mergeEdges(serverEdges, mergedEdges, nodeIDs);
+          nextEdges = mergedEdges;
         } else {
           warning(
             false,
@@ -186,8 +188,10 @@ function update(store: RecordSourceProxy, payload: HandleFieldPayload): void {
           args.before === clientPageInfo.getValue(START_CURSOR)
         ) {
           const nodeIDs = new Set<unknown>();
-          mergeEdges(serverEdges, nextEdges, nodeIDs);
-          mergeEdges(prevEdges, nextEdges, nodeIDs);
+          const mergedEdges: Array<?RecordProxy> = [];
+          mergeEdges(serverEdges, mergedEdges, nodeIDs);
+          mergeEdges(prevEdges, mergedEdges, nodeIDs);
+          nextEdges = mergedEdges;
         } else {
           warning(
             false,
@@ -205,7 +209,6 @@ function update(store: RecordSourceProxy, payload: HandleFieldPayload): void {
     } else if (serverEdges) {
       nextEdges = serverEdges;
     } else {
-      // $FlowFixMe[incompatible-type]
       nextEdges = prevEdges;
     }
     // Update edges only if they were updated, the null check is
