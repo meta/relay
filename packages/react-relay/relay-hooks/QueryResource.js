@@ -344,6 +344,11 @@ class QueryResourceImpl {
     };
   }
 
+  isCached(queryResult: QueryResult): boolean {
+    const cacheEntry = this._cache.get(queryResult.cacheIdentifier);
+    return cacheEntry != null && cacheEntry.getValue() === queryResult;
+  }
+
   releaseTemporaryRetain(queryResult: QueryResult) {
     const cacheEntry = this._cache.get(queryResult.cacheIdentifier);
     if (cacheEntry != null) {

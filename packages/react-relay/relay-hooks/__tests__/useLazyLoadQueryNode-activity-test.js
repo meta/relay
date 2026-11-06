@@ -446,3 +446,47 @@ it('does not dispose the temporary retain when hiding before committing', async 
   const data = environment.lookup(query.fragment).data;
   expectToBeRendered(renderFn, data);
 });
+
+it.each([
+  ['network-only', 0],
+  ['store-and-network', 0],
+  ['store-and-network', 10],
+])(
+  'reuses the query prepared by a hidden render when revealed (%s, release buffer %s)',
+  async (fetchPolicy, gcReleaseBufferSize) => {
+    environment = createMockEnvironment({
+      store: new Store(new RecordSource(), {gcReleaseBufferSize}),
+    });
+    const instance = await render(
+      environment,
+      <Container variables={variables} fetchPolicy={fetchPolicy} />,
+    );
+    await ReactTestingLibrary.act(() => {
+      environment.mock.resolve(gqlQuery, {
+        data: {node: {__typename: 'User', id: '1', name: 'Alice'}},
+      });
+    });
+    expect(instance.asFragment().textContent).toEqual('Alice');
+    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+    environment.execute.mockClear();
+
+    await ReactTestingLibrary.act(() => setMode('hidden'));
+    // A context or prop change renders the hidden tree, which prepares the
+    // query again and starts a request.
+    await ReactTestingLibrary.act(() =>
+      _setProps({variables, fetchPolicy, extraData: 1}),
+    );
+    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+    expect(environment.execute).toHaveBeenCalledTimes(1);
+    await ReactTestingLibrary.act(() => {
+      environment.mock.resolve(gqlQuery, {
+        data: {node: {__typename: 'User', id: '1', name: 'Bob'}},
+      });
+    });
+
+    await ReactTestingLibrary.act(() => setMode('visible'));
+    expect(instance.asFragment().textContent).toEqual('Bob');
+    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+    expect(environment.execute).toHaveBeenCalledTimes(1);
+  },
+);
