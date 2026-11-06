@@ -59,7 +59,7 @@ export default environment;
 ```
 
 :::warning
-This is just a basic example to help you get started. Features like `@stream`, `@defer` or Persisted Queries will require additional logic be added to your `fetchQuery` function.
+This is just a basic example to help you get started. Features like `@stream`, `@defer` or Persisted Queries will require additional logic be added to your `fetchQuery` function. For `@stream` and `@defer`, return an `Observable` that emits each response as it arrives: Relay reads both the format of the latest `@defer`/`@stream` spec proposal (as graphql-js 17's `experimentalExecuteIncrementally` sends it) and Relay's label/path payloads.
 :::
 
 ## Advanced Network Layer
