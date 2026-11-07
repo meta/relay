@@ -113,7 +113,7 @@ hook useLazyLoadQuery<TVariables extends Variables, TData>(
       : {force: true},
   );
   const data = useLazyLoadQueryNode<
-    $FlowFixMe,
+    {variables: TVariables, response: TData},
     LazyLoadQueryNodeParamsWithQuery,
   >({
     componentDisplayName: 'useLazyLoadQuery()',
@@ -126,5 +126,4 @@ hook useLazyLoadQuery<TVariables extends Variables, TData>(
   return data;
 }
 
-// $FlowFixMe[react-rule-hook-incompatible]
 module.exports = useLazyLoadQuery;
