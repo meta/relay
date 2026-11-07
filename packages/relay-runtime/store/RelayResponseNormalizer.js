@@ -284,18 +284,24 @@ class RelayResponseNormalizer {
             data,
             abstractKey,
           );
-          const typeName = RelayModernRecord.getType(record);
-          const typeID = generateTypeID(typeName);
-          let typeRecord = this._recordSource.get(typeID);
-          if (typeRecord == null) {
-            typeRecord = RelayModernRecord.create(typeID, TYPE_SCHEMA_TYPE);
-            this._recordSource.set(typeID, typeRecord);
+          // Under `deferDeduplicatedFields` a missing abstract typename means
+          // the server omitted it as already-delivered, not that the concrete
+          // type fails the type refinement. Skip the write; DataChecker then
+          // treats the entry as unknown and refetches on the next check.
+          if (implementsInterface || !this._deferDeduplicatedFields) {
+            const typeName = RelayModernRecord.getType(record);
+            const typeID = generateTypeID(typeName);
+            let typeRecord = this._recordSource.get(typeID);
+            if (typeRecord == null) {
+              typeRecord = RelayModernRecord.create(typeID, TYPE_SCHEMA_TYPE);
+              this._recordSource.set(typeID, typeRecord);
+            }
+            RelayModernRecord.setValue(
+              typeRecord,
+              abstractKey,
+              implementsInterface,
+            );
           }
-          RelayModernRecord.setValue(
-            typeRecord,
-            abstractKey,
-            implementsInterface,
-          );
           break;
         }
         case 'LinkedHandle':
@@ -418,14 +424,21 @@ class RelayResponseNormalizer {
         data,
         abstractKey,
       );
-      const typeName = RelayModernRecord.getType(record);
-      const typeID = generateTypeID(typeName);
-      let typeRecord = this._recordSource.get(typeID);
-      if (typeRecord == null) {
-        typeRecord = RelayModernRecord.create(typeID, TYPE_SCHEMA_TYPE);
-        this._recordSource.set(typeID, typeRecord);
+      // See the `TypeDiscriminator` case above for the reasoning.
+      if (implementsInterface || !this._deferDeduplicatedFields) {
+        const typeName = RelayModernRecord.getType(record);
+        const typeID = generateTypeID(typeName);
+        let typeRecord = this._recordSource.get(typeID);
+        if (typeRecord == null) {
+          typeRecord = RelayModernRecord.create(typeID, TYPE_SCHEMA_TYPE);
+          this._recordSource.set(typeID, typeRecord);
+        }
+        RelayModernRecord.setValue(
+          typeRecord,
+          abstractKey,
+          implementsInterface,
+        );
       }
-      RelayModernRecord.setValue(typeRecord, abstractKey, implementsInterface);
       if (implementsInterface) {
         this._traverseSelections(selection, record, data);
       }

@@ -4390,4 +4390,139 @@ describe('RelayResponseNormalizer', () => {
       });
     });
   });
+
+  describe('deferDeduplicatedFields', () => {
+    it('does not write `__is<Interface>: false` when the abstract typename is missing from the payload', () => {
+      const query = graphql`
+        query RelayResponseNormalizerTest44Query($id: ID!) {
+          node(id: $id) {
+            ...RelayResponseNormalizerTest44Fragment
+          }
+        }
+      `;
+
+      graphql`
+        fragment RelayResponseNormalizerTest44Fragment on Node {
+          id
+          ... on User {
+            name
+          }
+        }
+      `;
+
+      // Payload omits `__isNode`: under deferDeduplicatedFields this signals
+      // that the server dedup'd an already-delivered field, not that the
+      // concrete type fails the type refinement.
+      const payload = {
+        node: {
+          __typename: 'User',
+          id: '1',
+          name: 'Alice',
+        },
+      };
+
+      const recordSource = new RelayRecordSource();
+      recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+      normalize(
+        recordSource,
+        createNormalizationSelector(query.operation, ROOT_ID, {id: '1'}),
+        payload,
+        {...defaultOptions, deferDeduplicatedFields: true},
+      );
+
+      // No `client:__type:User` record — the write is skipped so
+      // DataChecker treats the entry as unknown and refetches on next
+      // check.
+      expect(recordSource.get('client:__type:User')).toBe(undefined);
+    });
+
+    it('still writes `__is<Interface>: true` when the abstract typename is present in the payload', () => {
+      const query = graphql`
+        query RelayResponseNormalizerTest45Query($id: ID!) {
+          node(id: $id) {
+            ...RelayResponseNormalizerTest45Fragment
+          }
+        }
+      `;
+
+      graphql`
+        fragment RelayResponseNormalizerTest45Fragment on Node {
+          id
+          ... on User {
+            name
+          }
+        }
+      `;
+
+      const payload = {
+        node: {
+          __typename: 'User',
+          __isNode: 'User',
+          id: '1',
+          name: 'Alice',
+        },
+      };
+
+      const recordSource = new RelayRecordSource();
+      recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+      normalize(
+        recordSource,
+        createNormalizationSelector(query.operation, ROOT_ID, {id: '1'}),
+        payload,
+        {...defaultOptions, deferDeduplicatedFields: true},
+      );
+
+      expect(recordSource.get('client:__type:User')).toEqual({
+        __id: 'client:__type:User',
+        __typename: '__TypeSchema',
+        __isNode: true,
+      });
+    });
+
+    it('still writes `__is<Interface>: false` when deferDeduplicatedFields is off (default behaviour preserved)', () => {
+      const query = graphql`
+        query RelayResponseNormalizerTest46Query($id: ID!) {
+          node(id: $id) {
+            ...RelayResponseNormalizerTest46Fragment
+          }
+        }
+      `;
+
+      graphql`
+        fragment RelayResponseNormalizerTest46Fragment on Node {
+          id
+          ... on User {
+            name
+          }
+        }
+      `;
+
+      const payload = {
+        node: {
+          __typename: 'Page',
+          id: '1',
+        },
+      };
+
+      const recordSource = new RelayRecordSource();
+      recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+      normalize(
+        recordSource,
+        createNormalizationSelector(query.operation, ROOT_ID, {id: '1'}),
+        payload,
+        defaultOptions,
+      );
+
+      // Without deferDeduplicatedFields the missing `__isNode` is still a
+      // real "type does not implement" signal — behaviour unchanged.
+      expect(recordSource.get('client:__type:Page')).toEqual({
+        __id: 'client:__type:Page',
+        __typename: '__TypeSchema',
+        __isNode: false,
+      });
+    });
+  });
 });
