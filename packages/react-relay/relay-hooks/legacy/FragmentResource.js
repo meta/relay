@@ -79,7 +79,9 @@ opaque type FragmentResult: {data: unknown, ...} = {
 const CACHE_CAPACITY = 1000000;
 
 // this is frozen so that users don't accidentally push data into the array
-const CONSTANT_READONLY_EMPTY_ARRAY: Array<$FlowFixMe> = Object.freeze([]);
+const CONSTANT_READONLY_EMPTY_ARRAY: ReadonlyArray<$FlowFixMe> = Object.freeze(
+  [],
+);
 
 function isMissingData(snapshot: SingularOrPluralSnapshot): boolean {
   if (Array.isArray(snapshot)) {
