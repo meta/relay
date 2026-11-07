@@ -633,14 +633,17 @@ class RelayModernStore implements Store {
     ) {
       // The operation isn't retained but there is space in the release buffer:
       // temporarily track this operation in case the data can be reused soon.
-      const temporaryRootEntry = {
+      const temporaryRootEntry: {
+        operation: OperationDescriptor,
+        refCount: number,
+        epoch: ?number,
+        fetchTime: ?number,
+      } = {
         operation: sourceOperation,
         refCount: 0,
         epoch,
         fetchTime: Date.now(),
       };
-      /* $FlowFixMe[incompatible-type] Natural Inference rollout. See
-       * https://fburl.com/gdoc/y8dn025u */
       this._roots.set(id, temporaryRootEntry);
       this._pushToReleaseBuffer(id);
     }
