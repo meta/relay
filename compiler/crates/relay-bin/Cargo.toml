@@ -13,7 +13,7 @@ clap = { version = "4.6.2", features = ["derive", "env", "string", "unicode", "w
 common = { path = "../common" }
 graphql-ir-diff = { path = "../graphql-ir-diff" }
 intern = { path = "../intern" }
-log = { version = "0.4.34", features = ["kv_unstable", "kv_unstable_std"] }
+log = { version = "0.4.35", features = ["kv_unstable", "kv_unstable_std"] }
 relay-codemod = { path = "../relay-codemod" }
 relay-compiler = { path = "../relay-compiler" }
 relay-lsp = { path = "../relay-lsp" }

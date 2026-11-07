@@ -53,7 +53,7 @@ hex = { version = "0.4.3", features = ["alloc"] }
 indexmap = { version = "2.14.2", features = ["arbitrary", "rayon", "serde"] }
 intern = { path = "../intern" }
 js-config-loader = { path = "../js-config-loader" }
-log = { version = "0.4.34", features = ["kv_unstable", "kv_unstable_std"] }
+log = { version = "0.4.35", features = ["kv_unstable", "kv_unstable_std"] }
 md-5 = "0.10"
 persist-query = { path = "../persist-query", features = ["exclude-http-diagnostics-tests"] }
 petgraph = { version = "0.8", features = ["serde-1"] }

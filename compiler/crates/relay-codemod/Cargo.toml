@@ -11,7 +11,7 @@ license = "MIT"
 [dependencies]
 clap = { version = "4.6.2", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 common = { path = "../common" }
-log = { version = "0.4.34", features = ["kv_unstable", "kv_unstable_std"] }
+log = { version = "0.4.35", features = ["kv_unstable", "kv_unstable_std"] }
 lsp-types = "0.97"
 relay-compiler = { path = "../relay-compiler" }
 relay-lsp = { path = "../relay-lsp" }

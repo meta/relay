@@ -31,7 +31,7 @@ graphql-text-printer = { path = "../graphql-text-printer" }
 graphql-watchman = { path = "../graphql-watchman" }
 intern = { path = "../intern" }
 itertools = "0.15.0"
-log = { version = "0.4.34", features = ["kv_unstable", "kv_unstable_std"] }
+log = { version = "0.4.35", features = ["kv_unstable", "kv_unstable_std"] }
 lsp-server = "0.10.0"
 lsp-types = "0.97"
 percent-encoding = "2.1"

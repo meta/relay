@@ -16,7 +16,7 @@ path = "tests/diagnostic_json_snapshot_test.rs"
 colored = "3.1.1"
 indexmap = { version = "2.14.2", features = ["arbitrary", "rayon", "serde"] }
 intern = { path = "../intern" }
-log = { version = "0.4.34", features = ["kv_unstable", "kv_unstable_std"] }
+log = { version = "0.4.35", features = ["kv_unstable", "kv_unstable_std"] }
 lsp-types = "0.97"
 md-5 = "0.10"
 rayon = "1.11.0"
