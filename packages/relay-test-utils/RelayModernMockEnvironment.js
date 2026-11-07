@@ -200,11 +200,62 @@ function createMockEnvironment(
   };
   let resolversQueue: ReadonlyArray<OperationMockResolver> = [];
 
+  // When loadQuery() is used, network.execute() is called BEFORE executeWithSource() which
+  // adds the operation to pendingOperations. We store pending matches here so that
+  // when createExecuteProxy adds the operation, we can resolve it using already queued resolvers.
+  // Used for scenarios when queing resolvers for refetchable fragments.
+  type PendingMatch = {
+    +request: RequestParameters,
+    +variables: Variables,
+    +resolve: (operation: OperationDescriptor) => void,
+  };
+  let pendingMatches: Array<PendingMatch> = [];
+
   const queueOperationResolver = (resolver: OperationMockResolver): void => {
     resolversQueue = resolversQueue.concat([resolver]);
   };
 
-  // Mock the network layer
+  const requestMatchesOperation = (
+    request: RequestParameters,
+    variables: Variables,
+    operation: OperationDescriptor,
+  ): boolean => {
+    const requestId = request.cacheID ?? request.id ?? request.text;
+    const opParams = operation.request.node.params;
+    const opRequestId = opParams.cacheID ?? opParams.id ?? opParams.text;
+    return (
+      requestId === opRequestId &&
+      areEqual(variables, operation.request.variables)
+    );
+  };
+
+  const tryExecuteQueuedResolver = (
+    operation: OperationDescriptor,
+    sink: Sink<GraphQLSingularResponse>,
+    pendingRequest: PendingRequest,
+  ): boolean => {
+    if (resolversQueue.length === 0) {
+      return false;
+    }
+
+    const currentResolver = resolversQueue[0];
+    const result = currentResolver(operation);
+    if (result != null) {
+      resolversQueue = resolversQueue.filter(r => r !== currentResolver);
+      pendingOperations = pendingOperations.filter(op => op !== operation);
+      pendingRequests = pendingRequests.filter(r => r !== pendingRequest);
+
+      if (result instanceof Error) {
+        sink.error(result);
+      } else {
+        sink.next(result);
+        sink.complete();
+      }
+      return true;
+    }
+    return false;
+  };
+
   const execute = (
     request: RequestParameters,
     variables: Variables,
@@ -225,47 +276,41 @@ function createMockEnvironment(
       return Observable.from<GraphQLSingularResponse>(cachedPayload);
     }
 
-    const currentOperation = pendingOperations.find(
-      op =>
-        op.request.node.params === request &&
-        areEqual(op.request.variables, variables),
-    );
-
-    // Handle network responses added by
-    if (currentOperation != null && resolversQueue.length > 0) {
-      const currentResolver = resolversQueue[0];
-      const result = currentResolver(currentOperation);
-      if (result != null) {
-        resolversQueue = resolversQueue.filter(res => res !== currentResolver);
-        pendingOperations = pendingOperations.filter(
-          op => op !== currentOperation,
-        );
-        if (result instanceof Error) {
-          return Observable.create<GraphQLSingularResponse>(sink => {
-            sink.error(result);
-          });
-        } else {
-          return Observable.from<GraphQLSingularResponse>(result);
-        }
-      }
-    }
-
     return Observable.create<GraphQLSingularResponse>(sink => {
       const nextRequest = {request, variables, cacheConfig, sink};
       pendingRequests = pendingRequests.concat([nextRequest]);
+
+      const currentOperation = pendingOperations.find(op =>
+        requestMatchesOperation(request, variables, op),
+      );
+      if (currentOperation != null) {
+        if (tryExecuteQueuedResolver(currentOperation, sink, nextRequest)) {
+          return () => {};
+        }
+      }
+
+      if (resolversQueue.length > 0) {
+        pendingMatches.push({
+          request,
+          variables,
+          resolve: (operation: OperationDescriptor) => {
+            tryExecuteQueuedResolver(operation, sink, nextRequest);
+          },
+        });
+      }
 
       return () => {
         pendingRequests = pendingRequests.filter(
           pending => !areEqual(pending, nextRequest),
         );
-        const currentOperation = pendingOperations.find(
-          op =>
-            areEqual(op.request.node.params, request) &&
-            areEqual(op.request.variables, variables),
+        pendingMatches = pendingMatches.filter(
+          m =>
+            !(areEqual(m.request, request) && areEqual(m.variables, variables)),
         );
-        pendingOperations = pendingOperations.filter(
-          op => op !== currentOperation,
+        const opToRemove = pendingOperations.find(op =>
+          requestMatchesOperation(request, variables, op),
         );
+        pendingOperations = pendingOperations.filter(op => op !== opToRemove);
       };
     });
   };
@@ -470,6 +515,19 @@ function createMockEnvironment(
     return (...argumentsList: $FlowFixMe) => {
       const [{operation}] = argumentsList;
       pendingOperations = pendingOperations.concat([operation]);
+
+      const matchIndex = pendingMatches.findIndex(m =>
+        requestMatchesOperation(m.request, m.variables, operation),
+      );
+      if (matchIndex >= 0) {
+        const match = pendingMatches[matchIndex];
+        pendingMatches = [
+          ...pendingMatches.slice(0, matchIndex),
+          ...pendingMatches.slice(matchIndex + 1),
+        ];
+        match.resolve(operation);
+      }
+
       return fn.apply(env, argumentsList);
     };
   };
@@ -601,6 +659,7 @@ function createMockEnvironment(
     cache.clear();
     pendingOperations = [];
     pendingRequests = [];
+    pendingMatches = [];
   };
 
   return environment;
