@@ -220,9 +220,8 @@ function createMockEnvironment(
     ) {
       cachedPayload = cache.get(cacheID, variables);
     }
-    if (cachedPayload !== null) {
-      // $FlowFixMe[incompatible-type]
-      return Observable.from<GraphQLSingularResponse>(cachedPayload);
+    if (cachedPayload != null) {
+      return Observable.from(cachedPayload);
     }
 
     const currentOperation = pendingOperations.find(
