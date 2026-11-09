@@ -239,6 +239,10 @@ jobs:
             os: windows-latest
             build-name: relay.exe
             artifact-name: relay-bin-win-x64
+          - target: x86_64-unknown-freebsd
+            os: ubuntu-latest
+            build-name: relay
+            artifact-name: relay-bin-freebsd-x64
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v6
