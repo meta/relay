@@ -1,0 +1,35 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = full, unstable_isConcurrent = false) should throw an error when the query fails: [Initial Render] 1`] = `"Loading..."`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = full, unstable_isConcurrent = false) should throw an error when the query fails: [Render after request] 1`] = `
+<div>
+  Error
+  : 
+  Test
+</div>
+`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = full, unstable_isConcurrent = true) should throw an error when the query fails: [Initial Render] 1`] = `"Loading..."`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = full, unstable_isConcurrent = true) should throw an error when the query fails: [Render after request] 1`] = `
+<div>
+  Error
+  : 
+  Test
+</div>
+`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = partial, unstable_isConcurrent = false) should throw an error when the query fails: [Initial Render] 1`] = `"Loading..."`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = partial, unstable_isConcurrent = false) should throw an error when the query fails: [Render after request] 1`] = `<div />`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = partial, unstable_isConcurrent = true) should throw an error when the query fails: [Initial Render] 1`] = `"Loading..."`;
+
+exports[`useLazyLoadQueryNode with ErrorBoundary with (renderPolicy = partial, unstable_isConcurrent = true) should throw an error when the query fails: [Render after request] 1`] = `
+<div>
+  Error
+  : 
+  Test
+</div>
+`;
