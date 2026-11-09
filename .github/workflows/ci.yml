@@ -158,6 +158,25 @@ jobs:
       - name: "Run tests"
         run: cargo test --manifest-path=compiler/Cargo.toml --locked ${{ matrix.target.features && '--features' }} ${{ matrix.target.features }}
 
+  
+  build-docs:
+    name: Build docs (${{ matrix.target.os }})
+    strategy:
+      matrix:
+        target:
+          - target: ubuntu-latest
+            os: ubuntu-latest
+            features: vendored
+    runs-on: ${{ matrix.target.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.72.0
+          override: true
+      - name: "Build docs"
+        run: cargo doc --manifest-path=compiler/Cargo.toml --locked ${{ matrix.target.features && '--features' }} ${{ matrix.target.features }}
+
   build-test-projects:
     name: Compiler output check (${{ matrix.target.os }})
     strategy:
