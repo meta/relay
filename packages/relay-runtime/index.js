@@ -63,6 +63,7 @@ const RelayRecordSource = require('./store/RelayRecordSource');
 const RelayReferenceMarker = require('./store/RelayReferenceMarker');
 const RelayStoreUtils = require('./store/RelayStoreUtils');
 const ResolverFragments = require('./store/ResolverFragments');
+const TypeID = require('./store/TypeID');
 const ViewerPattern = require('./store/ViewerPattern');
 const requestSubscription = require('./subscription/requestSubscription');
 const createPayloadFor3DField = require('./util/createPayloadFor3DField');
@@ -341,6 +342,8 @@ const __internal = {
   getOperationVariables: RelayConcreteVariables.getOperationVariables,
   getLocalVariables: RelayConcreteVariables.getLocalVariables,
   markReferences: RelayReferenceMarker.mark,
+  generateTypeID: TypeID.generateTypeID,
+  isTypeID: TypeID.isTypeID,
   fetchQuery: fetchQueryInternal.fetchQuery,
   fetchQueryDeduped: fetchQueryInternal.fetchQueryDeduped,
   getPromiseForActiveRequest: fetchQueryInternal.getPromiseForActiveRequest,

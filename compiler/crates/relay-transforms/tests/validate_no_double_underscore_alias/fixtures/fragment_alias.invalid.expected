@@ -1,0 +1,32 @@
+==================================== INPUT ====================================
+# expected-to-throw
+# Fragment aliases are keys in the Reader's data, like field aliases.
+query TestQuery($id: ID!) {
+  node(id: $id) {
+    ...TestFragment @alias(as: "__fragmentOwner")
+    ... on User @alias(as: "__handoff") {
+      name
+    }
+  }
+}
+
+fragment TestFragment on User {
+  name
+}
+==================================== ERROR ====================================
+✖︎ No fields or fragments can have an alias that starts with two underscores.
+
+  fragment_alias.invalid.graphql:5:32
+    4 │   node(id: $id) {
+    5 │     ...TestFragment @alias(as: "__fragmentOwner")
+      │                                ^^^^^^^^^^^^^^^^^
+    6 │     ... on User @alias(as: "__handoff") {
+
+
+✖︎ No fields or fragments can have an alias that starts with two underscores.
+
+  fragment_alias.invalid.graphql:6:28
+    5 │     ...TestFragment @alias(as: "__fragmentOwner")
+    6 │     ... on User @alias(as: "__handoff") {
+      │                            ^^^^^^^^^^^
+    7 │       name

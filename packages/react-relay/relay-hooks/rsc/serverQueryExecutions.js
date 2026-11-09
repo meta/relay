@@ -29,6 +29,9 @@ export type ServerQueryExecution = {
   // Resolves when the request completes, fails or is cancelled.
   readonly settled: Promise<void>,
   error: ?Error,
+  // Prepares data read from the query for server components: client
+  // fragment references carry their root's data (see RelayServerHandoff).
+  readonly handOff: (data: unknown) => unknown,
 };
 
 const executionsByOwner: WeakMap<RequestDescriptor, ServerQueryExecution> =

@@ -7,15 +7,22 @@
 
 use common::Diagnostic;
 use common::DiagnosticsResult;
+use common::NamedItem;
 use common::WithLocation;
 use errors::validate;
+use graphql_ir::Directive;
+use graphql_ir::FragmentSpread;
+use graphql_ir::InlineFragment;
 use graphql_ir::LinkedField;
 use graphql_ir::Program;
 use graphql_ir::ScalarField;
 use graphql_ir::ValidationMessage;
 use graphql_ir::Validator;
+use graphql_ir::alias_arg_as;
 use intern::Lookup;
 use intern::string_key::StringKey;
+
+use crate::fragment_alias_directive::FRAGMENT_ALIAS_DIRECTIVE_NAME;
 
 pub fn validate_no_double_underscore_alias(program: &Program) -> DiagnosticsResult<()> {
     let mut validator = ValidateNoDoubleUnderscoreAlias {};
@@ -46,6 +53,28 @@ impl Validator for ValidateNoDoubleUnderscoreAlias {
         } else {
             Ok(())
         }
+    }
+
+    fn validate_fragment_spread(&mut self, spread: &FragmentSpread) -> DiagnosticsResult<()> {
+        validate_fragment_alias(&spread.directives)
+    }
+
+    fn validate_inline_fragment(&mut self, fragment: &InlineFragment) -> DiagnosticsResult<()> {
+        validate!(
+            validate_fragment_alias(&fragment.directives),
+            self.validate_selections(&fragment.selections)
+        )
+    }
+}
+
+// `@alias(as: "...")` names a key in the Reader's data, like a field alias.
+fn validate_fragment_alias(directives: &[Directive]) -> DiagnosticsResult<()> {
+    match directives
+        .named(*FRAGMENT_ALIAS_DIRECTIVE_NAME)
+        .map(alias_arg_as)
+    {
+        Some(Ok(Some(alias))) => validate_field_alias(&alias).map_err(|x| vec![x]),
+        _ => Ok(()),
     }
 }
 

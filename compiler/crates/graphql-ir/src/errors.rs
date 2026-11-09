@@ -545,7 +545,7 @@ pub enum ValidationMessage {
         fragment_name: FragmentDefinitionName,
     },
 
-    #[error("No fields can have an alias that start with two underscores.")]
+    #[error("No fields or fragments can have an alias that starts with two underscores.")]
     NoDoubleUnderscoreAlias,
 
     #[error(

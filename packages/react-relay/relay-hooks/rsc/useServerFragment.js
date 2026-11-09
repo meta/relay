@@ -113,6 +113,12 @@ function readServerFragment(
   const environment =
     executions.values().next().value?.environment ?? callerEnvironment;
 
+  // Data of a server query's fragment references keeps handing off client
+  // fragment references nested in it.
+  const handOff = (data: unknown) => {
+    const execution = executions.values().next().value;
+    return execution != null ? execution.handOff(data) : data;
+  };
   const read = () => {
     const snapshots = selectors.map(item => environment.lookup(item));
     if (snapshots.some(snapshot => snapshot.isMissingData)) {
@@ -125,7 +131,7 @@ function readServerFragment(
       selector.kind === 'PluralReaderSelector'
         ? snapshots.map(snapshot => snapshot.data)
         : snapshots[0].data;
-    return {data};
+    return {data: handOff(data)};
   };
   try {
     const result = read();
@@ -154,7 +160,7 @@ function readServerFragment(
       error: error => finish(() => reject(error)),
       next: state => {
         if (state.state === 'ok') {
-          const value = state.value;
+          const value = handOff(state.value);
           finish(() => resolve(value));
         } else if (state.state === 'error') {
           const error = state.error;

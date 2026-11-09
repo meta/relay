@@ -29,7 +29,7 @@ export type ConcreteRequest = {
   readonly fragment: ReaderFragment,
   readonly operation: NormalizationOperation,
   readonly params: RequestParameters,
-  readonly serverHandoff?: unknown,
+  readonly serverHandoff?: ServerHandoff,
 };
 
 export type ServerRequest = {
@@ -37,7 +37,21 @@ export type ServerRequest = {
   readonly fragment: ReaderFragment,
   readonly operation: NormalizationOperation,
   readonly params: RequestParameters,
-  readonly serverHandoff: unknown,
+  readonly serverHandoff: ServerHandoff,
+};
+
+/**
+ * What a `@server` operation hands to client components: for each client
+ * fragment it spreads, the Reader fragment, its normalization operation, and
+ * the operation variables that normalization reads.
+ */
+export type ServerHandoff = {
+  readonly clientFragments?: ReadonlyArray<{
+    readonly fragment: ReaderFragment,
+    readonly normalization: NormalizationSplitOperation,
+    readonly rootVariables?: ReadonlyArray<string>,
+  }>,
+  ...
 };
 
 export type ConcreteUpdatableQuery = {

@@ -19,6 +19,7 @@ import type {
   Variables,
 } from 'relay-runtime';
 
+const RelayServerHandoff = require('./RelayServerHandoff');
 const {registerServerQueryExecution} = require('./serverQueryExecutions');
 const invariant = require('invariant');
 const {
@@ -63,7 +64,9 @@ declare function serverQuery<TVariables extends Variables, TData>(
  * Executes a `@server` query in a request-scoped server Environment and
  * resolves with its data once the first payload has arrived. `@defer`
  * payloads keep arriving afterwards; server fragment reads wait for the data
- * they need.
+ * they need. Client fragment references in the data carry their root's
+ * records, so passing one to a client component is all a server component
+ * does to hand it off.
  */
 function serverQuery(
   environment: IEnvironment,
@@ -105,9 +108,11 @@ function execute(
   signal: ?ServerQuerySignal,
 ): Promise<unknown> {
   let settle: () => void = () => {};
+  const handoff = new RelayServerHandoff(environment, operation);
   const execution: ServerQueryExecution = {
     environment,
     error: null,
+    handOff: data => handoff.handOff(data),
     operation,
     settled: new Promise(resolve => {
       settle = resolve;
@@ -123,6 +128,7 @@ function execute(
     const fail = (error: Error) => {
       detach();
       execution.error ??= error;
+      handoff.fail(error);
       reject(error);
       settle();
     };
@@ -135,11 +141,15 @@ function execute(
     ).subscribe({
       complete: () => {
         detach();
+        handoff.complete();
         resolve();
         settle();
       },
       error: fail,
-      next: () => resolve(),
+      next: () => {
+        handoff.sync();
+        resolve();
+      },
     });
     if (signal != null) {
       const cancel = () => {
@@ -153,7 +163,7 @@ function execute(
         detach = () => signal.removeEventListener?.('abort', cancel);
       }
     }
-  }).then(() => environment.lookup(operation.fragment).data);
+  }).then(() => handoff.handOff(environment.lookup(operation.fragment).data));
 }
 
 module.exports = serverQuery;

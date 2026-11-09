@@ -1,0 +1,14 @@
+# expected-to-throw
+# Fragment aliases are keys in the Reader's data, like field aliases.
+query TestQuery($id: ID!) {
+  node(id: $id) {
+    ...TestFragment @alias(as: "__fragmentOwner")
+    ... on User @alias(as: "__handoff") {
+      name
+    }
+  }
+}
+
+fragment TestFragment on User {
+  name
+}

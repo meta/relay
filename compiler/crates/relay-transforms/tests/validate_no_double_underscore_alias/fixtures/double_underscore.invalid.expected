@@ -9,7 +9,7 @@ query TestQuery($Id: ID!) {
   }
 }
 ==================================== ERROR ====================================
-✖︎ No fields can have an alias that start with two underscores.
+✖︎ No fields or fragments can have an alias that starts with two underscores.
 
   double_underscore.invalid.graphql:4:5
     3 │   node(id: $Id) {
@@ -18,7 +18,7 @@ query TestQuery($Id: ID!) {
     5 │     ... on User {
 
 
-✖︎ No fields can have an alias that start with two underscores.
+✖︎ No fields or fragments can have an alias that starts with two underscores.
 
   double_underscore.invalid.graphql:6:7
     5 │     ... on User {
