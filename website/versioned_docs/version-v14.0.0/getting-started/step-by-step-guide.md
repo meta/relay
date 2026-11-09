@@ -56,6 +56,7 @@ To start we'll need an authentication token for the GitHub API (if you're using 
 # your-app-name/.env.local
 REACT_APP_GITHUB_AUTH_TOKEN=<TOKEN>
 ```
+* At this point, go to the command prompt in which the local server was started, press CTRL-C to stop the server, and restart it using `npm start` or `yarn start`, so that the token becomes accessible by the code in the section below.
 
 ### 2.2: A fetchGraphQL Helper
 
