@@ -30,7 +30,7 @@ const fragment = require('__generated__/User_fragment.graphql');
 ### Supported configuration options for `babel-plugin-relay`
 
 - `artifactDirectory` A specific directory to output all artifacts to. When
-  enabling this the babel plugin needs `artifactDirectory` to be set as well.
+  enabling this the Relay compiler needs `artifactDirectory` to be set as well.
   [string]
 - `eagerEsModules` This option enables emitting ES modules artifacts.
   [boolean][default: false]
