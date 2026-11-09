@@ -215,10 +215,13 @@ export default function ArtistPage() {
 
 function ArtistView() {
   const data = usePreloadedQuery(artistsQuery, artistsQueryReference);
+  const artist = data?.artist;
   return (
     <>
-      <Name>{data?.artist?.name}</Name>
-      {data?.artist && <ArtistCard artist={data?.artist} />}
+      {artist &&
+        <Name>{artist.name}</Name>
+        <ArtistCard artist={artist} />
+      }
     </>
   );
 }`}
