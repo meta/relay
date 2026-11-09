@@ -348,7 +348,9 @@ HasPreviousPage(allEdges, before, after, first, last):
     * Let {edges} be the result of calling {ApplyCursorsToEdges(allEdges, before, after)}.
     * If {edges} contains more than {last} elements return {true}, otherwise {false}.
   * If {after} is set:
-    * If the server can efficiently determine that elements exist prior to {after}, return {true}.
+    * The server may optionally return {false} immediately if it is inefficient to
+      determine this value.
+    * If an edge corresponding to {after} exists return {true}.
   * Return {false}.
 
 `hasNextPage` is used to indicate whether more edges exist following the set
@@ -363,7 +365,9 @@ HasNextPage(allEdges, before, after, first, last):
     * Let {edges} be the result of calling {ApplyCursorsToEdges(allEdges, before, after)}.
     * If {edges} contains more than {first} elements return {true}, otherwise {false}.
   * If {before} is set:
-    * If the server can efficiently determine that elements exist following {before}, return {true}.
+    * The server may optionally return {false} immediately if it is inefficient to
+      determine this value.
+    * If an edge corresponding to {before} exists return {true}.
   * Return {false}.
 
 NOTE When both `first` and `last` are included, both of the fields should be set
