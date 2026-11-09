@@ -445,21 +445,20 @@ impl<'schema> ValidationContext<'schema> {
 
                 // Assert interface field type is satisfied by object field type, by being
                 // a valid subtype. (covariant)
-                let object_field_semantic_type = SemanticTypeReference::new(
-                    object_field.type_.clone(),
-                    this.schema,
-                    object_field.directives.clone(),
-                );
-                let interface_field_semantic_type = SemanticTypeReference::new(
-                    interface_field.type_.clone(),
-                    this.schema,
-                    interface_field.directives.clone(),
-                );
-
                 if !this.schema.is_type_subtype_of(
                     &object_field.semantic_type(),
                     &interface_field.semantic_type(),
                 ) {
+                    let object_field_semantic_type = SemanticTypeReference::new(
+                        object_field.type_.clone(),
+                        this.schema,
+                        object_field.directives.clone(),
+                    );
+                    let interface_field_semantic_type = SemanticTypeReference::new(
+                        interface_field.type_.clone(),
+                        this.schema,
+                        interface_field.directives.clone(),
+                    );
                     this.report_diagnostic(
                         Diagnostic::error(
                             SchemaValidationError::NotASubType(
@@ -788,5 +787,138 @@ fn get_type_string<'schema>(type_: &SemanticTypeReference<'schema, Type>) -> Str
             }
         }
         SemanticTypeReference::SemanticNullable(inner, schema) => schema.get_type_string(inner),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn validate_schema_source(source: &str) -> DiagnosticsResult<()> {
+        let schema = schema::build_schema(source).expect("test schema should build");
+        validate(
+            &schema,
+            SchemaValidationOptions {
+                allow_introspection_names: false,
+                exempt_coordinates: &FeatureFlag::Disabled,
+            },
+        )
+    }
+
+    fn assert_mismatch_message_and_locations(source: &str, expected: &str) {
+        let schema = schema::build_schema(source).expect("test schema should build");
+        let errors = validate(
+            &schema,
+            SchemaValidationOptions {
+                allow_introspection_names: false,
+                exempt_coordinates: &FeatureFlag::Disabled,
+            },
+        )
+        .expect_err("O.value should not satisfy I.value");
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].message().to_string(), expected);
+        let object_type = schema.get_type("O".intern()).expect("O should exist");
+        let interface_type = schema.get_type("I".intern()).expect("I should exist");
+        let object_field = schema
+            .named_field(object_type, "value".intern())
+            .expect("O.value should exist");
+        let interface_field = schema
+            .named_field(interface_type, "value".intern())
+            .expect("I.value should exist");
+        assert_eq!(
+            errors[0].location(),
+            schema.field(object_field).name.location
+        );
+        let related = errors[0].related_information();
+        assert_eq!(related.len(), 1);
+        assert_eq!(
+            related[0].location,
+            schema.field(interface_field).name.location
+        );
+        assert_eq!(
+            related[0].message.to_string(),
+            "The interface field is defined here:"
+        );
+    }
+
+    #[test]
+    fn compatible_interface_types_keep_success() {
+        assert!(
+            validate_schema_source(
+                "type Query { value: O }
+             interface I { value: String }
+             type O implements I { value: String }",
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn compatible_semantic_non_null_types_keep_success() {
+        assert!(
+            validate_schema_source(
+                "type Query { value: O }
+             interface I { value: String @semanticNonNull }
+             type O implements I { value: String! }",
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn ordinary_subtype_mismatch_keeps_rendered_types_and_locations() {
+        assert_mismatch_message_and_locations(
+            "type Query { value: O }
+             interface I { value: ID }
+             type O implements I { value: String }",
+            "Interface field 'I.value' expects type 'ID' but 'O.value' is of type 'String'.",
+        );
+    }
+
+    #[test]
+    fn exempt_semantic_mismatch_keeps_coordinate_accounting() {
+        let schema = schema::build_schema(
+            "type Query { value: O }
+             interface I { value: String @semanticNonNull }
+             type O implements I { value: String }",
+        )
+        .expect("test schema should build");
+        let exemptions = FeatureFlag::Limited {
+            allowlist: ["O.value".intern()].into_iter().collect(),
+        };
+        assert!(
+            validate(
+                &schema,
+                SchemaValidationOptions {
+                    allow_introspection_names: false,
+                    exempt_coordinates: &exemptions,
+                },
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn duplicate_interface_and_semantic_mismatch_both_remain_errors() {
+        let errors = validate_schema_source(
+            "type Query { value: O }
+             interface I { value: String @semanticNonNull }
+             type O implements I & I { value: String }",
+        )
+        .expect_err("the semantic mismatch and duplicate interface should both remain");
+        assert_eq!(errors.len(), 2);
+        let classes = format!("{errors:?}");
+        assert!(classes.contains("NotASubType"));
+        assert!(classes.contains("DuplicateInterfaceImplementation"));
+    }
+
+    #[test]
+    fn semantic_non_null_mismatch_keeps_rendered_types_and_locations() {
+        assert_mismatch_message_and_locations(
+            "type Query { value: O }
+             interface I { value: String @semanticNonNull }
+             type O implements I { value: String }",
+            "Interface field 'I.value' expects type 'String @semanticNonNull' but 'O.value' is of type 'String'.",
+        );
     }
 }
