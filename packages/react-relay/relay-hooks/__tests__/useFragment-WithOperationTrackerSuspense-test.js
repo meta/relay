@@ -50,6 +50,7 @@ describe('useFragment with Operation Tracker and Suspense behavior', () => {
   beforeEach(() => {
     RelayFeatureFlags.ENABLE_OPERATION_TRACKER_OPTIMISTIC_UPDATES = true;
     RelayFeatureFlags.ENABLE_RELAY_OPERATION_TRACKER_SUSPENSE = true;
+    RelayFeatureFlags.ENABLE_IN_FLIGHT_OPERATION_CORRELATION = true;
     operationTracker = new RelayOperationTracker();
     logger = jest.fn<[LogEvent], void>();
     environment = createMockEnvironment({
@@ -196,6 +197,7 @@ describe('useFragment with Operation Tracker and Suspense behavior', () => {
   afterEach(() => {
     RelayFeatureFlags.ENABLE_OPERATION_TRACKER_OPTIMISTIC_UPDATES = false;
     RelayFeatureFlags.ENABLE_RELAY_OPERATION_TRACKER_SUSPENSE = false;
+    RelayFeatureFlags.ENABLE_IN_FLIGHT_OPERATION_CORRELATION = false;
   });
 
   it('should throw promise for pending operation affecting fragment owner', async () => {
@@ -507,5 +509,92 @@ describe('useFragment with Operation Tracker and Suspense behavior', () => {
     expect(missingDataEvents[0].fragmentOwner.node.params.name).toBe(
       'useFragmentWithOperationTrackerSuspenseTestQuery',
     );
+  });
+
+  it('should throw promise while the fragment owner operation is still in flight but has no request-cache entry', async () => {
+    // Start the operation directly via environment.execute — this creates
+    // an OperationExecutor (registering it with the in-flight-operation
+    // registry) without populating fetchQueryDeduped's request cache. That
+    // matches the state that surfaces mid-stream on incremental responses
+    // when the request-cache subject has been drained.
+    environment.execute({operation: nodeOperation}).subscribe({});
+
+    const fragmentRef = {
+      __id: 'user-id-1',
+      __fragments: {
+        useFragmentWithOperationTrackerSuspenseTestFragment: {},
+      },
+      __fragmentOwner: nodeOperation.request,
+    };
+
+    const renderer = await render({userRef: fragmentRef});
+    expect(renderer?.container.textContent).toBe('Singular Fallback');
+
+    await act(() => {
+      environment.mock.nextValue(nodeOperation, {
+        data: {
+          node: {
+            __typename: 'User',
+            id: 'user-id-1',
+            name: 'Alice',
+          },
+        },
+      });
+      environment.mock.complete(nodeOperation.request.node);
+    });
+
+    expect(renderer?.container.textContent).toBe('Alice');
+  });
+
+  it('should throw promise via in-flight correlation even when isRequestActive returns false', async () => {
+    environment.execute({operation: nodeOperation}).subscribe({});
+
+    const realIsRequestActive =
+      environment.isRequestActive.bind(environment);
+    const isRequestActiveSpy = jest
+      .spyOn(environment, 'isRequestActive')
+      .mockImplementation(id => {
+        if (id === nodeOperation.request.identifier) {
+          return false;
+        }
+        return realIsRequestActive(id);
+      });
+
+    expect(
+      environment.getPromiseForInFlightOperation(
+        nodeOperation.request.identifier,
+      ),
+    ).not.toBeNull();
+    expect(
+      environment.isRequestActive(nodeOperation.request.identifier),
+    ).toBe(false);
+
+    const fragmentRef = {
+      __id: 'user-id-1',
+      __fragments: {
+        useFragmentWithOperationTrackerSuspenseTestFragment: {},
+      },
+      __fragmentOwner: nodeOperation.request,
+    };
+
+    const renderer = await render({userRef: fragmentRef});
+    expect(renderer?.container.textContent).toBe('Singular Fallback');
+
+    isRequestActiveSpy.mockRestore();
+
+    await act(() => {
+      environment.mock.nextValue(nodeOperation, {
+        data: {
+          node: {
+            __typename: 'User',
+            id: 'user-id-1',
+            name: 'Alice',
+          },
+        },
+      });
+      environment.mock.complete(nodeOperation.request.node);
+    });
+
+    expect(renderer?.container.textContent).toBe('Alice');
   });
 });

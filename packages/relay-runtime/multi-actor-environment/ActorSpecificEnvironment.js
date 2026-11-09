@@ -226,6 +226,14 @@ class ActorSpecificEnvironment implements IActorEnvironment {
     return this.multiActorEnvironment.isRequestActive(this, requestIdentifier);
   }
 
+  getPromiseForInFlightOperation(
+    requestIdentifier: string,
+  ): Promise<void> | null {
+    return this.multiActorEnvironment.getPromiseForInFlightOperation(
+      requestIdentifier,
+    );
+  }
+
   isServer(): boolean {
     return this.multiActorEnvironment.isServer();
   }
