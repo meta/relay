@@ -282,7 +282,7 @@ Mutations proceed in three phases:
 
 * First there’s an *optimistic update*, where you update the local data store into whatever state you anticipate and want to show to the user immediately.
 * Then you actually perform the mutation on the server. If it’s successful, the server responds with updated information which can be used in the third step.
-* When the mutation is done, you roll back the optimistic update. If the mutation failed, you’re done — back to where you started. If the mutation succeeded, Relay merges simple changes into the store and then applies a *concluding update* that updates the local data store with the actual new information received from the server, plus whatever other changes you want to make.
+* When the mutation has succeeded or failed, you roll back the optimistic update. If the mutation failed, you’re done — back to where you started. If the mutation succeeded, Relay merges simple changes into the store and then applies a *concluding update* that updates the local data store with the actual new information received from the server, plus whatever other changes you want to make.
 
 ![Mutation flowchart](/img/docs/tutorial/mutations-lifecycle.png)
 
