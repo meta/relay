@@ -16,7 +16,7 @@ In this section we’ll add a hovercard to `PosterByline` so that you can see mo
 <details>
 <summary>Deep dive: When to use a secondary query</summary>
 
-We've mentioned before that Relay is designed to help you fetch all of your data requirements for an entire screen up-front. But we can generalize this and say that it's a *user interaction* that should have at most one query. Navigating to another screen is just one common type of user intecation.
+We've mentioned before that Relay is designed to help you fetch all of your data requirements for an entire screen up-front. But we can generalize this and say that it's a *user interaction* that should have at most one query. Navigating to another screen is just one common type of user interaction.
 
 Within a screen, some interactions may disclose additional data from what was shown initially. If an interaction is performed relatively rarely, but needs a significant amount of additional data, it can be smart to fetch that additional data in a second query, performed when the interaction happens, rather than up-front when the screen is first loaded. This makes that initial load faster and less expensive.
 
