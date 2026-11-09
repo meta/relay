@@ -1,0 +1,26 @@
+==================================== INPUT ====================================
+fragment Assignable_feed_unit on FeedUnit @assignable {
+  __typename
+}
+
+fragment StoryFragment on Query {
+  story {
+    ...Assignable_feed_unit
+  }
+}
+==================================== OUTPUT ===================================
+import { FragmentRefs } from "relay-runtime";
+-------------------------------------------------------------------------------
+import { FragmentRefs } from "relay-runtime";
+export type StoryFragment$data = {
+  readonly story: {
+    readonly __id: string;
+    readonly __isAssignable_feed_unit: "Story";
+    readonly " $fragmentSpreads": FragmentRefs<"Assignable_feed_unit">;
+  } | null | undefined;
+  readonly " $fragmentType": "StoryFragment";
+};
+export type StoryFragment$key = {
+  readonly " $data"?: StoryFragment$data;
+  readonly " $fragmentSpreads": FragmentRefs<"StoryFragment">;
+};

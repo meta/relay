@@ -1,0 +1,31 @@
+==================================== INPUT ====================================
+fragment Assignable_comment_body on CommentBody @assignable {
+  __typename
+}
+
+fragment CommentFragment on Comment {
+  plainBody {
+    ...Assignable_comment_body
+  }
+}
+
+# %extensions%
+extend type Comment {
+  plainBody: PlainCommentBody
+}
+==================================== OUTPUT ===================================
+import { FragmentRefs } from "relay-runtime";
+-------------------------------------------------------------------------------
+import { FragmentRefs } from "relay-runtime";
+export type CommentFragment$data = {
+  readonly plainBody: {
+    readonly __id: string;
+    readonly __isAssignable_comment_body: "PlainCommentBody";
+    readonly " $fragmentSpreads": FragmentRefs<"Assignable_comment_body">;
+  } | null | undefined;
+  readonly " $fragmentType": "CommentFragment";
+};
+export type CommentFragment$key = {
+  readonly " $data"?: CommentFragment$data;
+  readonly " $fragmentSpreads": FragmentRefs<"CommentFragment">;
+};

@@ -1,0 +1,9 @@
+fragment Assignable_actor on Actor @assignable {
+  __typename
+}
+
+query Foo {
+  node(id: 4) {
+    ...Assignable_actor
+  }
+}

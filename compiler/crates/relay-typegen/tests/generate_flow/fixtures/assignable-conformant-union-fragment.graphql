@@ -1,0 +1,14 @@
+fragment Assignable_comment_body on CommentBody @assignable {
+  __typename
+}
+
+fragment CommentFragment on Comment {
+  plainBody {
+    ...Assignable_comment_body
+  }
+}
+
+# %extensions%
+extend type Comment {
+  plainBody: PlainCommentBody
+}

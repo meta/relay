@@ -823,3 +823,24 @@ async fn updatable_operation_type_refinement() {
     let expected = include_str!("generate_typescript/fixtures/updatable-operation-type-refinement.expected");
     test_fixture(transform_fixture, file!(), "updatable-operation-type-refinement.graphql", "generate_typescript/fixtures/updatable-operation-type-refinement.expected", input, expected).await;
 }
+
+#[tokio::test]
+async fn assignable_conformant_union_fragment() {
+    let input = include_str!("generate_typescript/fixtures/assignable-conformant-union-fragment.graphql");
+    let expected = include_str!("generate_typescript/fixtures/assignable-conformant-union-fragment.expected");
+    test_fixture(transform_fixture, file!(), "assignable-conformant-union-fragment.graphql", "generate_typescript/fixtures/assignable-conformant-union-fragment.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn assignable_conformant_interface_fragment() {
+    let input = include_str!("generate_typescript/fixtures/assignable-conformant-interface-fragment.graphql");
+    let expected = include_str!("generate_typescript/fixtures/assignable-conformant-interface-fragment.expected");
+    test_fixture(transform_fixture, file!(), "assignable-conformant-interface-fragment.graphql", "generate_typescript/fixtures/assignable-conformant-interface-fragment.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn assignable_nonconforming_interface() {
+    let input = include_str!("generate_typescript/fixtures/assignable-nonconforming-interface.graphql");
+    let expected = include_str!("generate_typescript/fixtures/assignable-nonconforming-interface.expected");
+    test_fixture(transform_fixture, file!(), "assignable-nonconforming-interface.graphql", "generate_typescript/fixtures/assignable-nonconforming-interface.expected", input, expected).await;
+}

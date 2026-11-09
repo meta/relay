@@ -1,0 +1,26 @@
+==================================== INPUT ====================================
+fragment Assignable_actor on Actor @assignable {
+  __typename
+}
+
+query Foo {
+  node(id: 4) {
+    ...Assignable_actor
+  }
+}
+==================================== OUTPUT ===================================
+import { FragmentRefs } from "relay-runtime";
+export type Foo$variables = Record<PropertyKey, never>;
+export type Foo$data = {
+  readonly node: {
+    readonly __id: string;
+    readonly __isAssignable_actor?: string;
+    readonly " $fragmentSpreads": FragmentRefs<"Assignable_actor">;
+  } | null | undefined;
+};
+export type Foo = {
+  response: Foo$data;
+  variables: Foo$variables;
+};
+-------------------------------------------------------------------------------
+import { FragmentRefs } from "relay-runtime";

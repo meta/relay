@@ -1,0 +1,30 @@
+==================================== INPUT ====================================
+fragment Assignable_feed_unit on FeedUnit @assignable {
+  __typename
+}
+
+fragment StoryFragment on Query {
+  story {
+    ...Assignable_feed_unit
+  }
+}
+==================================== OUTPUT ===================================
+import type { FragmentType } from "relay-runtime";
+declare export opaque type Assignable_feed_unit$fragmentType: FragmentType;
+-------------------------------------------------------------------------------
+import type { Assignable_feed_unit$fragmentType } from "Assignable_feed_unit.graphql";
+import type { FragmentType } from "relay-runtime";
+declare export opaque type StoryFragment$fragmentType: FragmentType;
+export type StoryFragment$data = {|
+  +story: ?{|
+    +__id: string,
+    +__isAssignable_feed_unit: "Story",
+    +$fragmentSpreads: Assignable_feed_unit$fragmentType,
+  |},
+  +$fragmentType: StoryFragment$fragmentType,
+|};
+export type StoryFragment$key = {
+  +$data?: StoryFragment$data,
+  +$fragmentSpreads: StoryFragment$fragmentType,
+  ...
+};

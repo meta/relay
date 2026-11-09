@@ -1,0 +1,35 @@
+==================================== INPUT ====================================
+fragment Assignable_comment_body on CommentBody @assignable {
+  __typename
+}
+
+fragment CommentFragment on Comment {
+  plainBody {
+    ...Assignable_comment_body
+  }
+}
+
+# %extensions%
+extend type Comment {
+  plainBody: PlainCommentBody
+}
+==================================== OUTPUT ===================================
+import type { FragmentType } from "relay-runtime";
+declare export opaque type Assignable_comment_body$fragmentType: FragmentType;
+-------------------------------------------------------------------------------
+import type { Assignable_comment_body$fragmentType } from "Assignable_comment_body.graphql";
+import type { FragmentType } from "relay-runtime";
+declare export opaque type CommentFragment$fragmentType: FragmentType;
+export type CommentFragment$data = {|
+  +plainBody: ?{|
+    +__id: string,
+    +__isAssignable_comment_body: "PlainCommentBody",
+    +$fragmentSpreads: Assignable_comment_body$fragmentType,
+  |},
+  +$fragmentType: CommentFragment$fragmentType,
+|};
+export type CommentFragment$key = {
+  +$data?: CommentFragment$data,
+  +$fragmentSpreads: CommentFragment$fragmentType,
+  ...
+};

@@ -1134,18 +1134,33 @@ fn visit_inline_fragment(
             })]
         } else {
             // If the inline fragment is on an abstract type, its selections must be
-            // made nullable since the type condition may not match, and
-            // there will be no way for the user to refine the type to
-            // ensure it did match. However, inline fragments with @alias are
-            // not subject to this limitation since RelayReader will make the field null
-            // if the type does not match, allowing the user to perform a
-            // field (alias) null check to ensure the type matched.
+            // made nullable since the type condition may not match, and there will be
+            // no way for the user to refine the type to ensure it did match. 
+            //
+            // There is an exception to this rule. If we can prove that the type condition 
+            // will always match, then we can leave the selections as is. This is the case
+            // when the parent object is a member of the type condition union, or it 
+            // implements the type condition interface.
+            // It is safe to assume unconditional conformace, since the only way the type
+            // will not satisfy the type condition is if the interface conformace is removed
+            // or the type is removed from the union, both of which are breaking changes
+            // to the schema.
+            //
+            // Inline fragments with @alias are not subject to this limitation since 
+            // RelayReader will make the field null if the type does not match, allowing the
+            // user to perform a field (alias) null check to ensure the type matched.
             if let Some(type_condition) = inline_fragment.type_condition {
-                for selection in &mut inline_selections {
-                    if type_condition.is_abstract_type() {
-                        selection.set_conditional(true);
-                    } else {
+                if !type_condition.is_abstract_type() {
+                    for selection in &mut inline_selections {
                         selection.set_concrete_type(type_condition);
+                    }
+                } else if !type_condition_always_satisfied(
+                    &typegen_context.schema,
+                    type_condition,
+                    enclosing_linked_field_concrete_type,
+                ) {
+                    for selection in &mut inline_selections {
+                        selection.set_conditional(true);
                     }
                 }
             }
@@ -1153,6 +1168,29 @@ fn visit_inline_fragment(
             inline_selections
         };
         type_selections.append(&mut selections);
+    }
+}
+
+/// Checks if type_condition is a supertype (union or interface) of the
+/// given enclosing type. If so, we can safely assume that the type condition
+/// will always match, given that removing interface conformance or union
+/// membership is a breaking change anyway.
+fn type_condition_always_satisfied(
+    schema: &SDLSchema,
+    type_condition: Type,
+    enclosing_linked_field_concrete_type: Option<Type>,
+) -> bool {
+    match (type_condition, enclosing_linked_field_concrete_type) {
+        (Type::Interface(interface_id), Some(Type::Object(enclosing_object_id))) => {
+            let enclosing_object = schema.object(enclosing_object_id);
+            enclosing_object.interfaces.contains(&interface_id)
+        }
+        (Type::Union(union_id), Some(Type::Object(enclosing_object_id))) => {
+            let union = schema.union(union_id);
+            union.members.contains(&enclosing_object_id)
+        }
+        (Type::Union(_) | Type::Interface(_), _)  => false,
+        _ => true,
     }
 }
 

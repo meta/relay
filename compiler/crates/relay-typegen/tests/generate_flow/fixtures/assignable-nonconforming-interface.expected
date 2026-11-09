@@ -1,0 +1,27 @@
+==================================== INPUT ====================================
+fragment Assignable_actor on Actor @assignable {
+  __typename
+}
+
+query Foo {
+  node(id: 4) {
+    ...Assignable_actor
+  }
+}
+==================================== OUTPUT ===================================
+import type { Assignable_actor$fragmentType } from "Assignable_actor.graphql";
+export type Foo$variables = {||};
+export type Foo$data = {|
+  +node: ?{|
+    +__id: string,
+    +__isAssignable_actor?: string,
+    +$fragmentSpreads: Assignable_actor$fragmentType,
+  |},
+|};
+export type Foo = {|
+  response: Foo$data,
+  variables: Foo$variables,
+|};
+-------------------------------------------------------------------------------
+import type { FragmentType } from "relay-runtime";
+declare export opaque type Assignable_actor$fragmentType: FragmentType;

@@ -1,0 +1,9 @@
+fragment Assignable_feed_unit on FeedUnit @assignable {
+  __typename
+}
+
+fragment StoryFragment on Query {
+  story {
+    ...Assignable_feed_unit
+  }
+}
