@@ -77,6 +77,19 @@ function rejected<T>(reason: unknown): SettledThenable<T> {
   };
 }
 
+function missingDataError(
+  execution: ServerQueryExecution,
+  fragmentName: string,
+): Error {
+  return (
+    execution.error ??
+    new Error(
+      `readServerFragment: The server query \`${execution.operation.request.node.params.name}\` ` +
+        `completed without the data of fragment \`${fragmentName}\`.`,
+    )
+  );
+}
+
 declare function readServerFragment<TFragmentType extends FragmentType, TData>(
   environment: IEnvironment,
   fragment: Fragment<TFragmentType, TData>,
@@ -141,6 +154,11 @@ function readServerFragment(
   } catch (error: unknown) {
     return rejected(error);
   }
+  // A request that has ended will not deliver the data.
+  const ended = Array.from(executions).find(execution => execution.done);
+  if (ended != null) {
+    return rejected(missingDataError(ended, fragmentNode.name));
+  }
 
   return new Promise((resolve, reject) => {
     let done = false;
@@ -160,7 +178,13 @@ function readServerFragment(
       error: error => finish(() => reject(error)),
       next: state => {
         if (state.state === 'ok') {
-          const value = handOff(state.value);
+          let value;
+          try {
+            value = handOff(state.value);
+          } catch (handOffError: unknown) {
+            finish(() => reject(handOffError));
+            return;
+          }
           finish(() => resolve(value));
         } else if (state.state === 'error') {
           const error = state.error;
@@ -187,12 +211,7 @@ function readServerFragment(
           finish(() => reject(readError));
           return;
         }
-        const error =
-          execution.error ??
-          new Error(
-            `readServerFragment: The server query \`${execution.operation.request.node.params.name}\` ` +
-              `completed without the data of fragment \`${fragmentNode.name}\`.`,
-          );
+        const error = missingDataError(execution, fragmentNode.name);
         finish(() => reject(error));
       });
     });
@@ -211,6 +230,13 @@ hook useServerFragment<TFragmentType extends FragmentType, TData>(
   fragmentRef:
     HasSpread<TFragmentType> | ReadonlyArray<HasSpread<TFragmentType>>,
 ): TData {
+  const fragmentNode = getFragment(fragment);
+  invariant(
+    fragmentNode.metadata?.serverFragment === true,
+    'useServerFragment: Expected `%s` to be a `@server` fragment. Read a ' +
+      'client fragment with `useFragment` in a client component.',
+    fragmentNode.name,
+  );
   return use(readServerFragment(environment, fragment, fragmentRef));
 }
 

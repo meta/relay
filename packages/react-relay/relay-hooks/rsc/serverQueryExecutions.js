@@ -28,6 +28,8 @@ export type ServerQueryExecution = {
   readonly operation: OperationDescriptor,
   // Resolves when the request completes, fails or is cancelled.
   readonly settled: Promise<void>,
+  // Whether the request has ended, and why if it failed.
+  done: boolean,
   error: ?Error,
   // Prepares data read from the query for server components: client
   // fragment references carry their root's data (see RelayServerHandoff).

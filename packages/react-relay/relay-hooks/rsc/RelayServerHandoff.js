@@ -27,6 +27,7 @@ import type {
 import type {Record} from 'relay-runtime/store/RelayStoreTypes';
 import type {NormalizationSelectableNode} from 'relay-runtime/util/NormalizationNode';
 
+const {getHandoffOperation} = require('./RelayHandoff');
 const invariant = require('invariant');
 const {
   __internal: {generateTypeID, isTypeID, markReferences},
@@ -129,26 +130,28 @@ function getRefs(value: unknown): ?ReadonlyArray<unknown> {
     : null;
 }
 
-// The length of `before` if `after` only appended to it. After a payload
-// that is known to only append to lists (an `@stream` item), checking the
-// old list's ends is enough, so streaming a list costs time proportional to
-// what each payload adds; any other change compares every entry.
+// The length of `before` if `after` only appended to it. For the list an
+// `@stream` item was appended to, checking the old list's ends is enough, so
+// streaming a list costs time proportional to what each payload adds; any
+// other list is compared entry by entry.
 function appendedFrom(
   before: ?ReadonlyArray<unknown>,
   after: ?ReadonlyArray<unknown>,
-  appendOnly: boolean,
+  streamTarget: boolean,
 ): ?number {
   if (before == null || after == null || after.length < before.length) {
     return null;
   }
   const last = before.length - 1;
-  if (appendOnly) {
+  if (streamTarget) {
+    RelayServerHandoff.compareCount += 2;
     if (last >= 0 && (after[0] !== before[0] || after[last] !== before[last])) {
       return null;
     }
     return before.length;
   }
   for (let ii = 0; ii <= last; ii++) {
+    RelayServerHandoff.compareCount++;
     if (before[ii] !== after[ii]) {
       return null;
     }
@@ -222,8 +225,10 @@ function sortKeys(key: string, value: unknown): unknown {
  * nothing about the server query.
  */
 class RelayServerHandoff {
-  // How many records projections have traversed (for tests and diagnostics).
+  // How many records projections have traversed, and how many list entries
+  // they compared (for tests and diagnostics).
   static visitCount: number = 0;
+  static compareCount: number = 0;
 
   _environment: IEnvironment;
   _operation: OperationDescriptor;
@@ -234,11 +239,17 @@ class RelayServerHandoff {
   _observer: ?Disposable = null;
   _sessionID: string;
   _writeOrder: WriteOrder;
+  _onError: (error: Error) => void;
   _done: boolean = false;
   _error: ?Error = null;
 
-  constructor(environment: IEnvironment, operation: OperationDescriptor) {
+  constructor(
+    environment: IEnvironment,
+    operation: OperationDescriptor,
+    onError: (error: Error) => void,
+  ) {
     this._environment = environment;
+    this._onError = onError;
     this._operation = operation;
     this._sessionID = `${sessionPrefix}${nextSessionID++}`;
     this._writeOrder = getWriteOrder(environment);
@@ -323,14 +334,15 @@ class RelayServerHandoff {
     return copy;
   }
 
-  // Projects the roots again after a payload was published. `appendOnly`:
-  // the payload only appended items to lists (an `@stream` payload).
-  sync(appendOnly: boolean = false): void {
+  // Projects the roots again after a payload was published. `streamTargets`:
+  // the lists (`<dataID>\n<storageKey>`) the payload's `@stream` items were
+  // appended to, if it consisted of such items.
+  sync(streamTargets: ?ReadonlySet<string> = null): void {
     const updated = this._observer != null ? this._updated : null;
     this._updated = new Set();
     try {
       this._roots.forEach(root => {
-        const records = this._project(root, updated, appendOnly);
+        const records = this._project(root, updated, streamTargets);
         const sequence = ++this._writeOrder.sequence;
         if (records != null) {
           const settle = root.settleNext;
@@ -339,7 +351,8 @@ class RelayServerHandoff {
         }
       });
     } catch (error) {
-      this.fail(error);
+      this.fail(error, true);
+      this._onError(error);
     }
   }
 
@@ -353,24 +366,62 @@ class RelayServerHandoff {
     }
   }
 
-  fail(error: Error): void {
+  // A failed request (e.g. one `@defer` payload failed) fails only the roots
+  // whose data it did not deliver: the others end normally. `everyRoot`
+  // fails them all, when what was delivered may not have been handed off.
+  fail(error: Error, everyRoot: boolean = false): void {
     if (this._done) {
       return;
     }
     this._finish(
       __DEV__ ? error : new Error('Relay: The server query failed.'),
+      everyRoot,
     );
   }
 
-  _finish(error: ?Error): void {
+  _finish(error: ?Error, everyRoot: boolean = false): void {
     this._done = true;
     this._error = error;
     this._observer?.dispose();
     this._observer = null;
     this._roots.forEach(root => {
-      root.settleNext?.(error);
+      const handoff = root.handoff;
+      const missing =
+        handoff == null || everyRoot ? error : this._checkComplete(handoff);
+      root.settleNext?.(missing != null ? (error ?? missing) : null);
       root.settleNext = null;
     });
+  }
+
+  // A request that completed without a root's data (e.g. a `@defer` payload
+  // that never came) will not deliver it: fail the root rather than leave
+  // its readers waiting. Checked here, where the operation loader has every
+  // `@module` normalization the root selects.
+  // Whether the Store has all of the operation's data.
+  isAvailable(): boolean {
+    return this._environment.check(this._operation).status === 'available';
+  }
+
+  _checkComplete(handoff: {
+    readonly id: string,
+    readonly dataID: DataID,
+    readonly fragment: NormalizationSplitOperation,
+    readonly variables: Variables,
+    ...
+  }): ?Error {
+    let status;
+    try {
+      status = this._environment.check(getHandoffOperation(handoff)).status;
+    } catch (error: unknown) {
+      // A root whose data cannot be checked fails rather than counting as
+      // complete.
+      return error instanceof Error ? error : new Error(String(error));
+    }
+    return status === 'available'
+      ? null
+      : new Error(
+          `Relay: The server query completed without the data of \`${handoff.fragment.name}\`.`,
+        );
   }
 
   _handoffFor(dataID: DataID, name: string, args: unknown): RelayHandoff {
@@ -427,9 +478,16 @@ class RelayServerHandoff {
     };
     const records = this._project(root, null) ?? {};
     const sequence = ++this._writeOrder.sequence;
+    const id = this._sessionID + ':' + String(this._roots.size);
+    // A root created after the request ended (e.g. by data read once it
+    // completed) gets the same verdict as the roots that existed then.
+    const missing = this._done
+      ? this._checkComplete({dataID, fragment: node, id, variables})
+      : null;
+    const error = missing != null ? (this._error ?? missing) : null;
     let next: Promise<?RelayHandoffChunk>;
-    if (this._error != null) {
-      next = Promise.reject(this._error);
+    if (error != null) {
+      next = Promise.reject(error);
       next.catch(() => {});
     } else if (this._done) {
       next = Promise.resolve(null);
@@ -439,7 +497,7 @@ class RelayServerHandoff {
     root.handoff = {
       dataID,
       fragment: node,
-      id: this._sessionID + ':' + String(this._roots.size),
+      id,
       next,
       records,
       sequence,
@@ -452,7 +510,7 @@ class RelayServerHandoff {
   _project(
     root: Root,
     updated: ?Set<DataID>,
-    appendOnly: boolean = false,
+    streamTargets: ?ReadonlySet<string> = null,
   ): ?RelayHandoffRecords {
     const source = this._environment.getStore().getSource();
     const target = RecordSource.create();
@@ -469,7 +527,7 @@ class RelayServerHandoff {
       const from = appendedFrom(
         getRefs(root.sent.get(dataID)?.[storageKey]),
         linkedIDs,
-        appendOnly,
+        streamTargets?.has(`${dataID}\n${storageKey}`) === true,
       );
       if (from == null) {
         return 0;

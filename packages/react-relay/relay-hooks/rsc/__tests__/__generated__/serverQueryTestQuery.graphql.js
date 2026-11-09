@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<7ce3624edaf629410871aa2b7f226eee>>
+ * @generated SignedSource<<1ccdf8c42fd2ed5cf29a463d3c4558e3>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -17,11 +17,15 @@
 
 /*::
 import type { ServerQuery, ServerRequest } from 'relay-runtime';
+import type { serverQueryTestClient_user$fragmentType } from "./serverQueryTestClient_user.graphql";
 import type { serverQueryTestDeferred_user$fragmentType } from "./serverQueryTestDeferred_user.graphql";
 export type serverQueryTestQuery$variables = {};
 export type serverQueryTestQuery$data = {
   readonly me: ?{
     readonly $serverFragment: true,
+    readonly client: {
+      readonly $fragmentSpreads: serverQueryTestClient_user$fragmentType,
+    },
     readonly name: ?string,
     readonly $fragmentSpreads: serverQueryTestDeferred_user$fragmentType,
   },
@@ -58,6 +62,22 @@ return {
         "selections": [
           (v0/*:: as any*/),
           {
+            "fragment": {
+              "kind": "InlineFragment",
+              "selections": [
+                {
+                  "args": null,
+                  "kind": "FragmentSpread",
+                  "name": "serverQueryTestClient_user"
+                }
+              ],
+              "type": "User",
+              "abstractKey": null
+            },
+            "kind": "AliasedInlineFragmentSpread",
+            "name": "client"
+          },
+          {
             "kind": "Defer",
             "selections": [
               {
@@ -90,6 +110,10 @@ return {
         "selections": [
           (v0/*:: as any*/),
           {
+            "fragment": require('./serverQueryTestClient_user$normalization.graphql'),
+            "kind": "FragmentSpread"
+          },
+          {
             "if": null,
             "kind": "Defer",
             "label": "serverQueryTestQuery$defer$deferred",
@@ -116,21 +140,26 @@ return {
     ]
   },
   "params": {
-    "cacheID": "3438542a105823910b54b86038ce2cd4",
+    "cacheID": "b541ec9892c0c1253c085f7febb66455",
     "id": null,
     "metadata": {},
     "name": "serverQueryTestQuery",
     "operationKind": "query",
-    "text": "query serverQueryTestQuery {\n  me {\n    name\n    ...serverQueryTestDeferred_user @defer(label: \"serverQueryTestQuery$defer$deferred\")\n    id\n  }\n}\n\nfragment serverQueryTestDeferred_user on User {\n  lastName\n}\n"
+    "text": "query serverQueryTestQuery {\n  me {\n    name\n    ...serverQueryTestClient_user\n    ...serverQueryTestDeferred_user @defer(label: \"serverQueryTestQuery$defer$deferred\")\n    id\n  }\n}\n\nfragment serverQueryTestClient_user on User {\n  name\n}\n\nfragment serverQueryTestDeferred_user on User {\n  lastName\n}\n"
   },
   "serverHandoff": {
-    "clientFragments": []
+    "clientFragments": [
+      {
+        "normalization": require('./serverQueryTestClient_user$normalization.graphql'),
+        "fragment": require('./serverQueryTestClient_user.graphql')
+      }
+    ]
   }
 };
 })();
 
 if (__DEV__) {
-  (node/*:: as any*/).hash = "dc6fd5b222bee81b24a64fc3764068ab";
+  (node/*:: as any*/).hash = "dfe1f0476b0d2872757e6b6577b91f8a";
 }
 
 module.exports = ((node/*:: as any*/)/*:: as ServerQuery<

@@ -12,10 +12,14 @@
 'use strict';
 
 import type {
+  ConcreteRequest,
   DataID,
   NormalizationSplitOperation,
+  OperationDescriptor,
   Variables,
 } from 'relay-runtime';
+
+const {createOperationDescriptor} = require('relay-runtime');
 
 /**
  * The data of one client fragment root that a server component hands to a
@@ -83,4 +87,55 @@ function getRelayHandoff(fragmentRef: unknown): unknown {
   return handoff;
 }
 
-module.exports = {getRelayHandoff};
+/**
+ * The operation of a client fragment root: the fragment's normalization,
+ * keyed by the handoff `id`, executed from the handed-off record. The client
+ * publishes the root's records through it; the server checks with it that
+ * the root's data is complete.
+ */
+function getHandoffOperation(handoff: {
+  readonly id: string,
+  readonly dataID: DataID,
+  readonly fragment: NormalizationSplitOperation,
+  readonly variables: Variables,
+  ...
+}): OperationDescriptor {
+  const {fragment: normalization} = handoff;
+  const request: ConcreteRequest = {
+    fragment: {
+      argumentDefinitions: [],
+      kind: 'Fragment',
+      metadata: null,
+      name: normalization.name,
+      selections: [],
+      type: '',
+    },
+    kind: 'Request',
+    operation: {
+      argumentDefinitions: Object.keys(handoff.variables).map(name => ({
+        defaultValue: null,
+        kind: 'LocalArgument',
+        name,
+      })),
+      kind: 'Operation',
+      name: normalization.name,
+      selections: normalization.selections,
+    },
+    params: {
+      cacheID: handoff.id,
+      id: null,
+      metadata: {},
+      name: normalization.name,
+      operationKind: 'query',
+      text: null,
+    },
+  };
+  return createOperationDescriptor(
+    request,
+    handoff.variables,
+    null,
+    handoff.dataID,
+  );
+}
+
+module.exports = {getHandoffOperation, getRelayHandoff};

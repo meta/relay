@@ -15,6 +15,8 @@ import type {Fragment, FragmentType, IEnvironment} from 'relay-runtime';
 import type {GraphQLResponse} from 'relay-runtime/network/RelayNetworkTypes';
 import type {Sink} from 'relay-runtime/network/RelayObservable';
 
+const {getRelayHandoff} = require('../RelayHandoff');
+const RelayServerHandoff = require('../RelayServerHandoff');
 const serverQuery = require('../serverQuery');
 const {readServerFragment, useServerFragment} = require('../useServerFragment');
 const React = require('react');
@@ -33,6 +35,7 @@ const Query = graphql`
   query serverQueryTestQuery @server {
     me {
       name
+      ...serverQueryTestClient_user @alias(as: "client")
       ...serverQueryTestDeferred_user @defer(label: "deferred")
     }
   }
@@ -41,6 +44,12 @@ const Query = graphql`
 const DeferredFragment = graphql`
   fragment serverQueryTestDeferred_user on User @server {
     lastName
+  }
+`;
+
+const ClientFragment = graphql`
+  fragment serverQueryTestClient_user on User {
+    name
   }
 `;
 
@@ -141,10 +150,101 @@ describe('serverQuery', () => {
     const {environment, sinks} = createServer();
     const first = serverQuery(environment, Query, {});
     const second = serverQuery(environment, Query, {});
-    expect(first).toBe(second);
     sinks[0].next({data: {me: {__typename: 'User', id: '4', name: 'Zuck'}}});
+    sinks[0].next({
+      data: {id: '4', lastName: 'Berg'},
+      label: 'serverQueryTestQuery$defer$deferred',
+      path: ['me'],
+    });
     sinks[0].complete();
-    await first;
+    expect((await first).me?.name).toBe('Zuck');
+    expect((await second).me?.name).toBe('Zuck');
+    // Once the request completed, the query's data is in the Store.
+    expect((await serverQuery(environment, Query, {})).me?.name).toBe('Zuck');
+    expect(sinks.length).toBe(1);
+  });
+
+  it('cancels only the caller whose signal aborts', async () => {
+    const {cancelled, environment, sinks} = createServer();
+    const first = createAbortController();
+    const second = createAbortController();
+    const firstResult = serverQuery(
+      environment,
+      Query,
+      {},
+      {
+        signal: first.signal,
+      },
+    );
+    const secondResult = serverQuery(
+      environment,
+      Query,
+      {},
+      {
+        signal: second.signal,
+      },
+    );
+    first.abort();
+    await expect(firstResult).rejects.toThrow(
+      'serverQuery: The request was cancelled.',
+    );
+    expect(cancelled).toEqual([false]);
+    sinks[0].next({data: {me: {__typename: 'User', id: '4', name: 'Zuck'}}});
+    expect((await secondResult).me?.name).toBe('Zuck');
+  });
+
+  it('cancels the request once every caller aborted, and executes it again later', async () => {
+    const {cancelled, environment, sinks} = createServer();
+    const first = createAbortController();
+    const second = createAbortController();
+    const firstResult = serverQuery(
+      environment,
+      Query,
+      {},
+      {
+        signal: first.signal,
+      },
+    );
+    const secondResult = serverQuery(
+      environment,
+      Query,
+      {},
+      {
+        signal: second.signal,
+      },
+    );
+    first.abort();
+    second.abort();
+    expect(cancelled).toEqual([true]);
+    await expect(firstResult).rejects.toThrow('cancelled');
+    await expect(secondResult).rejects.toThrow('cancelled');
+    const later = serverQuery(environment, Query, {});
+    expect(sinks.length).toBe(2);
+    sinks[1].next({data: {me: {__typename: 'User', id: '4', name: 'Zuck'}}});
+    expect((await later).me?.name).toBe('Zuck');
+  });
+
+  it("reads each artifact's data when two artifacts share a request", async () => {
+    // `Query` as another project compiles it: the same operation (so the
+    // same request identifier), with the client reference under another
+    // alias.
+    const OtherQuery: typeof Query = JSON.parse(
+      JSON.stringify(Query).replace(
+        '"kind":"AliasedInlineFragmentSpread","name":"client"',
+        '"kind":"AliasedInlineFragmentSpread","name":"other"',
+      ),
+    );
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    const otherResult = serverQuery(environment, OtherQuery, {});
+    sinks[0].next({data: {me: {__typename: 'User', id: '4', name: 'Zuck'}}});
+    const data = await result;
+    const otherData = await otherResult;
+    const other: {[key: string]: unknown} = {...otherData.me};
+    expect(other.client).toBe(undefined);
+    expect(getRelayHandoff(other.other)?.records).toEqual(
+      getRelayHandoff(data.me?.client)?.records,
+    );
     expect(sinks.length).toBe(1);
   });
 
@@ -213,6 +313,97 @@ describe('serverQuery', () => {
       RelayFeatureFlags.ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS = true;
     }
   });
+
+  it('rejects with the GraphQL errors of a response without data', async () => {
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    sinks[0].next({data: null, errors: [{message: 'Ledger unavailable'}]});
+    await expect(result).rejects.toThrow(/^Ledger unavailable$/);
+  });
+
+  it('rejects with only the GraphQL error messages that are strings', async () => {
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    // As parsed from a server that breaks the GraphQL spec.
+    sinks[0].next(
+      JSON.parse(
+        '{"data": null, "errors": [{"message": "Ledger unavailable"}, {"message": null}]}',
+      ),
+    );
+    await expect(result).rejects.toThrow(/^Ledger unavailable$/);
+  });
+
+  it('rejects with the request error when no GraphQL error has a message', async () => {
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    sinks[0].next(JSON.parse('{"data": null, "errors": [{"message": null}]}'));
+    await expect(result).rejects.toThrow(
+      'No data returned for operation `serverQueryTestQuery`',
+    );
+  });
+
+  it('rejects an empty response', async () => {
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    sinks[0].complete();
+    await expect(result).rejects.toThrow(
+      'serverQuery: `serverQueryTestQuery` completed without data.',
+    );
+  });
+
+  it('rejects a response whose payloads carry no data', async () => {
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    sinks[0].next({data: null, extensions: {cost: 1}});
+    sinks[0].next([]);
+    sinks[0].complete();
+    await expect(result).rejects.toThrow(
+      'serverQuery: `serverQueryTestQuery` completed without data.',
+    );
+  });
+
+  it('disposes the request when it is aborted while subscribing', async () => {
+    const controller = createAbortController();
+    let disposed = false;
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create(() => {
+          controller.abort();
+          return () => {
+            disposed = true;
+          };
+        }),
+      ),
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(
+      environment,
+      Query,
+      {},
+      {signal: controller.signal},
+    );
+    await expect(result).rejects.toThrow(
+      'serverQuery: The request was cancelled.',
+    );
+    expect(disposed).toBe(true);
+  });
+
+  it('does not execute with an already aborted signal', async () => {
+    const {environment, sinks} = createServer();
+    const controller = createAbortController();
+    controller.abort();
+    const result = serverQuery(
+      environment,
+      Query,
+      {},
+      {signal: controller.signal},
+    );
+    expect(sinks.length).toBe(0);
+    await expect(result).rejects.toThrow(
+      'serverQuery: The request was cancelled.',
+    );
+  });
 });
 
 describe('server fragment reads', () => {
@@ -273,6 +464,47 @@ describe('server fragment reads', () => {
     );
   });
 
+  it('keeps rejecting reads after the request ended without the data', async () => {
+    const {environment, me, sinks} = await startDeferred();
+    sinks[0].complete();
+    await flush();
+    await expect(serverRead(environment, DeferredFragment, me)).rejects.toThrow(
+      'completed without the data',
+    );
+    await expect(serverRead(environment, DeferredFragment, me)).rejects.toThrow(
+      'completed without the data',
+    );
+  });
+
+  it('treats a final payload as the end of the request', async () => {
+    const {environment, me, sinks} = await startDeferred();
+    const read = serverRead(environment, DeferredFragment, me);
+    sinks[0].next({
+      data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
+      extensions: {is_final: true},
+    });
+    await expect(read).rejects.toThrow('completed without the data');
+  });
+
+  it('only reads @server fragments with useServerFragment', async () => {
+    const {environment, me} = await startDeferred();
+    const client = me.client;
+    if (client == null) {
+      throw new Error('Expected a client fragment reference.');
+    }
+    component Reader() {
+      useServerFragment(environment, ClientFragment, client);
+      return null;
+    }
+    expect(() =>
+      TestRenderer.act(() => {
+        TestRenderer.create(<Reader />);
+      }),
+    ).toThrow(
+      'useServerFragment: Expected `serverQueryTestClient_user` to be a `@server` fragment.',
+    );
+  });
+
   it('rejects when the request fails later', async () => {
     const {environment, me, sinks} = await startDeferred();
     const read = serverRead(environment, DeferredFragment, me);
@@ -292,5 +524,25 @@ describe('server fragment reads', () => {
       path: ['me'],
     });
     await expect(read).resolves.toEqual({lastName: 'Berg'});
+  });
+
+  it('treats a @defer payload at a list index as changing lists in any way', async () => {
+    const sync = jest.spyOn(RelayServerHandoff.prototype, 'sync');
+    const {environment, sinks} = createServer();
+    const result = serverQuery(environment, Query, {});
+    sinks[0].next({
+      data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
+      extensions: {is_final: false},
+    });
+    await result;
+    sync.mockClear();
+    // A @defer payload, even at a list index, may change lists in any way.
+    sinks[0].next({
+      data: {id: '4', lastName: 'Berg'},
+      label: 'serverQueryTestQuery$defer$deferred',
+      path: ['me', 'friends', 'edges', 0],
+    });
+    expect(sync.mock.calls).toEqual([[null]]);
+    sync.mockRestore();
   });
 });

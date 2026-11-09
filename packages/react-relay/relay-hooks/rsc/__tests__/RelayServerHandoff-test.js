@@ -219,6 +219,33 @@ graphql`
   }
 `;
 
+const StreamTargetQuery = graphql`
+  query RelayServerHandoffTestStreamTargetQuery @server {
+    me {
+      ...RelayServerHandoffTestStreamTarget_user @alias(as: "client")
+    }
+  }
+`;
+
+graphql`
+  fragment RelayServerHandoffTestStreamTarget_user on User {
+    friends(first: 10) {
+      edges @stream(initial_count: 1, label: "edges") {
+        node {
+          name
+          friends(first: 3) {
+            edges {
+              node {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
 // A server fragment read as a promise.
 function serverRead<TFragmentType extends FragmentType, TData>(
   environment: IEnvironment,
@@ -532,6 +559,34 @@ describe('RelayServerHandoff', () => {
     expect(records.fx).toEqual(expect.objectContaining({name: 'fx'}));
   });
 
+  it("fails a root's chunks when the request completes without its data", async () => {
+    const {me, sinks} = await start();
+    const handoff = getHandoff(me.deferred);
+    // The deferred payload never arrives.
+    sinks[0].complete();
+    await expect(handoff.next).rejects.toThrow(
+      'Relay: The server query completed without the data of',
+    );
+  });
+
+  it('fails a root created after the request completed without its data', async () => {
+    const {environment, sinks} = createServer();
+    const variables: RelayServerHandoffTestQuery$variables = {
+      secret: true,
+      size: [32],
+    };
+    const result = serverQuery(environment, Query, variables);
+    // The request completes, without the deferred payload, before the
+    // query's data (and so any root) is read.
+    sinks[0].next({data: {me: ME}, extensions: {is_final: false}});
+    sinks[0].complete();
+    const data = await result;
+    await expect(getHandoff(data.me?.deferred).next).rejects.toThrow(
+      'Relay: The server query completed without the data of',
+    );
+    expect(await getHandoff(data.me?.client).next).toBe(null);
+  });
+
   it('sends a field again when only its error changed', async () => {
     const {environment, me, sinks} = await start();
     const handoff = getHandoff(me.client);
@@ -651,11 +706,29 @@ describe('RelayServerHandoff', () => {
     });
   });
 
-  it('rejects pending chunks when the request fails', async () => {
+  it('fails only the roots whose data a failed request did not deliver', async () => {
     const {me, sinks} = await start();
-    const handoff = getHandoff(me.deferred);
     sinks[0].error(new Error('stream failed'));
-    await expect(handoff.next).rejects.toThrow('stream failed');
+    await expect(getHandoff(me.deferred).next).rejects.toThrow('stream failed');
+    // Complete roots end normally.
+    expect(await getHandoff(me.client).next).toBe(null);
+    expect(await getHandoff(me.args).next).toBe(null);
+  });
+
+  it('fails only the incomplete roots created after the request failed', async () => {
+    const {environment, sinks} = createServer();
+    const variables: RelayServerHandoffTestQuery$variables = {
+      secret: true,
+      size: [32],
+    };
+    const result = serverQuery(environment, Query, variables);
+    sinks[0].next({data: {me: ME}, extensions: {is_final: false}});
+    sinks[0].error(new Error('stream failed'));
+    const data = await result;
+    await expect(getHandoff(data.me?.deferred).next).rejects.toThrow(
+      'stream failed',
+    );
+    expect(await getHandoff(data.me?.client).next).toBe(null);
   });
 
   it('copies only what a client fragment reads, whatever else is in the Store', async () => {
@@ -723,16 +796,22 @@ describe('RelayServerHandoff', () => {
       return {bytes, largest};
     }
     let visits = RelayServerHandoff.visitCount;
+    let compares = RelayServerHandoff.compareCount;
     const small = await stream(50);
     const smallVisits = RelayServerHandoff.visitCount - visits;
+    const smallCompares = RelayServerHandoff.compareCount - compares;
     visits = RelayServerHandoff.visitCount;
+    compares = RelayServerHandoff.compareCount;
     const large = await stream(100);
     const largeVisits = RelayServerHandoff.visitCount - visits;
+    const largeCompares = RelayServerHandoff.compareCount - compares;
     // Each payload sends its new edge and node plus the appended edge ID,
-    // and traverses only those.
+    // and traverses and compares only those: the stream label in the client
+    // fragment marks each payload as appending.
     expect(large.largest).toBeLessThan(400);
     expect(large.bytes / small.bytes).toBeLessThan(2.2);
     expect(largeVisits / smallVisits).toBeLessThan(2.2);
+    expect(largeCompares / smallCompares).toBeLessThan(2.2);
   });
 
   it('sends a streamed connection in bytes linear in its length', async () => {
@@ -803,5 +882,89 @@ describe('RelayServerHandoff', () => {
     expect(large.serverFieldRecords).toBe(0);
     expect(large.largest).toBeLessThan(450);
     expect(large.bytes / small.bytes).toBeLessThan(2.2);
+  });
+
+  it('appends a stream item only to the list it targets', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const environment = new Environment({
+      // The nested lists' edges are named after their node, so that a
+      // replaced item changes the list.
+      getDataID: (value, typeName) => {
+        const node = typeName === 'FriendsEdge' ? value.node : null;
+        const nodeID =
+          node != null && typeof node === 'object' ? node.id : null;
+        return typeof nodeID === 'string' && nodeID.startsWith('f')
+          ? `edge:${nodeID}`
+          : value.id;
+      },
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      store: new Store(new RecordSource()),
+    });
+    const user = (friends: ReadonlyArray<string>) => ({
+      __typename: 'User',
+      friends: {
+        edges: friends.map(id => ({node: {__typename: 'User', id, name: id}})),
+      },
+      id: 'a',
+      name: 'a',
+    });
+    const result = serverQuery(environment, StreamTargetQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          friends: {edges: [{node: user(['f0', 'f1', 'f2'])}]},
+          id: '4',
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const data = await result;
+    const handoff = getHandoff(data.me?.client);
+    // A stream item whose node is the same user, with that user's own list
+    // changed in the middle and grown.
+    sinks[0].next({
+      data: {node: user(['f0', 'fx', 'f2', 'f3'])},
+      label: 'RelayServerHandoffTestStreamTarget_user$stream$edges',
+      path: ['me', 'friends', 'edges', 1],
+    });
+    const chunk = await handoff.next;
+    const records = chunk?.records;
+    if (records == null) {
+      throw new Error('Expected a chunk.');
+    }
+    // The streamed list is sent as an append; the nested list whole, with
+    // its new item.
+    expect(records['client:4:friends(first:10)']?.edges).toEqual({
+      __refsAppend: [expect.any(String)],
+      __refsAppendFrom: 1,
+    });
+    expect(records['client:a:friends(first:3)']?.edges).toEqual({
+      __refs: ['edge:f0', 'edge:fx', 'edge:f2', 'edge:f3'],
+    });
+    expect(records.fx).toEqual(expect.objectContaining({name: 'fx'}));
+  });
+
+  it('fails the request and its handoffs when projecting throws', async () => {
+    const {environment, me, sinks} = await start();
+    const handoff = getHandoff(me.deferred);
+    const read = serverRead(environment, ServerFragment, me);
+    jest.spyOn(RecordSource.prototype, 'toJSON').mockImplementation(() => {
+      throw new Error('projection failed');
+    });
+    sinks[0].next({
+      data: {emailAddresses: ['zuck@example.com'], id: '4'},
+      label: 'RelayServerHandoffTestQuery$defer$deferred',
+      path: ['me'],
+    });
+    await expect(handoff.next).rejects.toThrow('projection failed');
+    // The request was cancelled: later payloads are ignored.
+    expect(sinks[0].closed).toBe(true);
+    await read;
   });
 });
