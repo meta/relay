@@ -113,8 +113,8 @@ function loadQuery<
   // ConcreteRequests get an exec-time-aware default below.
   let fetchPolicy: FetchPolicy = providedFetchPolicy ?? DEFAULT_FETCH_POLICY;
   const networkCacheConfig = {
-    ...options?.networkCacheConfig,
     force: true,
+    ...options?.networkCacheConfig,
   };
 
   // executeWithNetworkSource will retain and execute an operation
