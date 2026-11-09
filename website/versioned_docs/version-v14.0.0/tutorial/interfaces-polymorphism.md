@@ -127,7 +127,7 @@ function PosterDetailsHovercardContentsBody({ poster }: Props): React.ReactEleme
       <Image image={data.profilePicture} width={128} height={128} className="posterHovercard__image" />
       <div className="posterHovercard__name">{data.name}</div>
       <ul className="posterHovercard__details">
-         <li>Joined <Timestamp time={poster.joined} /></li>
+         <li>Joined <Timestamp time={data.joined} /></li>
          // change
          {data.location != null && (
            <li>{data.location.name}</li>
