@@ -6,7 +6,13 @@
  */
 
 import {ArrayKeyType, ArrayKeyTypeData, KeyType, KeyTypeData} from './ReactRelayTypes';
-import {GraphQLTaggedNode, IEnvironment, OperationType} from 'relay-runtime';
+import {
+  GraphQLTaggedNode,
+  IEnvironment,
+  OperationType,
+  ServerOperationType,
+  ServerRequest,
+} from 'relay-runtime';
 
 export interface PreloadedQueryResponse<TData> {
     readonly data: TData;
@@ -41,6 +47,49 @@ export interface ServerEnvironment {
             fragmentRef: TKey,
         ): Promise<ArrayKeyTypeData<TKey>>;
     };
+    /**
+     * Executes a `@server` query in this request's server environment and
+     * resolves with its data once the first payload has arrived. Client
+     * fragment references in the data carry their data to client components.
+     */
+    readonly serverQuery: {
+        <T extends ServerOperationType>(
+            query: ServerRequest<T>,
+            variables: NoInfer<T['variables']>,
+            options?: ServerQueryOptions,
+        ): Promise<T['response']>;
+        <T extends ServerOperationType = never>(
+            query: GraphQLTaggedNode,
+            variables: [T] extends [never] ? never : NoInfer<T['variables']>,
+            options?: ServerQueryOptions,
+        ): Promise<T['response']>;
+    };
+    /**
+     * Reads a `@server` fragment in a server component. Returns synchronously
+     * when the data is present; suspends until it arrives otherwise.
+     */
+    readonly useServerFragment: {
+        <TKey extends ServerKeyType>(
+            fragment: GraphQLTaggedNode,
+            fragmentRef: TKey,
+        ): KeyTypeData<TKey>;
+        <TKey extends ServerArrayKeyType>(
+            fragment: GraphQLTaggedNode,
+            fragmentRef: TKey,
+        ): ArrayKeyTypeData<TKey>;
+    };
+}
+
+type ServerKeyType<TData = unknown> = KeyType<TData> & Readonly<{
+    ' $serverFragment': true;
+}>;
+
+type ServerArrayKeyType<TData = unknown> = ReadonlyArray<
+    ServerKeyType<readonly TData[]> | null | undefined
+>;
+
+export interface ServerQueryOptions {
+    readonly signal?: AbortSignal;
 }
 
 export function createServerEnvironment(
