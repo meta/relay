@@ -42,16 +42,16 @@ type SettledThenable<T> =
       readonly status: 'fulfilled',
       readonly value: T,
       then(
-        onFulfilled: ?(T) => unknown,
-        onRejected: ?(unknown) => unknown,
+        onFulfilled: ?(value: T) => unknown,
+        onRejected: ?(error: unknown) => unknown,
       ): void,
     }
   | {
       readonly status: 'rejected',
       readonly reason: unknown,
       then(
-        onFulfilled: ?(T) => unknown,
-        onRejected: ?(unknown) => unknown,
+        onFulfilled: ?(value: T) => unknown,
+        onRejected: ?(error: unknown) => unknown,
       ): void,
     };
 
