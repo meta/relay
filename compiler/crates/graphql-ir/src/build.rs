@@ -73,6 +73,8 @@ pub static FIXME_FAT_INTERFACE: LazyLock<DirectiveName> =
 static DIRECTIVE_UNCHECKED_ARGUMENTS: LazyLock<StringKey> =
     LazyLock::new(|| "uncheckedArguments_DEPRECATED".intern());
 pub static DIRECTIVE_ARGUMENTS: LazyLock<StringKey> = LazyLock::new(|| "arguments".intern());
+static HOIST_TO_OPERATION: LazyLock<DirectiveName> =
+    LazyLock::new(|| DirectiveName("hoist_to_operation".intern()));
 
 /// The semantic of defining variables on a fragment definition.
 #[derive(Copy, Clone, PartialEq)]
@@ -2220,5 +2222,9 @@ fn variable_definition_requires_argument(variable_definition: &VariableDefinitio
         && variable_definition
             .directives
             .named(ProvidedVariableMetadata::directive_name())
+            .is_none()
+        && variable_definition
+            .directives
+            .named(*HOIST_TO_OPERATION)
             .is_none()
 }
