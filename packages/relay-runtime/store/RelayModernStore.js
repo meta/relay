@@ -300,22 +300,6 @@ class RelayModernStore implements Store {
     }
   }
 
-  batchLiveStateUpdatesWithoutNotify(callback: () => void): boolean {
-    if (this.__log != null) {
-      this.__log({name: 'liveresolver.batch.start'});
-    }
-    let hasPublished = false;
-    try {
-      hasPublished =
-        this._resolverCache.batchLiveStateUpdatesWithoutNotify(callback);
-    } finally {
-      if (this.__log != null) {
-        this.__log({name: 'liveresolver.batch.end'});
-      }
-    }
-    return hasPublished;
-  }
-
   check(
     operation: OperationDescriptor,
     options?: CheckOptions,
