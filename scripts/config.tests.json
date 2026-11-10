@@ -72,7 +72,8 @@
         },
         "enable_shadow_resolvers": {
           "kind": "enabled"
-        }
+        },
+        "enable_relay_rsc": true
       },
       "language": "flow",
       "resolversSchemaModule": {},
