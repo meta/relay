@@ -105,7 +105,10 @@ impl WatchmanFileSource {
             .and_then(|mut guard| guard.take());
         if let Some(saved_state_path) = saved_state_override {
             let mut compiler_state = perf_logger_event.time("deserialize_saved_state", || {
-                CompilerState::deserialize_from_file(&saved_state_path)
+                CompilerState::deserialize_from_file_with_frames(
+                    &saved_state_path,
+                    self.config.parallel_saved_state_frames,
+                )
             })?;
             let query_timer = perf_logger_event.start("watchman_query_time");
             let file_source_result = query_file_result(
@@ -372,7 +375,10 @@ impl WatchmanFileSource {
 
         let mut compiler_state = perf_logger_event
             .time("deserialize_saved_state", || {
-                CompilerState::deserialize_from_file(&saved_state_path)
+                CompilerState::deserialize_from_file_with_frames(
+                    &saved_state_path,
+                    self.config.parallel_saved_state_frames,
+                )
             })
             .map_err(|err| {
                 let error_event = perf_logger.create_event("saved_state_loader_error");

@@ -19,6 +19,9 @@ use std::fs::File as FsFile;
 use std::hash::Hash;
 use std::io::BufReader;
 use std::io::BufWriter;
+use std::io::Read;
+use std::io::Seek;
+use std::io::Write as IoWrite;
 use std::path::MAIN_SEPARATOR;
 use std::path::Path;
 use std::path::PathBuf;
@@ -1082,7 +1085,22 @@ impl CompilerState {
         result
     }
 
+    /// Writes the state as one zstd stream.
     pub fn serialize_to_file(&self, path: &PathBuf) -> Result<()> {
+        self.serialize_to_file_with_frames(path, false)
+    }
+
+    /// Writes the state as zstd. With `independent_frames`, the bincode
+    /// output is compressed in `SAVED_STATE_FRAME_SIZE` chunks, in parallel,
+    /// each as its own frame that records its decompressed size, so
+    /// [`Self::deserialize_from_file_with_frames`] can decompress the frames
+    /// in parallel. Any zstd decoder reads the concatenated frames as one
+    /// stream.
+    pub fn serialize_to_file_with_frames(
+        &self,
+        path: &PathBuf,
+        independent_frames: bool,
+    ) -> Result<()> {
         let zstd_level: i32 = env::var("RELAY_SAVED_STATE_ZSTD_LEVEL").map_or_else(
             |_| 12,
             |level| {
@@ -1091,6 +1109,28 @@ impl CompilerState {
                 )
             },
         );
+        let write_error = |err| Error::WriteFileError {
+            file: path.clone(),
+            source: err,
+        };
+        let serialization_error = |err| Error::SerializationError {
+            file: path.clone(),
+            source: err,
+        };
+
+        if independent_frames {
+            let file = BufWriter::new(FsFile::create(path).map_err(write_error)?);
+            let threads = saved_state_compression_threads(
+                std::thread::available_parallelism().map_or(1, |threads| threads.get()),
+            );
+            return write_in_frames(self, file, SAVED_STATE_FRAME_SIZE, threads, || {
+                zstd_compressor(zstd_level)
+            })
+            .map_err(|err| match err {
+                FrameWriteError::Encode(err) => serialization_error(err),
+                FrameWriteError::Io(err) => write_error(err),
+            });
+        }
 
         let writer = FsFile::create(path)
             .and_then(|writer| {
@@ -1106,52 +1146,76 @@ impl CompilerState {
                 }
                 Ok(encoder)
             })
-            .map_err(|err| Error::WriteFileError {
-                file: path.clone(),
-                source: err,
-            })?
+            .map_err(write_error)?
             .auto_finish();
 
         let mut writer =
             BufWriter::with_capacity(ZstdEncoder::<FsFile>::recommended_input_size(), writer);
         bincode::serde::encode_into_std_write(self, &mut writer, bincode::config::legacy())
             .map(|_| ())
-            .map_err(|err| Error::SerializationError {
-                file: path.clone(),
-                source: err,
-            })
+            .map_err(serialization_error)
     }
 
+    /// Loads a saved state written by [`Self::serialize_to_file`] or
+    /// [`Self::serialize_to_file_with_frames`], decompressing it as one stream.
     pub fn deserialize_from_file(path: &PathBuf) -> Result<Self> {
+        Self::deserialize_from_file_with_frames(path, false)
+    }
+
+    /// Loads a saved state written by [`Self::serialize_to_file_with_frames`],
+    /// or its decompressed form when the path ends with `.decompressed`. With
+    /// `parallel_frames`, a state written as independent frames is
+    /// decompressed in parallel; any other zstd file is decompressed as one
+    /// stream, as without it.
+    pub fn deserialize_from_file_with_frames(
+        path: &PathBuf,
+        parallel_frames: bool,
+    ) -> Result<Self> {
         let is_already_decompressed = path
             .to_str()
             .map(|s| s.ends_with(".decompressed"))
             .unwrap_or(false);
 
-        let file = FsFile::open(path).map_err(|err| Error::ReadFileError {
+        let read_error = |err| Error::ReadFileError {
             file: path.clone(),
             source: err,
-        })?;
+        };
+        let deserialization_error = |err| Error::DeserializationError {
+            file: path.clone(),
+            source: err,
+        };
+
+        let mut file = FsFile::open(path).map_err(read_error)?;
+        if parallel_frames
+            && !is_already_decompressed
+            && first_frame_records_size(&mut file).map_err(read_error)?
+        {
+            let mut compressed = vec![];
+            file.read_to_end(&mut compressed).map_err(read_error)?;
+            if let Some(frames) = sized_frames(&compressed).map_err(read_error)? {
+                return decode_frames_pipelined(&frames, SAVED_STATE_FRAMES_PER_BATCH)
+                    .map_err(deserialization_error);
+            }
+            let mut reader = BufReader::with_capacity(
+                ZstdDecoder::<BufReader<FsFile>>::recommended_output_size(),
+                ZstdDecoder::new(compressed.as_slice()).map_err(read_error)?,
+            );
+            return bincode::serde::decode_from_std_read(&mut reader, bincode::config::legacy())
+                .map_err(deserialization_error);
+        }
 
         let mut reader: Box<dyn std::io::Read> = if is_already_decompressed {
             Box::new(BufReader::new(file))
         } else {
-            let zstd_decoder = ZstdDecoder::new(file).map_err(|err| Error::ReadFileError {
-                file: path.clone(),
-                source: err,
-            })?;
+            let zstd_decoder = ZstdDecoder::new(file).map_err(read_error)?;
             Box::new(BufReader::with_capacity(
                 ZstdDecoder::<BufReader<FsFile>>::recommended_output_size(),
                 zstd_decoder,
             ))
         };
 
-        bincode::serde::decode_from_std_read(&mut reader, bincode::config::legacy()).map_err(
-            |err| Error::DeserializationError {
-                file: path.clone(),
-                source: err,
-            },
-        )
+        bincode::serde::decode_from_std_read(&mut reader, bincode::config::legacy())
+            .map_err(deserialization_error)
     }
 
     pub fn has_pending_file_source_changes(&self) -> bool {
@@ -1443,12 +1507,646 @@ fn schema_change_for_logging(schema_change: &SchemaChange) -> String {
     text
 }
 
+/// Decompressed size of each frame [`CompilerState::serialize_to_file_with_frames`] writes.
+const SAVED_STATE_FRAME_SIZE: usize = 32 * 1024 * 1024;
+
+/// Whether `file` starts with a zstd frame header that records the frame's
+/// decompressed size, as frames from [`compress_in_frames`] do and frames from
+/// a streaming encoder don't. Leaves `file` at its start.
+fn first_frame_records_size(file: &mut FsFile) -> std::io::Result<bool> {
+    // The largest zstd frame header.
+    let mut header = Vec::with_capacity(18);
+    (&mut *file).take(18).read_to_end(&mut header)?;
+    file.rewind()?;
+    Ok(matches!(
+        zstd::zstd_safe::get_frame_content_size(&header),
+        Ok(Some(_))
+    ))
+}
+
+/// `bytes` compressed in parallel as one zstd frame per `frame_size` chunk;
+/// each frame records its decompressed size.
+#[cfg(test)]
+fn compress_in_frames(
+    bytes: &[u8],
+    frame_size: usize,
+    level: i32,
+) -> std::io::Result<Vec<Vec<u8>>> {
+    bytes
+        .par_chunks(frame_size)
+        .map(|chunk| zstd::bulk::compress(chunk, level))
+        .collect()
+}
+
+/// Threads that compress a saved state while it is written: three quarters of
+/// the available CPUs, at most 64. Each holds a 32 MiB chunk and a zstd
+/// context, about 90 MB together at the default level, a little more than a
+/// streaming zstd worker; three quarters keeps the writer within the memory
+/// the streaming writer used on small machines, and 64 bounds it on large ones.
+fn saved_state_compression_threads(available: usize) -> usize {
+    (available * 3 / 4).clamp(1, 64)
+}
+
+/// Why [`write_in_frames`] failed.
+enum FrameWriteError {
+    Encode(bincode::error::EncodeError),
+    Io(std::io::Error),
+}
+
+/// Takes the bincode output and passes it on in numbered `frame_size` chunks,
+/// reusing chunks that have been compressed.
+struct ChunkWriter {
+    chunk: Vec<u8>,
+    frame_size: usize,
+    index: usize,
+    chunks: std::sync::mpsc::SyncSender<(usize, Vec<u8>)>,
+    spare: std::sync::mpsc::Receiver<Vec<u8>>,
+    /// One message per frame written; a chunk is sent only when it is fewer
+    /// than `window` chunks ahead of the last frame written, so a slow early
+    /// frame can't leave later ones piling up.
+    written: std::sync::mpsc::Receiver<()>,
+    written_count: usize,
+    window: usize,
+}
+
+impl ChunkWriter {
+    fn send(&mut self) -> std::io::Result<()> {
+        while self.index >= self.written_count + self.window {
+            self.written
+                .recv()
+                .map_err(|_| std::io::Error::other("saved state compression stopped"))?;
+            self.written_count += 1;
+        }
+        let mut next = self.spare.try_recv().unwrap_or_default();
+        next.clear();
+        next.reserve(self.frame_size);
+        let chunk = std::mem::replace(&mut self.chunk, next);
+        self.chunks
+            .send((self.index, chunk))
+            .map_err(|_| std::io::Error::other("saved state compression stopped"))?;
+        self.index += 1;
+        Ok(())
+    }
+}
+
+impl IoWrite for ChunkWriter {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        let len = data.len().min(self.frame_size - self.chunk.len());
+        self.chunk.extend_from_slice(&data[..len]);
+        if self.chunk.len() == self.frame_size {
+            self.send()?;
+        }
+        Ok(len)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Writes the bincode encoding of `value` to `out` as the frames
+/// `compress_in_frames` makes of the whole encoding, given the compression
+/// each thread gets from `new_compressor`. Chunks are compressed on `threads`
+/// threads while later ones are encoded, and written in order. At most
+/// `threads + 2` uncompressed chunks are held, and a chunk is only sent while
+/// fewer than `2 * threads` frames are waiting to be written.
+fn write_in_frames<T, C>(
+    value: &T,
+    out: impl IoWrite + Send,
+    frame_size: usize,
+    threads: usize,
+    new_compressor: impl Fn() -> std::io::Result<C> + Sync,
+) -> std::result::Result<(), FrameWriteError>
+where
+    T: Serialize,
+    C: FnMut(&[u8], &mut Vec<u8>) -> std::io::Result<()>,
+{
+    let compression_stopped = || std::io::Error::other("saved state compression thread panicked");
+    std::thread::scope(|scope| {
+        let (chunk_sender, chunks) = std::sync::mpsc::sync_channel::<(usize, Vec<u8>)>(1);
+        // Dropped with the last compressor, which unblocks the encoder.
+        let chunks = Arc::new(std::sync::Mutex::new(chunks));
+        let (frame_sender, frames) = std::sync::mpsc::sync_channel(threads);
+        let (spare_sender, spare) = std::sync::mpsc::channel();
+        let new_compressor = &new_compressor;
+        let compressors: Vec<_> = (0..threads)
+            .map(|_| {
+                let chunks = Arc::clone(&chunks);
+                let frame_sender: std::sync::mpsc::SyncSender<(usize, std::io::Result<Vec<u8>>)> =
+                    frame_sender.clone();
+                let spare_sender = spare_sender.clone();
+                scope.spawn(move || -> std::io::Result<()> {
+                    // A panic here still reaches the writer, which then stops
+                    // instead of waiting for this thread's frame.
+                    let _panic_notice = PanicNotice(frame_sender.clone());
+                    let mut compress = new_compressor()?;
+                    let mut frame = Vec::with_capacity(zstd::zstd_safe::compress_bound(frame_size));
+                    loop {
+                        let next = chunks.lock().map_err(|_| compression_stopped())?.recv();
+                        let Ok((index, chunk)) = next else {
+                            return Ok(());
+                        };
+                        frame.clear();
+                        let compressed = compress(&chunk, &mut frame).map(|()| frame.clone());
+                        spare_sender.send(chunk).ok();
+                        // A compression error goes to the writer, which reports it.
+                        let failed = compressed.is_err();
+                        if frame_sender.send((index, compressed)).is_err() || failed {
+                            return Ok(());
+                        }
+                    }
+                })
+            })
+            .collect();
+        drop((chunks, frame_sender, spare_sender));
+        let (written_sender, written) = std::sync::mpsc::channel();
+        let writer = scope.spawn(move || -> std::io::Result<()> {
+            let mut out = out;
+            let mut waiting = std::collections::BTreeMap::new();
+            let mut next = 0;
+            // Returning drops `written_sender`, which unblocks the encoder.
+            for (index, frame) in frames {
+                waiting.insert(index, frame?);
+                while let Some(frame) = waiting.remove(&next) {
+                    out.write_all(&frame)?;
+                    written_sender.send(()).ok();
+                    next += 1;
+                }
+            }
+            out.flush()
+        });
+
+        let mut chunk_writer = ChunkWriter {
+            chunk: Vec::with_capacity(frame_size),
+            frame_size,
+            index: 0,
+            chunks: chunk_sender,
+            spare,
+            written,
+            written_count: 0,
+            window: 2 * threads,
+        };
+        let encoded = bincode::serde::encode_into_std_write(
+            value,
+            &mut chunk_writer,
+            bincode::config::legacy(),
+        )
+        .map_err(FrameWriteError::Encode)
+        .and_then(|_| {
+            if chunk_writer.chunk.is_empty() {
+                Ok(())
+            } else {
+                chunk_writer.send().map_err(FrameWriteError::Io)
+            }
+        });
+        drop(chunk_writer);
+
+        // A compression or output error also stops the encoder, so report it
+        // first. Every thread is joined before returning.
+        let joined: Vec<std::io::Result<()>> = std::iter::once(writer.join())
+            .chain(compressors.into_iter().map(|compressor| compressor.join()))
+            .map(|result| result.unwrap_or_else(|_| Err(compression_stopped())))
+            .collect();
+        joined
+            .into_iter()
+            .try_for_each(|result| result.map_err(FrameWriteError::Io))?;
+        encoded
+    })
+}
+
+/// Sends an error to the frame writer when dropped during a panic.
+struct PanicNotice(std::sync::mpsc::SyncSender<(usize, std::io::Result<Vec<u8>>)>);
+
+impl Drop for PanicNotice {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            let error = std::io::Error::other("saved state compression thread panicked");
+            self.0.send((usize::MAX, Err(error))).ok();
+        }
+    }
+}
+
+/// A zstd compression with a context that is reused for every chunk.
+fn zstd_compressor(
+    level: i32,
+) -> std::io::Result<impl FnMut(&[u8], &mut Vec<u8>) -> std::io::Result<()>> {
+    let mut compressor = zstd::bulk::Compressor::new(level)?;
+    Ok(move |chunk: &[u8], frame: &mut Vec<u8>| {
+        compressor.compress_to_buffer(chunk, frame).map(|_| ())
+    })
+}
+
+/// A zstd frame and its decompressed size.
+type SizedFrame<'a> = (&'a [u8], usize);
+
+/// The zstd frames of `compressed` with their decompressed sizes when it is
+/// two or more frames that each record their decompressed size, as
+/// [`CompilerState::serialize_to_file_with_frames`] writes them. `None` for anything else,
+/// such as a single frame from a streaming encoder or a frame larger than
+/// `SAVED_STATE_FRAME_SIZE`.
+fn sized_frames(compressed: &[u8]) -> std::io::Result<Option<Vec<SizedFrame<'_>>>> {
+    let zstd_error = |code| std::io::Error::other(zstd::zstd_safe::get_error_name(code).to_owned());
+    let mut frames = vec![];
+    let mut rest = compressed;
+    while !rest.is_empty() {
+        let len = zstd::zstd_safe::find_frame_compressed_size(rest).map_err(zstd_error)?;
+        let (frame, tail) = rest.split_at(len);
+        let Ok(Some(size)) = zstd::zstd_safe::get_frame_content_size(frame) else {
+            return Ok(None);
+        };
+        // Larger than the frames we write: not ours, or a corrupt header that
+        // shouldn't size an allocation. The streaming path rejects it cleanly.
+        let Ok(size) = usize::try_from(size) else {
+            return Ok(None);
+        };
+        if size > SAVED_STATE_FRAME_SIZE {
+            return Ok(None);
+        }
+        frames.push((frame, size));
+        rest = tail;
+    }
+    if frames.len() < 2 {
+        return Ok(None);
+    }
+    Ok(Some(frames))
+}
+
+/// `frames` decompressed in parallel into `bytes`, reusing its allocation.
+fn decompress_frames_into(
+    frames: &[SizedFrame<'_>],
+    mut bytes: Vec<u8>,
+) -> std::io::Result<Vec<u8>> {
+    bytes.clear();
+    bytes.resize(frames.iter().map(|(_, size)| size).sum(), 0);
+    let mut destinations = Vec::with_capacity(frames.len());
+    let mut unassigned = bytes.as_mut_slice();
+    for (_, size) in frames {
+        let (destination, tail) = unassigned.split_at_mut(*size);
+        destinations.push(destination);
+        unassigned = tail;
+    }
+    frames
+        .par_iter()
+        .zip(destinations)
+        .try_for_each(|((frame, size), destination)| {
+            let written = zstd::bulk::decompress_to_buffer(frame, destination)?;
+            if written != *size {
+                return Err(std::io::Error::other(format!(
+                    "zstd frame decompressed to {written} bytes, its header says {size}"
+                )));
+            }
+            Ok(())
+        })?;
+    Ok(bytes)
+}
+
+/// A bincode reader over batches of decompressed frames, received in order.
+struct FrameBatchReader {
+    batches: std::sync::mpsc::Receiver<std::io::Result<Vec<u8>>>,
+    /// Where finished batches go back to be refilled.
+    spent: std::sync::mpsc::Sender<Vec<u8>>,
+    current: Vec<u8>,
+    position: usize,
+}
+
+impl FrameBatchReader {
+    fn next_batch(
+        &mut self,
+        additional: usize,
+    ) -> std::result::Result<(), bincode::error::DecodeError> {
+        match self.batches.recv() {
+            Ok(Ok(batch)) => {
+                let spent = std::mem::replace(&mut self.current, batch);
+                self.spent.send(spent).ok();
+                self.position = 0;
+                Ok(())
+            }
+            Ok(Err(inner)) => Err(bincode::error::DecodeError::Io { inner, additional }),
+            Err(_) => Err(bincode::error::DecodeError::UnexpectedEnd { additional }),
+        }
+    }
+}
+
+impl bincode::de::read::Reader for FrameBatchReader {
+    fn read(&mut self, bytes: &mut [u8]) -> std::result::Result<(), bincode::error::DecodeError> {
+        let mut filled = 0;
+        while filled < bytes.len() {
+            if self.position == self.current.len() {
+                self.next_batch(bytes.len() - filled)?;
+            }
+            let len = (bytes.len() - filled).min(self.current.len() - self.position);
+            bytes[filled..filled + len]
+                .copy_from_slice(&self.current[self.position..self.position + len]);
+            filled += len;
+            self.position += len;
+        }
+        Ok(())
+    }
+
+    fn peek_read(&mut self, len: usize) -> Option<&[u8]> {
+        self.current.get(self.position..self.position + len)
+    }
+
+    fn consume(&mut self, len: usize) {
+        self.position += len;
+    }
+}
+
+/// Frames the saved-state reader decompresses at a time while it decodes the
+/// previous batch. Decoding is the slow part, so four threads keep up while
+/// only a few frames of decompressed data are held. They are a pool of their
+/// own: decompressing on every thread of the global pool leaves allocator
+/// memory behind on each.
+const SAVED_STATE_FRAMES_PER_BATCH: usize = 4;
+
+/// Decodes the concatenated contents of `frames`, decompressing `batch` frames
+/// at a time on another thread while the previous batch is decoded.
+fn decode_frames_pipelined<T: serde::de::DeserializeOwned>(
+    frames: &[SizedFrame<'_>],
+    batch: usize,
+) -> std::result::Result<T, bincode::error::DecodeError> {
+    std::thread::scope(|scope| {
+        let (sender, batches) = std::sync::mpsc::sync_channel(0);
+        let (spent, buffers) = std::sync::mpsc::channel();
+        scope.spawn(move || {
+            let pool = match rayon::ThreadPoolBuilder::new().num_threads(batch).build() {
+                Ok(pool) => pool,
+                Err(err) => {
+                    sender.send(Err(std::io::Error::other(err))).ok();
+                    return;
+                }
+            };
+            for frames in frames.chunks(batch) {
+                let buffer = buffers.try_recv().unwrap_or_default();
+                let decompressed = pool.install(|| decompress_frames_into(frames, buffer));
+                let failed = decompressed.is_err();
+                // Stops when the decoder does: it drops the receiver.
+                if sender.send(decompressed).is_err() || failed {
+                    break;
+                }
+            }
+        });
+        bincode::serde::decode_from_reader(
+            FrameBatchReader {
+                batches,
+                spent,
+                current: vec![],
+                position: 0,
+            },
+            bincode::config::legacy(),
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use schema_diff::definitions::DefinitionChange;
 
     use super::*;
+
+    #[test]
+    fn frames_decompress_in_parallel_and_as_one_stream() {
+        let bytes: Vec<u8> = (0..1_000_000u32).map(|i| (i % 251) as u8).collect();
+        let compressed = compress_in_frames(&bytes, 100_000, 3).unwrap().concat();
+
+        let frames = sized_frames(&compressed).unwrap().unwrap();
+        assert_eq!(decompress_frames_into(&frames, vec![]).unwrap(), bytes);
+        assert_eq!(
+            zstd::decode_all(compressed.as_slice()).unwrap(),
+            bytes,
+            "a streaming decoder, like older compilers use, reads the frames as one stream",
+        );
+    }
+
+    #[test]
+    fn single_or_streamed_frame_is_not_decompressed_in_parallel() {
+        let bytes = vec![7u8; 1000];
+        let single = compress_in_frames(&bytes, bytes.len(), 3).unwrap().concat();
+        let streamed = zstd::encode_all(bytes.as_slice(), 3).unwrap();
+
+        assert!(sized_frames(&single).unwrap().is_none());
+        assert!(
+            sized_frames(&[streamed.clone(), streamed].concat())
+                .unwrap()
+                .is_none(),
+            "streamed frames don't record their size",
+        );
+    }
+
+    #[test]
+    fn saved_state_round_trips_in_both_formats() {
+        let dir = tempfile::tempdir().unwrap();
+        for independent_frames in [true, false] {
+            let path = dir.path().join(format!("state-{independent_frames}"));
+            let state = CompilerState {
+                saved_state_version: "v1".to_owned(),
+                ..Default::default()
+            };
+            state
+                .serialize_to_file_with_frames(&path, independent_frames)
+                .unwrap();
+
+            for parallel_frames in [true, false] {
+                let read = CompilerState::deserialize_from_file_with_frames(&path, parallel_frames)
+                    .unwrap();
+                assert_eq!(read.saved_state_version, "v1");
+            }
+        }
+    }
+
+    #[test]
+    fn only_frames_that_record_their_size_take_the_parallel_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let bytes = vec![7u8; 1000];
+        let cases = [
+            (compress_in_frames(&bytes, 100, 3).unwrap().concat(), true),
+            (zstd::encode_all(bytes.as_slice(), 3).unwrap(), false),
+        ];
+        for (i, (compressed, records_size)) in cases.into_iter().enumerate() {
+            let path = dir.path().join(i.to_string());
+            std::fs::write(&path, compressed).unwrap();
+            let mut file = FsFile::open(&path).unwrap();
+
+            assert_eq!(first_frame_records_size(&mut file).unwrap(), records_size);
+            assert_eq!(
+                file.stream_position().unwrap(),
+                0,
+                "leaves the file at its start"
+            );
+        }
+    }
+
+    #[test]
+    fn pipelined_decode_matches_decoding_the_whole_buffer() {
+        let values: Vec<u64> = (0..100_000).map(|i| i * 7919).collect();
+        let bytes = bincode::serde::encode_to_vec(&values, bincode::config::legacy()).unwrap();
+        // Eight frames that split encoded values, the last one partial.
+        let compressed = compress_in_frames(&bytes, 100_003, 3).unwrap().concat();
+        let frames = sized_frames(&compressed).unwrap().unwrap();
+        assert_eq!(frames.len(), 8);
+        for batch in [1, 2, 3, 16] {
+            let decoded: Vec<u64> = decode_frames_pipelined(&frames, batch).unwrap();
+            assert_eq!(decoded, values, "batch: {batch}");
+        }
+
+        let first: u64 = decode_frames_pipelined(&frames, 1).unwrap();
+        assert_eq!(
+            first,
+            values.len() as u64,
+            "stops early without waiting for the rest"
+        );
+
+        let truncated = &frames[..frames.len() / 2];
+        assert!(matches!(
+            decode_frames_pipelined::<Vec<u64>>(truncated, 4),
+            Err(bincode::error::DecodeError::UnexpectedEnd { .. })
+        ));
+    }
+
+    #[test]
+    fn pipelined_decode_reports_a_failed_batch() {
+        let (sender, batches) = std::sync::mpsc::sync_channel(1);
+        sender
+            .send(Err(std::io::Error::other("corrupt frame")))
+            .unwrap();
+        let reader = FrameBatchReader {
+            batches,
+            spent: std::sync::mpsc::channel().0,
+            current: vec![],
+            position: 0,
+        };
+        assert!(matches!(
+            bincode::serde::decode_from_reader::<u64, _, _>(reader, bincode::config::legacy()),
+            Err(bincode::error::DecodeError::Io { .. })
+        ));
+    }
+
+    #[test]
+    fn frames_written_while_encoding_match_compressing_the_whole_encoding() {
+        let values: Vec<u64> = (0..100_000).map(|i| i * 7919).collect();
+        let bytes = bincode::serde::encode_to_vec(&values, bincode::config::legacy()).unwrap();
+        // Eight frames, the last one partial.
+        let expected = compress_in_frames(&bytes, 100_003, 3).unwrap().concat();
+        for threads in [1, 2, 3, 16] {
+            let mut written = vec![];
+            assert!(
+                write_in_frames(&values, &mut written, 100_003, threads, || zstd_compressor(
+                    3
+                ))
+                .is_ok()
+            );
+            assert_eq!(written, expected, "threads: {threads}");
+        }
+        assert_eq!(zstd::decode_all(expected.as_slice()).unwrap(), bytes);
+        let frames = sized_frames(&expected).unwrap().unwrap();
+        let decoded: Vec<u64> = decode_frames_pipelined(&frames, 4).unwrap();
+        assert_eq!(decoded, values);
+        assert_eq!(saved_state_compression_threads(1), 1);
+        assert_eq!(saved_state_compression_threads(26), 19);
+        assert_eq!(saved_state_compression_threads(176), 64);
+
+        struct Failing;
+        impl IoWrite for Failing {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("disk full"))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        assert!(matches!(
+            write_in_frames(&values, Failing, 100_003, 2, || zstd_compressor(3)),
+            Err(FrameWriteError::Io(_))
+        ));
+    }
+
+    /// Runs `write_in_frames` with `compress` on another thread and returns
+    /// whether it failed, giving up if it takes more than 30 seconds.
+    fn write_in_frames_fails_with(
+        compress: fn(&[u8], &mut Vec<u8>) -> std::io::Result<()>,
+    ) -> bool {
+        let (sender, result) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let values: Vec<u64> = (0..100_000).collect();
+            let written = write_in_frames(&values, std::io::sink(), 1_000, 2, || Ok(compress));
+            sender.send(written.is_err()).ok();
+        });
+        result
+            .recv_timeout(std::time::Duration::from_secs(30))
+            .expect("write_in_frames hung")
+    }
+
+    #[test]
+    fn a_failed_compression_stops_writing_frames() {
+        static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        // The first chunk handed out fails while hundreds more are pending.
+        assert!(write_in_frames_fails_with(|chunk, frame| {
+            if CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                return Err(std::io::Error::other("compression failed"));
+            }
+            frame.extend_from_slice(chunk);
+            Ok(())
+        }));
+    }
+
+    #[test]
+    fn a_panicking_compression_stops_writing_frames() {
+        static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        assert!(write_in_frames_fails_with(|chunk, frame| {
+            if CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                panic!("compression panicked");
+            }
+            frame.extend_from_slice(chunk);
+            Ok(())
+        }));
+    }
+
+    #[test]
+    fn chunks_wait_for_frames_written_beyond_the_window() {
+        let (chunk_sender, chunks) = std::sync::mpsc::sync_channel(16);
+        let (_spare_sender, spare) = std::sync::mpsc::channel();
+        let (written_sender, written) = std::sync::mpsc::channel();
+        let encoder = std::thread::spawn(move || {
+            let mut chunk_writer = ChunkWriter {
+                chunk: vec![],
+                frame_size: 1,
+                index: 0,
+                chunks: chunk_sender,
+                spare,
+                written,
+                written_count: 0,
+                window: 3,
+            };
+            chunk_writer.write_all(&[0; 5]).unwrap();
+        });
+        for index in 0..3 {
+            assert_eq!(chunks.recv().unwrap().0, index);
+        }
+        assert!(
+            chunks
+                .recv_timeout(std::time::Duration::from_millis(200))
+                .is_err(),
+            "a fourth chunk waits until the first frame is written",
+        );
+        written_sender.send(()).unwrap();
+        assert_eq!(chunks.recv().unwrap().0, 3);
+        written_sender.send(()).unwrap();
+        assert_eq!(chunks.recv().unwrap().0, 4);
+        encoder.join().unwrap();
+    }
+
+    #[test]
+    fn frames_larger_than_ours_are_not_decompressed_in_parallel() {
+        let bytes = vec![7u8; SAVED_STATE_FRAME_SIZE + 1];
+        let compressed = compress_in_frames(&bytes, bytes.len(), 1).unwrap().concat();
+
+        assert!(
+            sized_frames(&[compressed.clone(), compressed].concat())
+                .unwrap()
+                .is_none()
+        );
+    }
 
     impl Source for Vec<u32> {
         fn is_empty(&self) -> bool {

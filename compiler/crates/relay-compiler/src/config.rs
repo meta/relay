@@ -411,6 +411,11 @@ pub struct Config {
     /// current schema builds; kill switch for the faster path.
     pub schema_diff_changed_sources_only: bool,
 
+    /// Write saved states as independent zstd frames and decompress such
+    /// saved states in parallel. Kill switch for the faster path; either way,
+    /// any saved state stays readable.
+    pub parallel_saved_state_frames: bool,
+
     /// A custom function to extract resolver Dockblock IRs from sources
     pub custom_extract_relay_resolvers: Option<CustomExtractRelayResolvers>,
 
@@ -845,6 +850,7 @@ impl Config {
             update_compiler_state_from_saved_state: None,
             has_schema_change_incremental_build: false,
             schema_diff_changed_sources_only: true,
+            parallel_saved_state_frames: true,
             custom_extract_relay_resolvers: None,
             should_extract_full_source: None,
             transferrable_refetchable_query_directives: vec![],

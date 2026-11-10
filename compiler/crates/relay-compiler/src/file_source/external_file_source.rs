@@ -93,7 +93,10 @@ impl ExternalFileSource {
     }
 
     pub fn create_compiler_state(&self, perf_logger: &impl PerfLogger) -> Result<CompilerState> {
-        let mut compiler_state = CompilerState::deserialize_from_file(&self.saved_state_path)?;
+        let mut compiler_state = CompilerState::deserialize_from_file_with_frames(
+            &self.saved_state_path,
+            self.config.parallel_saved_state_frames,
+        )?;
         if std::env::var("RELAY_COMPILER_IGNORE_SAVED_STATE_VERSION").is_err()
             && compiler_state.saved_state_version != self.config.saved_state_version
         {
