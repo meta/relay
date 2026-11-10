@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<4f57adec50bbccb5b21fa6d4176cb80b>>
+ * @generated SignedSource<<c4865d27fc09e82d6c6fdda7ab513449>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -173,7 +173,11 @@ return {
   "params": {
     "cacheID": "c36b0564186fdaf3ed15582b31af71a6",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "ids"
+      ]
+    },
     "name": "DataCheckerExecTimeS2CTestThingsQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestThingsQuery(\n  $ids: [ID!]!\n) {\n  ...ExecTimeS2CThingsResolver_RootFragment_3pY7A9\n  nodes(ids: $ids) {\n    id\n    __typename\n  }\n}\n\nfragment ExecTimeS2CThingsResolver_RootFragment_3pY7A9 on Query {\n  nodes(ids: $ids) {\n    id\n    __typename\n  }\n}\n"

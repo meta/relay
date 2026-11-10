@@ -72,7 +72,9 @@ query execTimeExperimentalProviderQuery @exec_time_resolvers(enabledProvider: "e
   "params": {
     "cacheID": "654ebcae93bbbc912b6510d6732c9e4b",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "execTimeExperimentalProviderQuery",
     "operationKind": "query",
     "text": null

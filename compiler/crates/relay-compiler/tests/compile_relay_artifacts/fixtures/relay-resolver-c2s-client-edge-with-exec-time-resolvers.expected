@@ -133,7 +133,11 @@ extend type User {
   "params": {
     "cacheID": "9477b1811e2031d984fb8e189ea36eca",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "id"
+      ]
+    },
     "name": "ClientEdgeQuery_relayResolverC2sClientEdgeWithExecTimeResolversQuery_me__best_friend",
     "operationKind": "query",
     "text": null
@@ -269,7 +273,9 @@ fragment RefetchableClientEdgeQuery_relayResolverC2sClientEdgeWithExecTimeResolv
   "params": {
     "cacheID": "8cde6e99b38cf98798a6368984590aa1",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "relayResolverC2sClientEdgeWithExecTimeResolversQuery",
     "operationKind": "query",
     "text": null

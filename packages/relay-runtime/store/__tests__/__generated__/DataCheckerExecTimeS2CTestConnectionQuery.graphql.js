@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<65562f62490948c781142d9707dca6ce>>
+ * @generated SignedSource<<56aa33224d672fab3355b11bc189d7c3>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -263,7 +263,8 @@ return {
             "friends"
           ]
         }
-      ]
+      ],
+      "server_variables": []
     },
     "name": "DataCheckerExecTimeS2CTestConnectionQuery",
     "operationKind": "query",

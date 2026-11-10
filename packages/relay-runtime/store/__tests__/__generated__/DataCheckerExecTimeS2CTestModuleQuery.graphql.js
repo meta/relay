@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<6f886054b21a768a95566ef784c1ebc8>>
+ * @generated SignedSource<<106aeef9da5ab55d740444d11b819fe3>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -177,7 +177,9 @@ return {
   "params": {
     "cacheID": "f2748938d37c092b3b7ebbabc24288fe",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerExecTimeS2CTestModuleQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestModuleQuery {\n  me {\n    ...ExecTimeS2CResolvers_IdentityFragment\n    nameRenderer(supported: [\"PlainUserNameRenderer\"]) {\n      __typename\n      ... on PlainUserNameRenderer {\n        ...DataCheckerExecTimeS2CTestPlainUserNameRenderer_name\n        __module_operation_DataCheckerExecTimeS2CTestModuleQuery: js(module: \"DataCheckerExecTimeS2CTestPlainUserNameRenderer_name$normalization.graphql\", id: \"DataCheckerExecTimeS2CTestModuleQuery.me.nameRenderer\")\n        __module_component_DataCheckerExecTimeS2CTestModuleQuery: js(module: \"PlainUserNameRenderer.react\", id: \"DataCheckerExecTimeS2CTestModuleQuery.me.nameRenderer\")\n      }\n    }\n    id\n  }\n}\n\nfragment DataCheckerExecTimeS2CTestPlainUserNameRenderer_name on PlainUserNameRenderer {\n  plaintext\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

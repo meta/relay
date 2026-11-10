@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<b358e49d6f2538601419374360bfa119>>
+ * @generated SignedSource<<9e3b6de3f51a772a0132744591273a8f>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -150,7 +150,11 @@ return {
   "params": {
     "cacheID": "125a736e0f5a7adfc0ce8813b74be36d",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "withS2C"
+      ]
+    },
     "name": "DataCheckerExecTimeS2CTestConditionQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestConditionQuery(\n  $withS2C: Boolean!\n) {\n  me {\n    name\n    ...ExecTimeS2CResolvers_IdentityFragment @include(if: $withS2C)\n    id\n  }\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

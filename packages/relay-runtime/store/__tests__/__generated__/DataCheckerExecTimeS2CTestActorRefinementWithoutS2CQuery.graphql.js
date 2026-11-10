@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<070087298ea3aad044349ae5093da6b5>>
+ * @generated SignedSource<<20594a165b721561c98b3b4ec89e5808>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -134,7 +134,9 @@ return {
   "params": {
     "cacheID": "6ecd038c83503afb6693fa210bbb3ff8",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerExecTimeS2CTestActorRefinementWithoutS2CQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestActorRefinementWithoutS2CQuery {\n  me {\n    ...ExecTimeS2CResolvers_IdentityFragment\n    ... on Actor {\n      __isActor: __typename\n      name\n    }\n    id\n  }\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

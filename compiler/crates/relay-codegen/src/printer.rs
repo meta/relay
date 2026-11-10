@@ -35,7 +35,6 @@ use crate::ast::JSModuleDependency;
 use crate::ast::ModuleImportName;
 use crate::ast::ObjectEntry;
 use crate::ast::Primitive;
-use crate::ast::QueryID;
 use crate::ast::RequestParameters;
 use crate::ast::ResolverModuleReference;
 use crate::build_ast::build_fragment;
@@ -43,7 +42,6 @@ use crate::build_ast::build_operation;
 use crate::build_ast::build_preloadable_request;
 use crate::build_ast::build_provided_variables;
 use crate::build_ast::build_request;
-use crate::build_ast::build_request_params;
 use crate::build_ast::build_request_params_ast_key;
 use crate::build_ast::build_resolvers_schema;
 use crate::constants::CODEGEN_CONSTANTS;
@@ -91,12 +89,10 @@ pub fn print_request(
 pub fn print_request_params(
     schema: &SDLSchema,
     operation: &OperationDefinition,
-    query_id: Option<&QueryID>,
+    request_parameters: RequestParameters<'_>,
     project_config: &ProjectConfig,
     top_level_statements: &mut TopLevelStatements,
 ) -> String {
-    let mut request_parameters = build_request_params(operation);
-    request_parameters.id = query_id;
     let mut builder: AstBuilder = AstBuilder::default();
     let request_parameters_ast_key = build_request_params_ast_key(
         schema,

@@ -14,6 +14,7 @@ use common::NamedItem;
 use graphql_ir::FragmentDefinition;
 use graphql_ir::FragmentDefinitionName;
 use graphql_ir::OperationDefinition;
+use intern::string_key::StringKey;
 use relay_codegen::EXEC_TIME_RESOLVERS;
 use relay_codegen::EXEC_TIME_RESOLVERS_ENABLED_ARGUMENT;
 use relay_codegen::Printer;
@@ -51,10 +52,12 @@ pub fn generate_preloadable_query_parameters(
     schema: &SDLSchema,
     normalization_operation: &OperationDefinition,
     query_id: Option<&QueryID>,
+    server_variables: Option<&[StringKey]>,
 ) -> Result<Vec<u8>, FmtError> {
     let mut request_parameters = build_request_params(normalization_operation);
     let query_id = query_id.cloned();
     request_parameters.id = query_id.as_ref();
+    request_parameters.server_variables = server_variables;
 
     let mut content_sections = ContentSections::default();
 
@@ -287,10 +290,12 @@ pub fn generate_operation(
     source_hash: String,
     text: Option<&str>,
     id_and_text_hash: Option<&QueryID>,
+    server_variables: Option<&[StringKey]>,
     skip_types: bool,
     fragment_locations: &FragmentLocations,
 ) -> Result<Vec<u8>, FmtError> {
     let mut request_parameters = build_request_params(normalization_operation);
+    request_parameters.server_variables = server_variables;
 
     if id_and_text_hash.is_some() {
         request_parameters.id = id_and_text_hash;

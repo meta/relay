@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<73ec62b31135f818182527333cce35e9>>
+ * @generated SignedSource<<45fb306945a4be7b2a423d0a74665d33>>
  */
 
 mod relay_compiler_integration;
@@ -528,6 +528,13 @@ async fn exec_time_s2c_root_fragment_split_operation() {
     let input = include_str!("relay_compiler_integration/fixtures/exec_time_s2c_root_fragment_split_operation.input");
     let expected = include_str!("relay_compiler_integration/fixtures/exec_time_s2c_root_fragment_split_operation.expected");
     test_fixture(transform_fixture, file!(), "exec_time_s2c_root_fragment_split_operation.input", "relay_compiler_integration/fixtures/exec_time_s2c_root_fragment_split_operation.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn exec_time_server_variables() {
+    let input = include_str!("relay_compiler_integration/fixtures/exec_time_server_variables.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/exec_time_server_variables.expected");
+    test_fixture(transform_fixture, file!(), "exec_time_server_variables.input", "relay_compiler_integration/fixtures/exec_time_server_variables.expected", input, expected).await;
 }
 
 #[tokio::test]

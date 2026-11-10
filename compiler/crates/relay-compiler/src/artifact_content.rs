@@ -23,6 +23,7 @@ use content::generate_split_operation;
 use content::generate_updatable_query;
 use graphql_ir::FragmentDefinition;
 use graphql_ir::OperationDefinition;
+use intern::string_key::StringKey;
 use relay_codegen::Printer;
 use relay_codegen::QueryID;
 use relay_typegen::FragmentLocations;
@@ -41,6 +42,8 @@ pub enum ArtifactContent {
         source_hash: String,
         text: Option<String>,
         id_and_text_hash: Option<QueryID>,
+        /// The variables `text` declares (`RequestParameters::server_variables`).
+        server_variables: Option<Vec<StringKey>>,
     },
     UpdatableQuery {
         reader_operation: Arc<OperationDefinition>,
@@ -50,6 +53,7 @@ pub enum ArtifactContent {
     PreloadableQueryParameters {
         normalization_operation: Arc<OperationDefinition>,
         query_id: Option<QueryID>,
+        server_variables: Option<Vec<StringKey>>,
     },
     Fragment {
         reader_fragment: Arc<FragmentDefinition>,
@@ -92,6 +96,7 @@ impl ArtifactContent {
                 source_hash,
                 text,
                 id_and_text_hash,
+                server_variables,
             } => generate_operation(
                 config,
                 project_config,
@@ -103,6 +108,7 @@ impl ArtifactContent {
                 source_hash.into(),
                 text.as_deref(),
                 id_and_text_hash.as_ref(),
+                server_variables.as_deref(),
                 skip_types,
                 fragment_locations,
             )
@@ -126,6 +132,7 @@ impl ArtifactContent {
             ArtifactContent::PreloadableQueryParameters {
                 normalization_operation,
                 query_id,
+                server_variables,
             } => generate_preloadable_query_parameters(
                 config,
                 project_config,
@@ -133,6 +140,7 @@ impl ArtifactContent {
                 schema,
                 normalization_operation,
                 query_id.as_ref(),
+                server_variables.as_deref(),
             )
             .unwrap(),
             ArtifactContent::SplitOperation {

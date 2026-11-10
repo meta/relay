@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<eb9229ce1b0683429a724213ce77b763>>
+ * @generated SignedSource<<9e7e145da05147fa5e2d392c1bf00e70>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -131,7 +131,11 @@ return {
   "params": {
     "cacheID": "6c7ddf2a2a6a256b78c3f37e08486242",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "deferred"
+      ]
+    },
     "name": "DataCheckerExecTimeS2CTestDeferQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestDeferQuery(\n  $deferred: Boolean!\n) {\n  me {\n    name\n    ...DataCheckerExecTimeS2CTestDeferredFragment @defer(label: \"DataCheckerExecTimeS2CTestDeferQuery$defer$DataCheckerExecTimeS2CTestDeferred\", if: $deferred)\n    id\n  }\n}\n\nfragment DataCheckerExecTimeS2CTestDeferredFragment on User {\n  ...ExecTimeS2CResolvers_IdentityFragment\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

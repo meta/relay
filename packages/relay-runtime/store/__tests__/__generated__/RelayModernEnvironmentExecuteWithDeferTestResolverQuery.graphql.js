@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<5cfc4149dd5a783daaefcb163118d99a>>
+ * @generated SignedSource<<7a6b6d73d38ac5548754d19fbd547973>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -148,7 +148,11 @@ return {
   "params": {
     "cacheID": "9a09609b9ab83ed0f5a23b28a0be2a87",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "id"
+      ]
+    },
     "name": "RelayModernEnvironmentExecuteWithDeferTestResolverQuery",
     "operationKind": "query",
     "text": "query RelayModernEnvironmentExecuteWithDeferTestResolverQuery(\n  $id: ID!\n) {\n  node(id: $id) {\n    __typename\n    ...RelayModernEnvironmentExecuteWithDeferTestUserFragment @defer(label: \"RelayModernEnvironmentExecuteWithDeferTestResolverQuery$defer$UserFragment\")\n    id\n  }\n}\n\nfragment RelayModernEnvironmentExecuteWithDeferTestUserFragment on User {\n  id\n  name\n}\n"

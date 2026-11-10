@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<ce42e7102fcde9b7d72e6f3d6200e777>>
+ * @generated SignedSource<<0511d3086ac50465a6e09c54b8dd6dea>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -153,7 +153,9 @@ return {
   "params": {
     "cacheID": "b98c10c134ad534fe4ab00853b61235d",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerExecTimeS2CTestClientLinkQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestClientLinkQuery {\n  me {\n    id\n  }\n}\n"

@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<4b22eff29fa6d8c4cb34f65d6cdf0a7b>>
+ * @generated SignedSource<<48e66ba7c646e6955729358df128848e>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -142,7 +142,9 @@ var node/*: ConcreteRequest*/ = {
   "params": {
     "cacheID": "8566fe665f012a59236e72796fc29d3d",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerExecTimeS2CTestDeferredNameQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestDeferredNameQuery {\n  me {\n    ...ExecTimeS2CResolvers_IdentityFragment\n    ...DataCheckerExecTimeS2CTestDeferredNameFragment @defer(label: \"DataCheckerExecTimeS2CTestDeferredNameQuery$defer$DataCheckerExecTimeS2CTestDeferredName\")\n    id\n  }\n}\n\nfragment DataCheckerExecTimeS2CTestDeferredNameFragment on User {\n  name\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

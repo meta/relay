@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<e0d2dc3a4af2ae3b65990cfaea6b1511>>
+ * @generated SignedSource<<be6d84e641caabc2e34afc7c8e1ddfd6>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -369,7 +369,9 @@ return {
   "params": {
     "cacheID": "ff49275f22dc118a4a5554e2bb81b93a",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerTestExecWithServerDataQuery",
     "operationKind": "query",
     "text": "query DataCheckerTestExecWithServerDataQuery {\n  me {\n    name\n    id\n  }\n}\n"

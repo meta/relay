@@ -48,6 +48,7 @@ pub fn default_generate_extra_artifacts_fn(
                 normalization_operation,
                 text,
                 id_and_text_hash,
+                server_variables,
                 ..
             } => {
                 if !is_operation_preloadable(normalization_operation) {
@@ -59,6 +60,7 @@ pub fn default_generate_extra_artifacts_fn(
                     normalization_operation,
                     text.as_deref(),
                     id_and_text_hash.as_ref(),
+                    server_variables.as_deref(),
                     artifact.artifact_source_keys.clone(),
                     artifact.source_file,
                 ))

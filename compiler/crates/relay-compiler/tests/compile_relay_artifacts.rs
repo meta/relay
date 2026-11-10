@@ -27,6 +27,7 @@ use graphql_syntax::parse_executable;
 use graphql_test_helpers::diagnostics_to_sorted_string;
 use graphql_text_printer::print_full_operation;
 use intern::string_key::Intern;
+use relay_codegen::EXEC_TIME_RESOLVERS;
 use relay_codegen::JsModuleFormat;
 use relay_codegen::build_request_params;
 use relay_codegen::print_fragment;
@@ -261,7 +262,17 @@ pub async fn transform_fixture(fixture: &Fixture<'_>) -> Result<String, String> 
                     type_condition: reader_operation.type_,
                 };
                 let mut import_statements = Default::default();
-                let request_parameters = build_request_params(operation);
+                let server_variables: Option<Vec<_>> = print_operation_node
+                    .filter(|_| operation.directives.named(*EXEC_TIME_RESOLVERS).is_some())
+                    .map(|print_operation_node| {
+                        print_operation_node
+                            .variable_definitions
+                            .iter()
+                            .map(|variable| variable.name.item.0)
+                            .collect()
+                    });
+                let mut request_parameters = build_request_params(operation);
+                request_parameters.server_variables = server_variables.as_deref();
                 let request = print_request(
                     &schema,
                     operation,

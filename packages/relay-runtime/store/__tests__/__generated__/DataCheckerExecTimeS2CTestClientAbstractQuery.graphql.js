@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<7ad41d3f9c18fd97590da5b302d526aa>>
+ * @generated SignedSource<<00898504e7a8a57e1698b5b98851a582>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -157,7 +157,11 @@ return {
   "params": {
     "cacheID": "d810c74885d3e49289ca9c68b844f3cb",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "id"
+      ]
+    },
     "name": "DataCheckerExecTimeS2CTestClientAbstractQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestClientAbstractQuery(\n  $id: ID!\n) {\n  node(id: $id) {\n    __typename\n    id\n  }\n}\n"

@@ -216,6 +216,7 @@ pub fn build_request_params(operation: &OperationDefinition) -> RequestParameter
         name: operation.name.item.0,
         operation_kind: operation.kind,
         id: None,
+        server_variables: None,
         text: None,
     }
 }
@@ -3343,6 +3344,17 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         let connection_metadata = extract_connection_metadata_from_directive(&operation.directives);
         if let Some(connection_metadata) = connection_metadata {
             metadata_items.push(self.build_connection_metadata(connection_metadata))
+        }
+
+        if let Some(server_variables) = request_parameters.server_variables {
+            let names = server_variables
+                .iter()
+                .map(|name| Primitive::String(*name))
+                .collect();
+            metadata_items.push(ObjectEntry {
+                key: intern!("server_variables"),
+                value: Primitive::Key(self.array(names)),
+            });
         }
 
         // sort metadata keys

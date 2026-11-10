@@ -1,0 +1,94 @@
+// Test: an exec-time query lists the variables its server text declares in
+// `params.metadata.server_variables`, in both the operation artifact and its
+// `$parameters` module.
+// - `$id` (a server argument) and `$withEmail` (only a server `@include`) are
+//   listed, and so is the provided variable a server `@include` reads.
+// - `$style` reaches only a client resolver's argument, and `$fragmentStyle`
+//   only a fragment argument that a client resolver reads: neither is listed.
+// A client-only exec-time query lists nothing; a read-time query is unchanged.
+
+//- ServerVariablesQuery.js
+graphql`query ServerVariablesQuery(
+  $id: ID!
+  $style: String!
+  $withEmail: Boolean!
+  $fragmentStyle: String!
+) @exec_time_resolvers @preloadable {
+  node(id: $id) {
+    id
+    ... on User {
+      email @include(if: $withEmail)
+    }
+  }
+  greeting(style: $style)
+  ...ServerVariablesQuery_fragment @arguments(style: $fragmentStyle)
+}`
+
+graphql`fragment ServerVariablesQuery_fragment on Query
+@argumentDefinitions(
+  style: {type: "String!"}
+  withName: {type: "Boolean!", provider: "WithNameProvider.relayprovider"}
+) {
+  greeting(style: $style)
+  other: node(id: "4") {
+    ... on User {
+      name @include(if: $withName)
+    }
+  }
+}`
+
+//- ClientOnlyQuery.js
+graphql`query ClientOnlyQuery($style: String!) @exec_time_resolvers {
+  greeting(style: $style)
+}`
+
+//- ReadTimeQuery.js
+graphql`query ReadTimeQuery($id: ID!) {
+  node(id: $id) {
+    id
+  }
+}`
+
+//- GreetingResolver.js
+/**
+ * @relayField Query.greeting(style: String!): String
+ */
+export function greeting() {}
+
+//- relay.config.json
+{
+  "language": "typescript",
+  "schema": "schema.graphql",
+  "resolversSchemaModule": {
+    "path": "__generated__/ResolversSchemaModule.js"
+  },
+  "persistConfig": {
+    "file": "./persisted_queries.json",
+    "algorithm": "MD5"
+  },
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true
+  }
+}
+
+//- WithNameProvider.relayprovider.js
+export default {
+  get() {
+    return true;
+  },
+};
+
+//- schema.graphql
+type Query {
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  email: String
+  name: String
+}

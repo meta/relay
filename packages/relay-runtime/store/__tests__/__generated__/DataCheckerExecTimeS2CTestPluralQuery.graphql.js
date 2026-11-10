@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<25fa937a4612cb0abe9414acb2b496d1>>
+ * @generated SignedSource<<9477b856602817fcd1bd06c9717d4791>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -154,7 +154,11 @@ return {
   "params": {
     "cacheID": "40d59b987afa97aa329c53b51932fbf7",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "ids"
+      ]
+    },
     "name": "DataCheckerExecTimeS2CTestPluralQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestPluralQuery(\n  $ids: [ID!]\n) {\n  nodes(ids: $ids) {\n    __typename\n    ... on User {\n      ...ExecTimeS2CResolvers_IdentityFragment\n    }\n    id\n  }\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

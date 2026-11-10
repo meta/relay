@@ -20,6 +20,7 @@ use graphql_text_printer::precompute_fragment_texts;
 use intern::Lookup;
 use intern::string_key::StringKey;
 use rayon::prelude::*;
+use relay_codegen::EXEC_TIME_RESOLVERS;
 use relay_codegen::QueryID;
 use relay_config::ResolversSchemaModuleConfig;
 use relay_transforms::ArtifactSourceKeyData;
@@ -239,10 +240,27 @@ fn generate_normalization_artifact(
     let text = operations
         .operation_text
         .map(|operation| op_texts.remove(&operation.name.item).unwrap());
-
     let normalization = operations
         .normalization
         .expect("Operations must have a normalization entry.");
+
+    // Exec-time resolvers run in the network layer, where runs whose variables
+    // differ only in what client code reads send the same server request.
+    let server_variables = if normalization
+        .directives
+        .named(*EXEC_TIME_RESOLVERS)
+        .is_some()
+    {
+        operations.operation_text.map(|operation| {
+            operation
+                .variable_definitions
+                .iter()
+                .map(|variable| variable.name.item.0)
+                .collect()
+        })
+    } else {
+        None
+    };
 
     Artifact {
         artifact_source_keys: vec![artifact_source],
@@ -254,6 +272,7 @@ fn generate_normalization_artifact(
             source_hash,
             text,
             id_and_text_hash: None,
+            server_variables,
         },
         source_file: normalization.name.location.source_location(),
     }
@@ -264,6 +283,7 @@ pub fn generate_preloadable_query_parameters_artifact(
     normalization: &Arc<OperationDefinition>,
     text: Option<&str>,
     id_and_text_hash: Option<&QueryID>,
+    server_variables: Option<&[StringKey]>,
     source_keys: Vec<ArtifactSourceKey>,
     source_file: SourceLocationKey,
 ) -> Artifact {
@@ -284,6 +304,7 @@ pub fn generate_preloadable_query_parameters_artifact(
         content: ArtifactContent::PreloadableQueryParameters {
             normalization_operation: Arc::clone(normalization),
             query_id,
+            server_variables: server_variables.map(<[StringKey]>::to_vec),
         },
         source_file,
     }

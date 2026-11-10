@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<9fb145242cee5365c05e979c62ec7adb>>
+ * @generated SignedSource<<0eab660c461fd36e3cc47e976ce3e19c>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -150,7 +150,9 @@ var node/*: ConcreteRequest*/ = {
   "params": {
     "cacheID": "5fc85ef1989e6bc126f4e0b35eaee8f0",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerExecTimeS2CTestClientRootQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestClientRootQuery {\n  me {\n    ...ExecTimeS2CResolvers_IdentityFragment\n    id\n  }\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

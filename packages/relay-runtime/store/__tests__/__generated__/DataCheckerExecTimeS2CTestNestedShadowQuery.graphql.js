@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<13ce0508e56e3a17f8ce966ec14ab0ac>>
+ * @generated SignedSource<<2e533a7b0947785a54d1cf0196677c99>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -244,7 +244,9 @@ return {
   "params": {
     "cacheID": "9c210eddfab5e398678066f8a97fb5f5",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": []
+    },
     "name": "DataCheckerExecTimeS2CTestNestedShadowQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestNestedShadowQuery {\n  ...ExecTimeS2CNestedShadowResolver_RootFragment\n  me {\n    address {\n      __typename\n      city\n    }\n    id\n  }\n}\n\nfragment ExecTimeS2CNestedShadowResolver_RootFragment on Query {\n  me {\n    ...ExecTimeS2CResolvers_KeyedFragment\n    address {\n      __typename\n    }\n    id\n  }\n}\n\nfragment ExecTimeS2CResolvers_KeyedFragment on User {\n  id\n  alternate_name\n}\n"

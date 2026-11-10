@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<cee1187855fde22b6db779d466895354>>
+ * @generated SignedSource<<f54054d5ee1673a7568f65ef3177f09a>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -172,7 +172,12 @@ return {
   "params": {
     "cacheID": "2d5a5867803cd11ac28bef718cd238f1",
     "id": null,
-    "metadata": {},
+    "metadata": {
+      "server_variables": [
+        "ids",
+        "streamed"
+      ]
+    },
     "name": "DataCheckerExecTimeS2CTestStreamQuery",
     "operationKind": "query",
     "text": "query DataCheckerExecTimeS2CTestStreamQuery(\n  $ids: [ID!]\n  $streamed: Boolean\n) {\n  nodes(ids: $ids) @stream(label: \"DataCheckerExecTimeS2CTestStreamQuery$stream$DataCheckerExecTimeS2CTestStream\", if: $streamed, initial_count: 0) {\n    __typename\n    ... on User {\n      ...ExecTimeS2CResolvers_IdentityFragment\n    }\n    id\n  }\n}\n\nfragment ExecTimeS2CResolvers_IdentityFragment on User {\n  id\n}\n"

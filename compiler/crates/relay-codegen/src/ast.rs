@@ -189,6 +189,11 @@ pub struct RequestParameters<'a> {
     pub id: Option<&'a QueryID>,
     pub name: StringKey,
     pub operation_kind: OperationKind,
+    /// For an `@exec_time_resolvers` operation with server text: the variables
+    /// that text declares, in declaration order. The text's transforms strip
+    /// client selections and then unused variables, so an input that only
+    /// client code reads is never listed. Empty when the text declares none.
+    pub server_variables: Option<&'a [StringKey]>,
     pub text: Option<String>,
 }
 
