@@ -11,16 +11,20 @@ keywords:
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbRefreshingUsingRealTimeFeatures} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbRefreshingQueriesUsingUseQueryLoader} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbAvoidSuspenseCaution} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbRefreshingQueriesUsingUseLazyLoadQuery} from '../../FbFakeContent.mdx'; // @oss-only
 
 When referring to **"refreshing a query"**, we mean fetching the *exact* same data that was originally rendered by the query, in order to get the most up-to-date version of that data from the server.
 
 ## Using real-time features
 
 <FbInternalOnly>
-  // @fb-only
+  <FbRefreshingUsingRealTimeFeatures />
 </FbInternalOnly>
 
 <OssOnly>
@@ -36,7 +40,7 @@ One example of this is using [GraphQL Subscriptions](https://relay.dev/docs/guid
 To refresh a query using the [`useQueryLoader`](../../../api-reference/use-query-loader/) Hook described in our [Fetching Queries for Render](../../rendering/queries/#fetching-queries-for-render) section, we only need to call `loadQuery` again:
 
 <FbInternalOnly>
-  // @fb-only
+  <FbRefreshingQueriesUsingUseQueryLoader />
 </FbInternalOnly>
 
 <OssOnly>
@@ -122,7 +126,7 @@ Let's distill what's going on here:
 In some cases, you might want to avoid showing a Suspense fallback, which would hide the already rendered content. For these cases, you can use [`fetchQuery`](../../../api-reference/fetch-query/) instead, and manually keep track of a loading state:
 
 <FbInternalOnly>
-  // @fb-only
+  <FbAvoidSuspenseCaution />
 </FbInternalOnly>
 
 ```js
@@ -192,7 +196,7 @@ Let's distill what's going on here:
 To refresh a query using the [`useLazyLoadQuery`](../../../api-reference/use-lazy-load-query/) Hook described in our [Lazily Fetching Queries during Render](../../rendering/queries/#lazily-fetching-queries-during-render) section, we can do the following:
 
 <FbInternalOnly>
-  // @fb-only
+  <FbRefreshingQueriesUsingUseLazyLoadQuery />
 </FbInternalOnly>
 
 <OssOnly>
@@ -281,7 +285,7 @@ Let's distill what's going on here:
 In some cases, you might want to avoid showing a Suspense fallback, which would hide the already rendered content. For these cases, you can use [`fetchQuery`](../../../api-reference/fetch-query/) instead, and manually keep track of a loading state:
 
 <FbInternalOnly>
-  // @fb-only
+  <FbAvoidSuspenseCaution />
 </FbInternalOnly>
 
 ```js

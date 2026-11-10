@@ -10,6 +10,7 @@ keywords:
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbPushViews} from '../../FbFakeContent.mdx'; // @oss-only
 
 Assuming our data is [present in the store](../presence-of-data/), we still need to consider the staleness of such data.
 
@@ -61,7 +62,7 @@ This is useful for a lot of use cases, but there are some times when we'd like t
 * When invalidating data that is already visible in the current page. Since no navigation is occurring, we won't re-evaluate the queries for the current page, so even if some data is stale, it won't be immediately refetched and we will be showing stale data.
 * When invalidating data that is rendered on a previous view that was never unmounted; since the view wasn't unmounted, if we navigate back, the queries for that view won't be re-evaluated, meaning that even if some is stale, it won't be refetched and we will be showing stale data.
 
-// @fb-only
+<FbPushViews />
 
 To support these use cases, Relay exposes the `useSubscribeToInvalidationState` hook:
 
