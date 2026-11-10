@@ -11,6 +11,9 @@
 
 pub mod check;
 pub mod definitions;
+use std::hash::Hash;
+use std::hash::Hasher;
+
 use common::SourceLocationKey;
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
@@ -406,6 +409,15 @@ fn compare_string_keys(
 }
 
 fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>) -> SchemaChange {
+    into_schema_change(diff_definitions(current, previous))
+}
+
+/// The definition changes, or `None` for a change `diff` reports as generic
+/// right away (a definition replaced by one of an unsupported kind).
+fn diff_definitions(
+    current: Vec<TypeSystemDefinition>,
+    previous: Vec<TypeSystemDefinition>,
+) -> Option<Vec<DefinitionChange>> {
     let mut changes = vec![];
     let mut current_map = build_current_map(&current);
 
@@ -443,7 +455,7 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
                     }
                     (Some(def), _) => {
                         if !add_definition(&mut changes, def) {
-                            return SchemaChange::GenericChange;
+                            return None;
                         }
                         changes.push(DefinitionChange::EnumRemoved(name.value));
                     }
@@ -475,7 +487,7 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
                     }
                     Some(def) => {
                         if !add_definition(&mut changes, def) {
-                            return SchemaChange::GenericChange;
+                            return None;
                         }
                         changes.push(DefinitionChange::UnionRemoved(name.value));
                     }
@@ -518,7 +530,7 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
                     }
                     Some(def) => {
                         if !add_definition(&mut changes, def) {
-                            return SchemaChange::GenericChange;
+                            return None;
                         }
                         changes.push(DefinitionChange::InputObjectRemoved(name.value));
                     }
@@ -556,7 +568,7 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
                     }
                     Some(def) => {
                         if !add_definition(&mut changes, def) {
-                            return SchemaChange::GenericChange;
+                            return None;
                         }
                         changes.push(DefinitionChange::InterfaceRemoved(name.value));
                     }
@@ -609,7 +621,7 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
                     }
                     Some(def) => {
                         if !add_definition(&mut changes, def) {
-                            return SchemaChange::GenericChange;
+                            return None;
                         }
                         changes.push(DefinitionChange::ObjectRemoved {
                             name: name.value,
@@ -633,7 +645,7 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
                     })) => {}
                     Some(def) => {
                         if !add_definition(&mut changes, def) {
-                            return SchemaChange::GenericChange;
+                            return None;
                         }
                         changes.push(DefinitionChange::ScalarRemoved(name.value));
                     }
@@ -658,14 +670,76 @@ fn diff(current: Vec<TypeSystemDefinition>, previous: Vec<TypeSystemDefinition>)
         add_definition(&mut changes, definition);
     }
 
-    if changes.is_empty() {
+    Some(changes)
+}
+
+fn into_schema_change(changes: Option<Vec<DefinitionChange>>) -> SchemaChange {
+    match changes {
         // The schema has changed, but we currently don't detect directive definition changes,
         // schema definition changes, and we don't parse client extensions.
         // But we can add them later if some of the changes don't require full rebuilds.
-        return SchemaChange::GenericChange;
+        None => SchemaChange::GenericChange,
+        Some(changes) if changes.is_empty() => SchemaChange::GenericChange,
+        Some(changes) => SchemaChange::DefinitionChanges(changes),
     }
+}
 
-    SchemaChange::DefinitionChanges(changes)
+/// [`diff`] split by type name across threads. A named definition is only
+/// ever compared with the same name on the other side, and `diff` skips
+/// unnamed definitions and extensions, so each name's partition diffs on its
+/// own; any partition's generic change makes the whole change generic.
+fn diff_in_parallel(
+    current: Vec<TypeSystemDefinition>,
+    previous: Vec<TypeSystemDefinition>,
+) -> SchemaChange {
+    let partition_count = rayon::current_num_threads().max(1);
+    let partition = |definitions: Vec<TypeSystemDefinition>| {
+        let mut partitions: Vec<Vec<TypeSystemDefinition>> =
+            (0..partition_count).map(|_| Vec::new()).collect();
+        for definition in definitions {
+            if let Some(name) = definition_name(&definition) {
+                let mut hasher = fnv::FnvHasher::default();
+                name.hash(&mut hasher);
+                partitions[hasher.finish() as usize % partition_count].push(definition);
+            }
+        }
+        partitions
+    };
+    let (current, previous) = rayon::join(|| partition(current), || partition(previous));
+
+    let changes: Option<Vec<Vec<DefinitionChange>>> = current
+        .into_par_iter()
+        .zip(previous)
+        .map(|(current, previous)| diff_definitions(current, previous))
+        .collect();
+    into_schema_change(changes.map(|changes| changes.into_iter().flatten().collect()))
+}
+
+/// The name `diff` matches a type definition by; `None` for definitions it
+/// skips.
+fn definition_name(definition: &TypeSystemDefinition) -> Option<StringKey> {
+    match definition {
+        TypeSystemDefinition::EnumTypeDefinition(EnumTypeDefinition { name, .. })
+        | TypeSystemDefinition::UnionTypeDefinition(UnionTypeDefinition { name, .. })
+        | TypeSystemDefinition::InputObjectTypeDefinition(InputObjectTypeDefinition {
+            name, ..
+        })
+        | TypeSystemDefinition::InterfaceTypeDefinition(InterfaceTypeDefinition { name, .. })
+        | TypeSystemDefinition::ObjectTypeDefinition(ObjectTypeDefinition { name, .. })
+        | TypeSystemDefinition::ScalarTypeDefinition(ScalarTypeDefinition { name, .. }) => {
+            Some(name.value)
+        }
+        TypeSystemDefinition::EnumTypeExtension(..)
+        | TypeSystemDefinition::UnionTypeExtension(..)
+        | TypeSystemDefinition::InputObjectTypeExtension(..)
+        | TypeSystemDefinition::InterfaceTypeExtension(..)
+        | TypeSystemDefinition::ObjectTypeExtension(..)
+        | TypeSystemDefinition::ScalarTypeExtension(..)
+        | TypeSystemDefinition::SchemaDefinition(..)
+        | TypeSystemDefinition::SchemaExtension(..)
+        | TypeSystemDefinition::DirectiveDefinition(..)
+        | TypeSystemDefinition::DirectiveDefinitionExtension(..) => None,
+    }
 }
 
 pub fn detect_changes(current_text: &[&str], previous_text: &[&str]) -> SchemaChange {
@@ -709,7 +783,10 @@ pub fn try_detect_changes_per_document(
         || parse_documents_parallel(previous_text),
     );
 
-    Some(diff(current_definitions?, previous_definitions?))
+    Some(diff_in_parallel(
+        current_definitions?,
+        previous_definitions?,
+    ))
 }
 
 /// The definitions of all documents in order, or `None` if any of them fails

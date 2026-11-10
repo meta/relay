@@ -2690,3 +2690,38 @@ fn test_per_document_same_text() {
         Some(SchemaChange::None)
     );
 }
+
+#[test]
+fn test_per_document_matches_joined_documents_across_many_types() {
+    // Enough types that the per-document diff splits them across threads.
+    let previous: Vec<String> = (0..300)
+        .map(|i| match i % 4 {
+            0 => format!("type T{i} {{ a: Int b: String }}"),
+            1 => format!("enum E{i} {{ ONE TWO }}"),
+            2 => format!("input I{i} {{ a: Int }}"),
+            _ => format!("union U{i} = T0 | T4"),
+        })
+        .collect();
+    let current: Vec<String> = previous
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| i % 37 != 0)
+        .map(|(i, definition)| match i % 5 {
+            0 => definition.replace("b: String", "b: Int c: ID"),
+            1 => definition.replace("TWO", "THREE"),
+            2 => definition.replace("T4", "T8"),
+            _ => definition.clone(),
+        })
+        .chain(["type Added { x: Int }".to_owned()])
+        .collect();
+    let current: Vec<&str> = current.iter().map(String::as_str).collect();
+    let previous: Vec<&str> = previous.iter().map(String::as_str).collect();
+
+    let change = diff_per_document(&current, &previous);
+
+    assert!(
+        matches!(change, Some(SchemaChange::DefinitionChanges(_))),
+        "expected definition changes, got {change:?}",
+    );
+    assert_eq!(change, Some(diff_joined(&current, &previous)));
+}
