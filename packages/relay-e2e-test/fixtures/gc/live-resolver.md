@@ -13,8 +13,8 @@ release starts a collection.
 Known limit: garbage collection does not yet keep the records behind a client
 edge to an abstract client type (see the TODO in `RelayReferenceMarker`), so
 a live resolver behind such an edge can lose its subscription while its query
-is mounted. This suite has no expected-failure fixtures, so that case is not
-covered here.
+is mounted. `abstract-client-edge.md` pins that case as an expected runtime
+error.
 
 ## Relay Config
 

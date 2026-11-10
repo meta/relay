@@ -63,6 +63,10 @@ Each fixture is typechecked with `tsc` after the Relay compiler runs, against th
 
 The repo's other TypeScript check, `yarn typecheck:ts`, only verifies that `relay-runtime`'s declarations are internally well-formed. The e2e suite is what checks they are actually *usable*.
 
+## Expected runtime errors
+
+An uncaught error fails a fixture. A fixture whose first line is `// expected-to-throw` (the comment that marks a Relay compiler fixture that expects an error) passes only if one occurs, and the error is written into a `## Runtime Error` section of its snapshot. Use it to pin a known runtime bug until it is fixed — see the [writing guide](.llms/skills/relay-e2e-test/references/writing-fixtures.md#expected-runtime-errors).
+
 ## Writing fixtures
 
 For the complete writing guide including fixture format, server/client code patterns, the interaction DSL, and snapshot behavior, see [`.llms/skills/relay-e2e-test/SKILL.md`](.llms/skills/relay-e2e-test/SKILL.md).

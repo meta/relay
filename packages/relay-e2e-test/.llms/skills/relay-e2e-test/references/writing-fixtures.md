@@ -166,6 +166,30 @@ Every fixture runs twice, on graphql 16 and on graphql 17 (see `jest.config.js`)
 
 Always commit the `.snap.md` alongside the fixture. Jest treats a CI environment as `--ci` automatically (via `ci-info`, which checks `CI` among others), so a fixture landed without its snapshot fails there rather than silently writing one and passing forever.
 
+### Expected runtime errors
+
+An uncaught error fails the test: for example, an error that React reports when it renders after an update or a Suspense retry, or an error thrown by an event handler. To pin a known runtime bug instead, make this the first line of the fixture, like the comment that marks a Relay compiler fixture that expects an error:
+
+```
+// expected-to-throw
+```
+
+A marked fixture passes only if an uncaught error occurs while the app renders or runs its steps. The harness writes the error into a `## Runtime Error` section of the snapshot, after `## Type Errors`:
+
+````markdown
+## Runtime Error
+
+```
+Invariant Violation: Expected to find record for live resolver.
+```
+````
+
+If no uncaught error occurs, the fixture fails. So when the bug is fixed, remove the first line and update the snapshot. The marker counts only on the first line.
+
+After the error, React has unmounted the app, so the harness does not report a step that fails after it. Write the steps for the behavior you expect once the bug is fixed (for example, end with a `wait` for the correct result), so the error occurs while they run. Compile errors, type errors, and a step that fails before the error are reported as usual. An error that React throws back into the test inside `act()` (for example, from the first render) also fails the test as usual, and an error that an error boundary catches is not uncaught.
+
+`fixtures/gc/abstract-client-edge.md` is the worked example.
+
 ## Relay docs
 
 To understand how Relay APIs work, consult the Relay docs source files:

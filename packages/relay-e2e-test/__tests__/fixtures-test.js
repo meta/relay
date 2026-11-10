@@ -99,6 +99,20 @@ for (const run of fixtureFiles.flatMap(getRuns)) {
   test(testName, async () => {
     const markdown = readFileSync(path.join(fixturesDir, file), 'utf-8');
     const {codeBlocks, hosts, steps} = parseMarkdown(markdown);
+
+    // As in the compiler's fixtures, a first line of `// expected-to-throw`
+    // means the fixture expects an error: here, an uncaught error while the
+    // app runs. jest-environment-jsdom fails the test on an uncaught error
+    // unless the test listens for `error` events itself, so a marked fixture
+    // listens and snapshots the error instead.
+    const expectsRuntimeError =
+      markdown.split('\n', 1)[0].trim() === '// expected-to-throw';
+    const runtimeErrors: Array<string> = [];
+    const onRuntimeError = (event: ErrorEvent) => {
+      event.preventDefault();
+      runtimeErrors.push(String(event.error ?? event.message));
+    };
+
     const tempDir = await setupTempDir(codeBlocks, {
       relayRscMode: hosts.length > 0 ? rscHost : null,
     });
@@ -119,6 +133,9 @@ for (const run of fixtureFiles.flatMap(getRuns)) {
       .mockImplementation((...args: Array<mixed>) => {
         logs.push(`error: ${formatConsoleArgs(args, rscHost != null)}`);
       });
+    if (expectsRuntimeError) {
+      window.addEventListener('error', onRuntimeError);
+    }
 
     let rsc = null;
     try {
@@ -151,7 +168,22 @@ for (const run of fixtureFiles.flatMap(getRuns)) {
 
       // Run interactions from the steps block
       if (steps.length > 0) {
-        await runInteractions(steps, rsc?.steps);
+        try {
+          await runInteractions(steps, rsc?.steps);
+        } catch (error) {
+          // A step that fails after an uncaught error is reported as that
+          // error: after an uncaught render error, React unmounts the app.
+          if (runtimeErrors.length === 0) {
+            throw error;
+          }
+        }
+      }
+      if (expectsRuntimeError && runtimeErrors.length === 0) {
+        throw new Error(
+          `Fixture "${name}" starts with \`// expected-to-throw\`, but no ` +
+            'uncaught error occurred. If the bug it pins is fixed, remove ' +
+            'that line and update the snapshot.',
+        );
       }
 
       // Build snapshot string
@@ -163,6 +195,11 @@ for (const run of fixtureFiles.flatMap(getRuns)) {
       if (typeErrors.length > 0) {
         sections.push('## Type Errors\n');
         sections.push('```\n' + typeErrors.join('\n') + '\n```\n');
+      }
+
+      if (runtimeErrors.length > 0) {
+        sections.push('## Runtime Error\n');
+        sections.push('```\n' + runtimeErrors.join('\n') + '\n```\n');
       }
 
       if (logs.length > 0) {
@@ -258,6 +295,11 @@ for (const run of fixtureFiles.flatMap(getRuns)) {
       }
       throw error;
     } finally {
+      // jest-environment-jsdom counts `error` listeners, so remove only what
+      // was added.
+      if (expectsRuntimeError) {
+        window.removeEventListener('error', onRuntimeError);
+      }
       logSpy.mockRestore();
       warnSpy.mockRestore();
       errorSpy.mockRestore();
