@@ -225,6 +225,8 @@ module.exports = {
 
           path: './docs/',
 
+          remarkPlugins: [require('./plugins/remark-strip-fb-only-markers')],
+
           sidebarPath: require.resolve('./sidebars.js'),
           lastVersion: fbContent({
             internal: 'current',
