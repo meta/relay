@@ -628,7 +628,9 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
         setup_event.stop(build_projects_time);
         setup_event.time("post_build_projects_time", || {
             result.and_then(|diagnostics| {
-                compiler_state.complete_compilation();
+                compiler_state.complete_compilation(self.config.projects.values(), |name| {
+                    self.config.projects[&name].enabled
+                });
                 self.config.artifact_writer.finalize()?;
                 if let Some(post_artifacts_write) = &self.config.post_artifacts_write {
                     post_artifacts_write(&self.config)

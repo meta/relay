@@ -54,6 +54,7 @@ use zstd::stream::write::Encoder as ZstdEncoder;
 use crate::artifact_map::ArtifactMap;
 use crate::artifact_map::ArtifactSourceKey;
 use crate::config::Config;
+use crate::config::ProjectConfig;
 use crate::errors::Error;
 use crate::errors::Result;
 use crate::file_source::Clock;
@@ -374,6 +375,16 @@ impl<'a> ChunkBuilder<'a> {
             changed.previous.push(self.previous.join("\n"));
         }
     }
+}
+
+fn commit_pending_sources_of<V: Source + Clone>(
+    sources: &mut FnvHashMap<ProjectName, IncrementalSources<V>>,
+    projects: &FnvHashSet<ProjectName>,
+) {
+    sources
+        .iter_mut()
+        .filter(|(project_name, _)| projects.contains(*project_name))
+        .for_each(|(_, sources)| sources.commit_pending_sources());
 }
 
 impl CompactSchemaSources {
@@ -708,11 +719,8 @@ impl CompilerState {
     /// assumes the processed (old) schema defines each type once: sources are
     /// committed as processed only after a successful build
     /// (`complete_compilation`, also on the LSP path), and saved states are
-    /// written after a successful compile. One exception: a `-p` build commits
-    /// the pending sources of projects it didn't build, so with
-    /// `--export-state` an unbuilt project's processed schema may define a
-    /// type twice; the diff can then report it as changed instead of
-    /// removed. `None`, to diff
+    /// written after a successful compile; `complete_compilation` commits only
+    /// the projects a build built. `None`, to diff
     /// everything instead, when a changed chunk does not parse on its own, or
     /// when the changed chunks hold the same text on both sides (text moved
     /// between files, which reorders the joined schema).
@@ -994,26 +1002,41 @@ impl CompilerState {
         Ok(has_changed)
     }
 
-    pub fn complete_compilation(&mut self) {
-        for sources in self.graphql_sources.values_mut() {
-            sources.commit_pending_sources();
-        }
-        for sources in self.schemas.values_mut() {
-            sources.commit_pending_sources();
-        }
-        for sources in self.compact_schemas.values_mut() {
-            sources.commit_pending_sources();
-        }
-        for sources in self.extensions.values_mut() {
-            sources.commit_pending_sources();
-        }
-        for sources in self.docblocks.values_mut() {
-            sources.commit_pending_sources();
-        }
-        for sources in self.full_sources.values_mut() {
-            sources.commit_pending_sources();
-        }
-        self.dirty_artifact_paths.clear();
+    /// Marks the pending sources of the built projects as processed and clears
+    /// their dirty artifact paths. `projects` are the projects a later build
+    /// can select. Every other project keeps its pending sources for the next
+    /// build that includes it. A base's pending sources are also the rebuild
+    /// signal of each project that uses it, so they stay pending until the base
+    /// (if it's in `projects`) and every project in `projects` that uses it
+    /// have been built.
+    pub fn complete_compilation<'a>(
+        &mut self,
+        projects: impl IntoIterator<Item = &'a ProjectConfig>,
+        is_built: impl Fn(ProjectName) -> bool,
+    ) {
+        let projects: Vec<&ProjectConfig> = projects.into_iter().collect();
+        let bases: FnvHashSet<ProjectName> =
+            projects.iter().filter_map(|project| project.base).collect();
+        let built_bases = bases.iter().copied().filter(|base| {
+            projects
+                .iter()
+                .filter(|project| project.name == *base || project.base == Some(*base))
+                .all(|project| is_built(project.name))
+        });
+        let built_projects: FnvHashSet<ProjectName> = projects
+            .iter()
+            .map(|project| project.name)
+            .filter(|name| !bases.contains(name) && is_built(*name))
+            .chain(built_bases)
+            .collect();
+        commit_pending_sources_of(&mut self.graphql_sources, &built_projects);
+        commit_pending_sources_of(&mut self.schemas, &built_projects);
+        commit_pending_sources_of(&mut self.compact_schemas, &built_projects);
+        commit_pending_sources_of(&mut self.extensions, &built_projects);
+        commit_pending_sources_of(&mut self.docblocks, &built_projects);
+        commit_pending_sources_of(&mut self.full_sources, &built_projects);
+        self.dirty_artifact_paths
+            .retain(|project_name, _| !built_projects.contains(project_name));
     }
 
     /// Calculate dirty definitions/sources from dirty artifacts
@@ -2518,5 +2541,103 @@ mod tests {
             );
             assert_eq!(safety(&state), parsed_from_text, "pending: {pending}");
         }
+    }
+
+    #[test]
+    fn complete_compilation_commits_built_projects_and_their_built_bases() {
+        let base = project("base");
+        let child = project("child");
+        let sibling = project("sibling");
+        let mut state = CompilerState::default();
+        for name in [base, child, sibling] {
+            state.schemas.insert(
+                name,
+                schema_sources(&[], &[("schema.graphql", "type A { x: Int }")]),
+            );
+            state.dirty_artifact_paths.insert(name, Default::default());
+        }
+        let configs = [
+            project_config(base, None),
+            project_config(child, Some(base)),
+            project_config(sibling, None),
+        ];
+
+        state.complete_compilation(&configs, |name| name == base || name == child);
+
+        assert!(!state.project_has_pending_schema_changes(child));
+        assert!(
+            !state.project_has_pending_schema_changes(base),
+            "the base and its only consumer were built",
+        );
+        assert!(
+            state.project_has_pending_schema_changes(sibling),
+            "a project that wasn't built keeps its pending sources",
+        );
+        assert!(!state.dirty_artifact_paths.contains_key(&base));
+        assert!(state.dirty_artifact_paths.contains_key(&sibling));
+        assert_eq!(
+            state.schema_change_safety(
+                &NoopPerfLoggerEvent,
+                base,
+                &Default::default(),
+                None,
+                true,
+                SchemaChangeCheck::BaseProject,
+            ),
+            SchemaChangeSafety::Safe,
+            "the next build's base check sees no pending base change",
+        );
+    }
+
+    fn project_config(name: ProjectName, base: Option<ProjectName>) -> ProjectConfig {
+        ProjectConfig {
+            name,
+            base,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_base_stays_pending_through_a_saved_state_until_all_its_consumers_are_built() {
+        let base = project("base");
+        let a = project("a");
+        let b = project("b");
+        let mut state = CompilerState::default();
+        state.schemas.insert(
+            base,
+            schema_sources(
+                &[("base.graphql", "type A { x: Int }")],
+                &[("base.graphql", "type A { x: Int y: Int }")],
+            ),
+        );
+        for name in [a, b] {
+            state.schemas.insert(
+                name,
+                schema_sources(&[("schema.graphql", "type B { x: Int }")], &[]),
+            );
+        }
+        let configs = [
+            project_config(base, None),
+            project_config(a, Some(base)),
+            project_config(b, Some(base)),
+        ];
+
+        // `build -p a --export-state` after an edit to the base only.
+        state.complete_compilation(&configs, |name| name == a);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state");
+        state.serialize_to_file(&path).unwrap();
+
+        // Importing that state for `-p b` must still rebuild `b`, which builds
+        // when its base has pending changes.
+        let mut imported = CompilerState::deserialize_from_file(&path).unwrap();
+        assert!(
+            imported.project_has_pending_changes(base),
+            "`b` and the base itself haven't consumed the base's change",
+        );
+        assert!(!imported.project_has_pending_changes(b));
+
+        imported.complete_compilation(&configs, |_| true);
+        assert!(!imported.project_has_pending_changes(base));
     }
 }

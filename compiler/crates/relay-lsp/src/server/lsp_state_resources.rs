@@ -295,18 +295,15 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
             .collect();
         log_event.stop(timer);
 
-        let mut errors = vec![];
-        for build_result in build_results {
-            if let Err(BuildProjectFailure::Error(err)) = build_result {
-                errors.push(err);
-            }
-        }
-        if errors.is_empty() {
-            compiler_state.complete_compilation();
-            Ok(())
-        } else {
-            Err(Error::BuildProjectsErrors { errors })
-        }
+        complete_lsp_build(
+            compiler_state,
+            build_results,
+            self.lsp_state.config.enabled_projects().filter(|project| {
+                self.lsp_state
+                    .project_status
+                    .contains_key(&project.name.into())
+            }),
+        )
     }
 
     fn build_project(
@@ -668,5 +665,74 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
         self.lsp_state.diagnostic_reporter.report_error(error);
         self.lsp_state.diagnostic_reporter.commit_diagnostics();
         self.log_errors(log_event_name, error)
+    }
+}
+
+/// Commits the pending sources the build consumed: every active project with
+/// pending changes, or whose base has pending changes, was built. A cancelled
+/// project consumed nothing, so a cancelled build commits nothing.
+fn complete_lsp_build<'a>(
+    compiler_state: &mut CompilerState,
+    build_results: Vec<Result<ProjectName, BuildProjectFailure>>,
+    active_projects: impl IntoIterator<Item = &'a ProjectConfig>,
+) -> Result<(), Error> {
+    let mut errors = vec![];
+    let mut cancelled = false;
+    for build_result in build_results {
+        match build_result {
+            Ok(_) => {}
+            Err(BuildProjectFailure::Error(err)) => errors.push(err),
+            Err(BuildProjectFailure::Cancelled) => cancelled = true,
+        }
+    }
+    if !errors.is_empty() {
+        return Err(Error::BuildProjectsErrors { errors });
+    }
+    if cancelled {
+        return Err(Error::Cancelled);
+    }
+    compiler_state.complete_compilation(active_projects, |_| true);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use intern::string_key::Intern;
+    use relay_compiler::BuildProjectFailure;
+    use relay_compiler::ProjectName;
+    use relay_compiler::compiler_state::CompilerState;
+    use relay_compiler::config::ProjectConfig;
+    use relay_compiler::errors::Error;
+
+    use super::complete_lsp_build;
+
+    #[test]
+    fn a_cancelled_build_keeps_pending_changes() {
+        let built: ProjectName = "built".intern().into();
+        let cancelled: ProjectName = "cancelled".intern().into();
+        let mut state = CompilerState::default();
+        for name in [built, cancelled] {
+            state.dirty_artifact_paths.insert(name, Default::default());
+        }
+        let configs = [built, cancelled].map(|name| ProjectConfig {
+            name,
+            ..Default::default()
+        });
+
+        let result = complete_lsp_build(
+            &mut state,
+            vec![Ok(built), Err(BuildProjectFailure::Cancelled)],
+            &configs,
+        );
+
+        assert!(matches!(result, Err(Error::Cancelled)));
+        assert!(state.project_has_pending_changes(built));
+        assert!(state.project_has_pending_changes(cancelled));
+
+        let result = complete_lsp_build(&mut state, vec![Ok(built), Ok(cancelled)], &configs);
+
+        assert!(result.is_ok());
+        assert!(!state.project_has_pending_changes(built));
+        assert!(!state.project_has_pending_changes(cancelled));
     }
 }
