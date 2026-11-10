@@ -999,9 +999,19 @@ impl InMemorySchema {
             root_field_lookup: None,
         };
 
-        for document in schema_documents.iter() {
-            for definition in document.0.iter() {
-                schema.add_definition(definition, &document.1.source_location(), false)?;
+        // Converting each server type definition is independent of the others,
+        // so it runs in parallel; adding them, which assigns field IDs, runs in
+        // document order with the rest, exactly as `add_definition` would.
+        let prebuilt: Vec<Option<DiagnosticsResult<PrebuiltDefinition>>> = schema_definitions
+            .par_iter()
+            .map(|(definition, location)| {
+                schema.prebuild_definition(definition, location.source_location())
+            })
+            .collect();
+        for ((definition, location), prebuilt) in schema_definitions.iter().zip(prebuilt) {
+            match prebuilt {
+                Some(prebuilt) => schema.add_prebuilt_definition(prebuilt?),
+                None => schema.add_definition(definition, &location.source_location(), false)?,
             }
         }
 
@@ -1221,6 +1231,9 @@ impl InMemorySchema {
         location: Location,
         diagnostics: &mut Vec<Diagnostic>,
     ) {
+        if directives.len() < 2 {
+            return;
+        }
         // Keep repeated directives in name-sorted order
         let mut seen: BTreeMap<DirectiveName, usize> = BTreeMap::new();
         for directive_value in directives {
@@ -1489,6 +1502,222 @@ impl InMemorySchema {
         )?;
 
         Ok(())
+    }
+
+    /// The type a server type definition adds, built without touching the
+    /// schema; `None` for definitions `add_definition` must handle in order
+    /// (schema and directive definitions, and extensions).
+    fn prebuild_definition(
+        &self,
+        definition: &TypeSystemDefinition,
+        location_key: SourceLocationKey,
+    ) -> Option<DiagnosticsResult<PrebuiltDefinition>> {
+        let named = |name: &Identifier| Location::new(location_key, name.span);
+        Some(match definition {
+            TypeSystemDefinition::ObjectTypeDefinition(ObjectTypeDefinition {
+                name,
+                interfaces,
+                fields,
+                directives,
+                ..
+            }) => {
+                let interfaces = self.prebuild_interface_ids(interfaces)?;
+                self.prebuild_fields(fields.as_ref(), location_key)
+                    .map(|fields| {
+                        PrebuiltDefinition::Object(
+                            Object {
+                                name: WithLocation::new(named(name), ObjectName(name.value)),
+                                fields: Vec::new(),
+                                is_extension: false,
+                                interfaces,
+                                directives: self.build_directive_values(directives),
+                                description: None,
+                                hack_source: None,
+                            },
+                            fields,
+                        )
+                    })
+            }
+            TypeSystemDefinition::InterfaceTypeDefinition(InterfaceTypeDefinition {
+                name,
+                interfaces,
+                directives,
+                fields,
+                ..
+            }) => {
+                let interfaces = self.prebuild_interface_ids(interfaces)?;
+                self.prebuild_fields(fields.as_ref(), location_key)
+                    .map(|fields| {
+                        PrebuiltDefinition::Interface(
+                            Interface {
+                                name: WithLocation::new(named(name), InterfaceName(name.value)),
+                                implementing_interfaces: vec![],
+                                implementing_objects: vec![],
+                                is_extension: false,
+                                fields: Vec::new(),
+                                directives: self.build_directive_values(directives),
+                                interfaces,
+                                description: None,
+                                hack_source: None,
+                            },
+                            fields,
+                        )
+                    })
+            }
+            TypeSystemDefinition::UnionTypeDefinition(UnionTypeDefinition {
+                name,
+                directives,
+                members,
+                ..
+            }) => members
+                .iter()
+                .map(|name| self.build_object_id(name.value))
+                .collect::<DiagnosticsResult<Vec<_>>>()
+                .map(|members| {
+                    PrebuiltDefinition::Union(Union {
+                        name: WithLocation::new(named(name), UnionName(name.value)),
+                        is_extension: false,
+                        members,
+                        directives: self.build_directive_values(directives),
+                        description: None,
+                        hack_source: None,
+                    })
+                }),
+            TypeSystemDefinition::InputObjectTypeDefinition(InputObjectTypeDefinition {
+                name,
+                fields,
+                directives,
+                ..
+            }) => self
+                .build_arguments(fields.as_ref(), location_key)
+                .map(|fields| {
+                    PrebuiltDefinition::InputObject(InputObject {
+                        name: WithLocation::new(named(name), InputObjectName(name.value)),
+                        fields,
+                        directives: self.build_directive_values(directives),
+                        description: None,
+                        hack_source: None,
+                    })
+                }),
+            TypeSystemDefinition::EnumTypeDefinition(EnumTypeDefinition {
+                name,
+                directives,
+                values,
+                ..
+            }) => Ok(PrebuiltDefinition::Enum(Enum {
+                name: WithLocation::new(named(name), EnumName(name.value)),
+                is_extension: false,
+                values: values.as_ref().map_or_else(Vec::new, |values| {
+                    values
+                        .items
+                        .iter()
+                        .map(|enum_def| EnumValue {
+                            value: enum_def.name.value,
+                            directives: self.build_directive_values(&enum_def.directives),
+                            description: enum_def.description.as_ref().map(|d| d.value),
+                        })
+                        .collect()
+                }),
+                directives: self.build_directive_values(directives),
+                description: None,
+                hack_source: None,
+            })),
+            TypeSystemDefinition::ScalarTypeDefinition(ScalarTypeDefinition {
+                name,
+                directives,
+                ..
+            }) => Ok(PrebuiltDefinition::Scalar(Scalar {
+                name: WithLocation::new(named(name), ScalarName(name.value)),
+                is_extension: false,
+                directives: self.build_directive_values(directives),
+                description: None,
+                hack_source: None,
+            })),
+            _ => return None,
+        })
+    }
+
+    /// The interface IDs of `names`, or `None` if one isn't an interface: its
+    /// error points at the other type's location, which isn't known until the
+    /// types are added, so `add_definition` reports it.
+    fn prebuild_interface_ids(&self, names: &[Identifier]) -> Option<Vec<InterfaceID>> {
+        names
+            .iter()
+            .map(|name| match self.type_map.get(&name.value) {
+                Some(Type::Interface(id)) => Some(*id),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// `build_fields` without adding the fields, whose parent is set when
+    /// they are added.
+    fn prebuild_fields(
+        &self,
+        field_defs: Option<&List<FieldDefinition>>,
+        field_location_key: SourceLocationKey,
+    ) -> DiagnosticsResult<Vec<Field>> {
+        let Some(field_defs) = field_defs else {
+            return Ok(Vec::new());
+        };
+        field_defs
+            .items
+            .iter()
+            .map(|field_def| {
+                Ok(Field {
+                    name: WithLocation::new(
+                        Location::new(field_location_key, field_def.name.span),
+                        field_def.name.value,
+                    ),
+                    is_extension: false,
+                    arguments: self
+                        .build_arguments(field_def.arguments.as_ref(), field_location_key)?,
+                    type_: self.build_type_reference(&field_def.type_, field_location_key)?,
+                    directives: self.build_directive_values(&field_def.directives),
+                    parent_type: None,
+                    description: field_def.description.as_ref().map(|desc| desc.value),
+                    hack_source: field_def
+                        .hack_source
+                        .as_ref()
+                        .map(|hack_source| hack_source.value),
+                })
+            })
+            .collect()
+    }
+
+    fn add_prebuilt_definition(&mut self, prebuilt: PrebuiltDefinition) {
+        match prebuilt {
+            PrebuiltDefinition::Object(mut object, fields) => {
+                let parent_type = Some(Type::Object(ObjectID(self.objects.len() as u32)));
+                object.fields = self.add_prebuilt_fields(fields, parent_type);
+                self.objects.push(object);
+            }
+            PrebuiltDefinition::Interface(mut interface, fields) => {
+                let parent_type = Some(Type::Interface(InterfaceID(self.interfaces.len() as u32)));
+                interface.fields = self.add_prebuilt_fields(fields, parent_type);
+                self.interfaces.push(interface);
+            }
+            PrebuiltDefinition::Union(union) => self.unions.push(union),
+            PrebuiltDefinition::InputObject(input_object) => self.input_objects.push(input_object),
+            PrebuiltDefinition::Enum(enum_) => self.enums.push(enum_),
+            PrebuiltDefinition::Scalar(scalar) => self.scalars.push(scalar),
+        }
+    }
+
+    fn add_prebuilt_fields(
+        &mut self,
+        fields: Vec<Field>,
+        parent_type: Option<Type>,
+    ) -> Vec<FieldID> {
+        fields
+            .into_iter()
+            .map(|field| {
+                self.build_field(Field {
+                    parent_type,
+                    ..field
+                })
+            })
+            .collect()
     }
 
     fn add_definition(
@@ -2060,7 +2289,7 @@ impl InMemorySchema {
         Ok(())
     }
 
-    fn build_object_id(&mut self, name: StringKey) -> DiagnosticsResult<ObjectID> {
+    fn build_object_id(&self, name: StringKey) -> DiagnosticsResult<ObjectID> {
         match self.type_map.get(&name) {
             Some(Type::Object(id)) => Ok(*id),
             Some(non_object_type) => todo_add_location(SchemaError::ExpectedObjectReference(
@@ -2072,7 +2301,7 @@ impl InMemorySchema {
     }
 
     fn build_interface_id(
-        &mut self,
+        &self,
         name: &Identifier,
         location_key: &SourceLocationKey,
     ) -> DiagnosticsResult<InterfaceID> {
@@ -2189,7 +2418,7 @@ impl InMemorySchema {
     }
 
     fn build_arguments(
-        &mut self,
+        &self,
         arg_defs: Option<&List<InputValueDefinition>>,
         source_location_key: SourceLocationKey,
     ) -> DiagnosticsResult<ArgumentDefinitions> {
@@ -2222,7 +2451,7 @@ impl InMemorySchema {
     }
 
     fn build_input_object_reference(
-        &mut self,
+        &self,
         ast_type: &TypeAnnotation,
     ) -> DiagnosticsResult<TypeReference<Type>> {
         Ok(match ast_type {
@@ -2252,7 +2481,7 @@ impl InMemorySchema {
     }
 
     fn build_type_reference(
-        &mut self,
+        &self,
         ast_type: &TypeAnnotation,
         source_location: SourceLocationKey,
     ) -> DiagnosticsResult<TypeReference<Type>> {
@@ -2274,7 +2503,7 @@ impl InMemorySchema {
         })
     }
 
-    fn build_directive_values(&mut self, directives: &[ConstantDirective]) -> Vec<DirectiveValue> {
+    fn build_directive_values(&self, directives: &[ConstantDirective]) -> Vec<DirectiveValue> {
         directives
             .iter()
             .map(|directive| {
@@ -2361,6 +2590,17 @@ fn expect_object_type_name(type_map: &TypeMap, object_id: ObjectID) -> StringKey
         })
         .expect("Missing object in type_map")
         .0
+}
+
+/// A server type definition built by `InMemorySchema::prebuild_definition`,
+/// with an object's or interface's fields not yet added.
+enum PrebuiltDefinition {
+    Object(Object, Vec<Field>),
+    Interface(Interface, Vec<Field>),
+    Union(Union),
+    InputObject(InputObject),
+    Enum(Enum),
+    Scalar(Scalar),
 }
 
 #[cfg(test)]
