@@ -14,7 +14,7 @@ import type {
   GraphQLResponse,
   GraphQLSingularResponse,
 } from '../../network/RelayNetworkTypes';
-import type {Subscription} from '../../network/RelayObservable';
+import type {Sink, Subscription} from '../../network/RelayObservable';
 import type {Observer} from '../../network/RelayObservable';
 import type {NormalizationSplitOperation} from '../../util/NormalizationNode';
 import type {
@@ -33,7 +33,9 @@ import type {Query} from 'relay-runtime/util/RelayRuntimeTypes';
 
 const {
   fetchQuery,
+  fetchQueryDeduped,
   getObservableForActiveRequest,
+  getObservableForRequestCompletion,
   getPromiseForActiveRequest,
 } = require('../fetchQueryInternal');
 const {createOperationDescriptor, graphql} = require('relay-runtime');
@@ -1225,4 +1227,230 @@ describe('getObservableForActiveRequest', () => {
       );
     });
   });
+});
+
+describe('getObservableForRequestCompletion', () => {
+  it('does not start work or allocate a request for an absent identifier', () => {
+    expect(
+      getObservableForRequestCompletion(environment, query.request.identifier),
+    ).toBeNull();
+    expect(environment.execute).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'ignores final/partial NEXT and observes transport completion (late subscribe: %s)',
+    late => {
+      fetchQuery(environment, query).subscribe({});
+      const identifier = query.request.identifier;
+      const events = [];
+      const observe = () => {
+        getObservableForRequestCompletion(environment, identifier)?.subscribe({
+          complete: () => events.push('complete'),
+          error: () => events.push('error'),
+          next: () => events.push('next'),
+        });
+      };
+      if (!late) {
+        observe();
+      }
+      environment.mock.nextValue(gqlQuery, {
+        ...response,
+        extensions: {is_final: false},
+      });
+      expect(events).toEqual([]);
+      environment.mock.nextValue(gqlQuery, response);
+      expect(environment.isRequestActive(identifier)).toBe(false);
+      if (late) {
+        observe();
+      }
+      expect(events).toEqual([]);
+      environment.mock.complete(gqlQuery);
+      expect(events).toEqual(['complete']);
+      expect(
+        getObservableForRequestCompletion(environment, identifier),
+      ).toBeNull();
+    },
+  );
+
+  it.each(['complete', 'error', 'cancel'])(
+    'replays %s between lookup and subscription',
+    terminal => {
+      const owner = fetchQuery(environment, query).subscribe({});
+      const completion = getObservableForRequestCompletion(
+        environment,
+        query.request.identifier,
+      );
+      if (terminal === 'complete') {
+        environment.mock.resolve(gqlQuery, response);
+      } else if (terminal === 'error') {
+        environment.mock.reject(gqlQuery, new Error('Request failed'));
+      } else {
+        owner.unsubscribe();
+      }
+      const replacement = fetchQuery(environment, query).subscribe({});
+      const events = [];
+      completion?.subscribe({
+        complete: () => events.push('complete'),
+        error: () => events.push('error'),
+      });
+      expect(events).toEqual([terminal === 'error' ? 'error' : 'complete']);
+      expect(environment.execute).toHaveBeenCalledTimes(2);
+      replacement.unsubscribe();
+      expect(
+        getObservableForRequestCompletion(
+          environment,
+          query.request.identifier,
+        ),
+      ).toBeNull();
+    },
+  );
+
+  it('a passive observer neither keeps cancelled work alive nor cancels owned work', () => {
+    const first = fetchQuery(environment, query).subscribe({});
+    const second = fetchQuery(environment, query).subscribe({});
+    const complete = jest.fn();
+    const observer = getObservableForRequestCompletion(
+      environment,
+      query.request.identifier,
+    )?.subscribe({complete});
+    expect(environment.execute).toHaveBeenCalledTimes(1);
+    first.unsubscribe();
+    expect(complete).not.toHaveBeenCalled();
+    expect(environment.mock.getAllOperations()).toHaveLength(1);
+    observer?.unsubscribe();
+    expect(environment.mock.getAllOperations()).toHaveLength(1);
+    const finalComplete = jest.fn();
+    getObservableForRequestCompletion(
+      environment,
+      query.request.identifier,
+    )?.subscribe({complete: finalComplete});
+    second.unsubscribe();
+    expect(finalComplete).toHaveBeenCalledTimes(1);
+    expect(environment.mock.getAllOperations()).toHaveLength(0);
+    expect(
+      getObservableForRequestCompletion(environment, query.request.identifier),
+    ).toBeNull();
+  });
+
+  it('a completion promise continues after dedup cache eviction', async () => {
+    fetchQuery(environment, query).subscribe({});
+    const completion = getObservableForRequestCompletion(
+      environment,
+      query.request.identifier,
+    );
+    const finished = new Promise<void>(resolve =>
+      completion?.subscribe({complete: resolve}),
+    );
+    environment.mock.resolve(gqlQuery, response);
+    await finished;
+    expect(
+      getObservableForRequestCompletion(environment, query.request.identifier),
+    ).toBeNull();
+    fetchQuery(environment, query).subscribe({});
+    expect(environment.execute).toHaveBeenCalledTimes(2);
+    environment.mock.resolve(gqlQuery, response);
+  });
+
+  it.each(['raw', 'execution'])(
+    'only %s entry exists without starting missing work',
+    existing => {
+      const Observable = require('../../network/RelayObservable');
+      const rawID = `raw-network-request-${query.request.identifier}`;
+      const identifier = existing === 'raw' ? rawID : query.request.identifier;
+      const owner = fetchQueryDeduped(environment, identifier, () =>
+        Observable.create(() => {}),
+      ).subscribe({});
+      const complete = jest.fn();
+      getObservableForRequestCompletion(environment, identifier)?.subscribe({
+        complete,
+      });
+      expect(
+        getObservableForRequestCompletion(
+          environment,
+          existing === 'raw' ? query.request.identifier : rawID,
+        ),
+      ).toBeNull();
+      expect(environment.execute).not.toHaveBeenCalled();
+      owner.unsubscribe();
+      expect(complete).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['raw first', 'execution first'])(
+    'observes each dedup key independently: %s',
+    ordering => {
+      const Observable = require('../../network/RelayObservable');
+      const rawID = `raw-network-request-${query.request.identifier}`;
+      let rawSink;
+      let executionSink;
+      const rawCleanup = jest.fn();
+      const executionCleanup = jest.fn();
+      const rawFetch = jest.fn(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          rawSink = sink;
+          return () => {
+            rawCleanup();
+          };
+        }),
+      );
+      const executionFetch = jest.fn(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          executionSink = sink;
+          return () => {
+            executionCleanup();
+          };
+        }),
+      );
+      const rawOwner = fetchQueryDeduped(
+        environment,
+        rawID,
+        rawFetch,
+      ).subscribe({});
+      const executionOwner = fetchQueryDeduped(
+        environment,
+        query.request.identifier,
+        executionFetch,
+      ).subscribe({});
+      const events = [];
+      getObservableForRequestCompletion(environment, rawID)?.subscribe({
+        complete: () => events.push('raw'),
+      });
+      getObservableForRequestCompletion(
+        environment,
+        query.request.identifier,
+      )?.subscribe({complete: () => events.push('execution')});
+      if (ordering === 'raw first') {
+        rawSink?.complete();
+        expect(events).toEqual(['raw']);
+        expect(
+          getObservableForRequestCompletion(
+            environment,
+            query.request.identifier,
+          ),
+        ).not.toBeNull();
+        executionSink?.complete();
+      } else {
+        executionOwner.unsubscribe();
+        expect(events).toEqual(['execution']);
+        expect(
+          getObservableForRequestCompletion(environment, rawID),
+        ).not.toBeNull();
+        rawOwner.unsubscribe();
+      }
+      expect(events).toEqual(
+        ordering === 'raw first' ? ['raw', 'execution'] : ['execution', 'raw'],
+      );
+      expect(rawFetch).toHaveBeenCalledTimes(1);
+      expect(executionFetch).toHaveBeenCalledTimes(1);
+      expect(rawCleanup).toHaveBeenCalledTimes(1);
+      expect(executionCleanup).toHaveBeenCalledTimes(1);
+      expect(getObservableForRequestCompletion(environment, rawID)).toBeNull();
+      expect(
+        getObservableForRequestCompletion(
+          environment,
+          query.request.identifier,
+        ),
+      ).toBeNull();
+    },
+  );
 });

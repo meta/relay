@@ -349,6 +349,8 @@ const __internal = {
   getPromiseForActiveRequest: fetchQueryInternal.getPromiseForActiveRequest,
   getObservableForActiveRequest:
     fetchQueryInternal.getObservableForActiveRequest,
+  getObservableForRequestCompletion:
+    fetchQueryInternal.getObservableForRequestCompletion,
   NormalizationEngine: NormalizationEngine,
   ExecTimeS2CDataChecker: ExecTimeS2CDataChecker,
   normalizeResponse: normalizeResponse,

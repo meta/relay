@@ -302,6 +302,34 @@ function getObservableForActiveRequest(
 }
 
 /**
+ * Passively observes an existing deduplicated request's termination. Unlike
+ * active-status observation, a final payload does not complete this stream.
+ * Observing or unsubscribing neither starts work nor owns its network lifetime.
+ * Completion/error callbacks may run before cache cleanup; promise continuations
+ * run after synchronous cleanup. The returned stream follows this cache entry,
+ * even if the identifier is reused for a later request before subscription.
+ */
+function getObservableForRequestCompletion(
+  environment: IEnvironment,
+  identifier: RequestIdentifier,
+): Observable<void> | null {
+  const cachedRequest = requestCachesByEnvironment
+    .get(environment)
+    ?.get(identifier);
+  if (cachedRequest == null) {
+    return null;
+  }
+  return Observable.create(sink => {
+    const subscription = cachedRequest.subjectForInFlightStatus.subscribe({
+      complete: sink.complete,
+      error: sink.error,
+      unsubscribe: sink.complete,
+    });
+    return () => subscription.unsubscribe();
+  });
+}
+
+/**
  * @private
  */
 function getRequestCache(
@@ -337,4 +365,5 @@ module.exports = {
   fetchQueryDeduped,
   getPromiseForActiveRequest,
   getObservableForActiveRequest,
+  getObservableForRequestCompletion,
 };
