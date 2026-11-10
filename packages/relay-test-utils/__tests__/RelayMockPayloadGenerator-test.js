@@ -2274,3 +2274,34 @@ describe('plural linked field selected twice at the same path', () => {
     `);
   });
 });
+
+describe('scalar alias named hasOwnProperty', () => {
+  const query = graphql`
+    query RelayMockPayloadGeneratorTestHasOwnPropertyQuery {
+      me {
+        hasOwnProperty: name
+        id
+      }
+    }
+  `;
+
+  test.each([false, true])(
+    'generates data with a resolver: %s',
+    withResolver => {
+      const operation = createOperationDescriptor(query, {});
+      const payload = RelayMockPayloadGenerator.generate(
+        operation,
+        withResolver ? {User: () => ({hasOwnProperty: 'Alice'})} : null,
+      );
+
+      expect(payload.data).toEqual({
+        me: {
+          hasOwnProperty: withResolver
+            ? 'Alice'
+            : '<mock-value-for-field-"hasOwnProperty">',
+          id: '<User-mock-id-1>',
+        },
+      });
+    },
+  );
+});

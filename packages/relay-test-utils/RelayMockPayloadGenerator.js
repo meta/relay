@@ -660,7 +660,11 @@ class RelayMockPayloadGenerator {
   ): MockData {
     const data = mockData ?? ({} as {[key: string]: unknown});
     const applicationName = field.alias ?? field.name;
-    if (data.hasOwnProperty(applicationName) && field.name !== TYPENAME_KEY) {
+    if (
+      // $FlowFixMe[invalid-this-arg] Payload keys can shadow prototype methods.
+      Object.prototype.hasOwnProperty.call(data, applicationName) &&
+      field.name !== TYPENAME_KEY
+    ) {
       return data;
     }
 
@@ -682,7 +686,8 @@ class RelayMockPayloadGenerator {
     // let's check if we have a possible default value there for our field
     if (
       defaultValues != null &&
-      defaultValues.hasOwnProperty(applicationName)
+      // $FlowFixMe[invalid-this-arg] Payload keys can shadow prototype methods.
+      Object.prototype.hasOwnProperty.call(defaultValues, applicationName)
     ) {
       value = defaultValues[applicationName];
 
