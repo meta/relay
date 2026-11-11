@@ -89,9 +89,12 @@ function recordIDs(): string[] {
 }
 
 function logGC(event: LogEvent) {
+  // Log only while the app is mounted (`GCCount` listens). A query's
+  // temporary retain can expire after the harness unmounts the app, and
+  // that collection would otherwise log into a later fixture.
   if (event.name === "store.gc.start") {
     recordsBeforeGC = recordIDs();
-  } else if (event.name === "store.gc.end") {
+  } else if (event.name === "store.gc.end" && gcListeners.size > 0) {
     const kept = recordIDs().sort();
     const removed = recordsBeforeGC.filter((id) => !kept.includes(id)).sort();
     console.log(
