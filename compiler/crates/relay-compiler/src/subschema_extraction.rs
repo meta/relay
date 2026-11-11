@@ -198,22 +198,50 @@ pub(crate) fn extract_subschema(
         &programs.operation_text,
     );
 
-    let options = UsedSchemaCollectionOptions {
+    // Collect the operation text without retaining concrete types for every
+    // abstract-to-abstract spread. Relay inserts such spreads while normalizing
+    // abstract fields (for example `Entity` to `Node` for the generated `id`
+    // selection), and retaining their full intersection can pull most of a
+    // large schema into an otherwise small subschema.
+    let mut operation_options = UsedSchemaCollectionOptions {
         include_implementations_when_typename_requested: None,
-        // Retain the concrete types at every abstract-to-abstract spread.
-        // Without them the extracted subschema rejects the project's own
-        // documents: `... on Child` under an abstract parent is "a type that
-        // can never occur" once their last shared implementor is pruned.
-        include_all_overlapping_concrete_types: true,
+        include_all_overlapping_concrete_types: false,
         include_directives_on_schema_definitions: true,
         include_directive_definitions: true,
         include_implicit_output_enum_values: true,
         include_implicit_input_fields_and_enum_values: true,
     };
-    let mut used_schema = SchemaSet::from_ir(&program_with_deps, options.clone())
+    let mut used_schema = SchemaSet::from_ir(&program_with_deps, operation_options.clone())
         .map_err(|diagnostics| SubschemaError::CompilationFailed(format!("{:?}", diagnostics)))?;
 
-    hydrate_output_types(&mut used_schema, &programs.source.schema, &options);
+    // Retain intersections only for abstract spreads the product authored in
+    // the source program. Those concrete types keep the spread valid after
+    // pruning, while compiler-generated normalization spreads do not expand the
+    // extracted schema.
+    let source_program_with_deps =
+        ProgramWithDependencies::from_full_program(&programs.source.schema, &programs.source);
+    let source_without_overlaps =
+        SchemaSet::from_ir(&source_program_with_deps, operation_options.clone()).map_err(
+            |diagnostics| SubschemaError::CompilationFailed(format!("{:?}", diagnostics)),
+        )?;
+    operation_options.include_all_overlapping_concrete_types = true;
+    let source_with_overlaps =
+        SchemaSet::from_ir(&source_program_with_deps, operation_options.clone()).map_err(
+            |diagnostics| SubschemaError::CompilationFailed(format!("{:?}", diagnostics)),
+        )?;
+    for name in source_with_overlaps.types.keys() {
+        if !source_without_overlaps.types.contains_key(name)
+            && let Some(type_) = programs.source.schema.get_type(*name)
+        {
+            used_schema.touch_output_type(&programs.source.schema, &type_, &operation_options);
+        }
+    }
+
+    hydrate_output_types(
+        &mut used_schema,
+        &programs.source.schema,
+        &operation_options,
+    );
 
     used_schema
         .fix_all_types()

@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<81aecdf705c1b7ece289de2ce569b8ec>>
+ * @generated SignedSource<<683d9e61cbe5f667142a753813929aad>>
  */
 
 mod subschema_extraction;
@@ -45,6 +45,13 @@ async fn empty_output_type_dependencies() {
     let input = include_str!("subschema_extraction/fixtures/empty_output_type_dependencies.input");
     let expected = include_str!("subschema_extraction/fixtures/empty_output_type_dependencies.expected");
     test_fixture(transform_fixture, file!(), "empty_output_type_dependencies.input", "subschema_extraction/fixtures/empty_output_type_dependencies.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn generated_node_spread_does_not_keep_implementors() {
+    let input = include_str!("subschema_extraction/fixtures/generated_node_spread_does_not_keep_implementors.input");
+    let expected = include_str!("subschema_extraction/fixtures/generated_node_spread_does_not_keep_implementors.expected");
+    test_fixture(transform_fixture, file!(), "generated_node_spread_does_not_keep_implementors.input", "subschema_extraction/fixtures/generated_node_spread_does_not_keep_implementors.expected", input, expected).await;
 }
 
 #[tokio::test]

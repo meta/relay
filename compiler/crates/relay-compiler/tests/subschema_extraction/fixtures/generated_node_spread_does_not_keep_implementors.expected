@@ -1,0 +1,76 @@
+==================================== INPUT ====================================
+# validate-extracted-schema
+# Relay adds a Node refinement for the generated id selection under an abstract
+# Entity field. That compiler-generated spread must not retain every concrete
+# Entity & Node implementation.
+
+//- src/GeneratedNodeSpreadQuery.js
+graphql`
+  query GeneratedNodeSpreadQuery {
+    entity {
+      url
+    }
+    firstEntity {
+      id
+    }
+  }
+`;
+
+//- relay.config.json
+{
+  "language": "typescript",
+  "schema": "./schema.graphql",
+  "src": "./src"
+}
+
+//- schema.graphql
+type Query { _: ID }
+
+//- full_schema.graphql
+directive @fetchable(field_name: String!) on OBJECT
+directive @strong(field_name: String!) on OBJECT
+
+type Query {
+  entity: Entity
+  firstEntity: FirstEntity
+}
+
+interface Entity {
+  url: String
+}
+
+interface Node {
+  id: ID
+}
+
+type FirstEntity implements Entity & Node @fetchable(field_name: "id") @strong(field_name: "id") {
+  id: ID
+  url: String
+}
+
+type SecondEntity implements Entity & Node @fetchable(field_name: "id") @strong(field_name: "id") {
+  id: ID
+  url: String
+}
+==================================== OUTPUT ===================================
+directive @fetchable on OBJECT
+
+directive @strong on OBJECT
+
+type FirstEntity implements Entity & Node @fetchable(field_name: "id") @strong(field_name: "id") {
+  id: ID
+  url: String
+}
+
+type Query {
+  entity: Entity
+  firstEntity: FirstEntity
+}
+
+interface Entity {
+  url: String
+}
+
+interface Node {
+  id: ID
+}
