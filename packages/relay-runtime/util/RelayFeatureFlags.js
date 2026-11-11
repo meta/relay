@@ -124,6 +124,8 @@ export type FeatureFlags = {
   ENABLE_PERF_READER: boolean,
   // Records, mutations, normalization and publishing to the store.
   ENABLE_PERF_PUBLISH: boolean,
+  // recycleNodesInto.
+  ENABLE_PERF_NOTIFY: boolean,
 };
 
 const RelayFeatureFlags: FeatureFlags = {
@@ -158,6 +160,7 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_PERF_STORAGE_KEYS: false,
   ENABLE_PERF_READER: false,
   ENABLE_PERF_PUBLISH: false,
+  ENABLE_PERF_NOTIFY: false,
 };
 
 module.exports = RelayFeatureFlags;
