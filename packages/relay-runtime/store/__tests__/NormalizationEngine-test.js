@@ -194,4 +194,40 @@ describe('NormalizationEngine', () => {
     // caller routes these payloads to the root scope.
     expect(result.payloadOrigins.every(origin => origin == null)).toBe(true);
   });
+
+  // --------------------------------------------------------------------------
+  // complete(): whether the caller owes a closing final payload
+  // --------------------------------------------------------------------------
+  test('complete() owes a closing final payload once when no returned payload was final', () => {
+    const engine = createEngine(ServerUserQuery);
+    const response = engine.processResponse({
+      data: {
+        me: {__typename: 'User', id: '1', name: 'Zuck'},
+      },
+    });
+    expect(response.payloads[0].isFinal).toBe(false);
+
+    expect(engine.complete()).toBe(true);
+    expect(engine.complete()).toBe(false);
+  });
+
+  test('complete() owes a closing final payload when the server sent no data', () => {
+    const engine = createEngine(ServerUserQuery);
+
+    expect(engine.complete()).toBe(true);
+  });
+
+  test('complete() owes nothing once a returned payload was final', () => {
+    const engine = createEngine(ServerUserQuery);
+    const response = engine.processResponse({
+      data: {
+        me: {__typename: 'User', id: '1', name: 'Zuck'},
+      },
+      extensions: {is_final: true},
+    });
+    expect(response.payloads[0].isFinal).toBe(true);
+
+    expect(engine.complete()).toBe(false);
+    expect(engine.isFinal()).toBe(true);
+  });
 });

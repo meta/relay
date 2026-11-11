@@ -110,6 +110,7 @@ class NormalizationEngine {
   _bufferedResponses: Map<string, Array<GraphQLResponseWithData>>;
   _parentRecords: Map<string, ParentEntry>;
   _serverComplete: boolean;
+  _hasReturnedFinalPayload: boolean;
 
   constructor(config: Config) {
     this._normalizeResponse = config.normalizeResponse;
@@ -134,6 +135,7 @@ class NormalizationEngine {
     this._bufferedResponses = new Map();
     this._parentRecords = new Map();
     this._serverComplete = false;
+    this._hasReturnedFinalPayload = false;
   }
 
   /**
@@ -191,7 +193,7 @@ class NormalizationEngine {
       ...payload,
       followupPayloads: null,
       incrementalPlaceholders: null,
-      isFinal: this._computeIsFinal(payload.isFinal),
+      isFinal: this._recordIsFinal(payload.isFinal),
       isPreNormalized: true,
     };
 
@@ -268,6 +270,21 @@ class NormalizationEngine {
       this._bufferedResponses.size === 0 &&
       this._placeholders.size === 0
     );
+  }
+
+  /**
+   * Mark the server stream as complete, and return whether the caller owes a
+   * closing final payload: the stream has ended (`isFinal()`) and no payload
+   * returned so far was final, so nothing else tells OperationExecutor that
+   * the request is final. Returns true at most once.
+   */
+  complete(): boolean {
+    this._serverComplete = true;
+    if (this._hasReturnedFinalPayload || !this.isFinal()) {
+      return false;
+    }
+    this._hasReturnedFinalPayload = true;
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -349,7 +366,7 @@ class NormalizationEngine {
       fieldPayloads,
       followupPayloads: null,
       incrementalPlaceholders: null,
-      isFinal: this._computeIsFinal(payload.isFinal),
+      isFinal: this._recordIsFinal(payload.isFinal),
       isPreNormalized: true,
     };
 
@@ -448,7 +465,7 @@ class NormalizationEngine {
           fieldPayloads: mergedFieldPayloads,
           followupPayloads: null,
           incrementalPlaceholders: null,
-          isFinal: this._computeIsFinal(relayPayload.isFinal),
+          isFinal: this._recordIsFinal(relayPayload.isFinal),
           isPreNormalized: true,
           storeUpdater,
         },
@@ -843,7 +860,7 @@ class NormalizationEngine {
       ...payload,
       followupPayloads: null,
       incrementalPlaceholders: null,
-      isFinal: this._computeIsFinal(payload.isFinal),
+      isFinal: this._recordIsFinal(payload.isFinal),
       isPreNormalized: true,
     };
 
@@ -863,11 +880,16 @@ class NormalizationEngine {
   // Private: completion tracking
   // ---------------------------------------------------------------------------
 
-  _computeIsFinal(serverIsFinal: boolean): boolean {
-    return (
+  // Every normalized payload's finality is decided here, so this is also where
+  // the engine learns whether `complete()` still owes a final payload.
+  _recordIsFinal(serverIsFinal: boolean): boolean {
+    const isFinal =
       (serverIsFinal || this._serverComplete) &&
-      this._bufferedResponses.size === 0
-    );
+      this._bufferedResponses.size === 0;
+    if (isFinal) {
+      this._hasReturnedFinalPayload = true;
+    }
+    return isFinal;
   }
 }
 
