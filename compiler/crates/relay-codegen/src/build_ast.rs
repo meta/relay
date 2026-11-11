@@ -3867,3 +3867,244 @@ mod tests {
         );
     }
 }
+
+/// relay-runtime's optimized reader reads a field without arguments under its
+/// name instead of calling `getStorageKey()`, which returns a field's static
+/// `storageKey` when it has one, while the normalizer writes the field under
+/// `getStorageKey()` of its normalization AST node. The two keys agree only
+/// while codegen emits a static storage key for fields with arguments alone, in
+/// reader and in normalization ASTs; a field without arguments stored under
+/// another key would read as missing data.
+#[cfg(test)]
+mod static_storage_key_tests {
+    use std::sync::Arc;
+
+    use common::SourceLocationKey;
+    use graphql_ir::Program;
+    use graphql_syntax::parse_executable;
+    use relay_transforms::handle_field_transform;
+
+    use super::*;
+
+    const SCHEMA: &str = r#"
+        type Query {
+          me: User
+        }
+
+        type User {
+          id: ID!
+          name: String
+          username(format: String): String
+          bestFriend: User
+          allFriends: [User]
+          friends(first: Int, orderby: [String]): FriendsConnection
+          photos(sizes: [Int], filter: PhotoFilter): [Photo]
+        }
+
+        input PhotoFilter {
+          kind: String
+          minSize: Int
+        }
+
+        type FriendsConnection {
+          count: Int
+        }
+
+        type Photo {
+          uri: String
+        }
+    "#;
+
+    /// Fields without arguments (scalar, linked, plural, aliased, in an inline
+    /// fragment, under a condition, with a handle), one whose only argument is
+    /// a `null` literal (codegen drops it), and fields whose arguments give a
+    /// static storage key (literals, lists, objects) or don't (variables).
+    const SELECTIONS: &str = r#"
+        id
+        name
+        shortName: name
+        username(format: "short")
+        nullFormat: username(format: null)
+        variableFormat: username(format: $format)
+        bestFriend {
+          name
+        }
+        allFriends {
+          id
+          name
+        }
+        friends(first: 10, orderby: ["name"]) {
+          count
+        }
+        variableFriends: friends(first: $first) {
+          count
+        }
+        photos(sizes: [1, 2], filter: {kind: "square"}) {
+          uri
+        }
+        variablePhotos: photos(filter: {kind: "square", minSize: $minSize}) {
+          uri
+        }
+        ... on User {
+          inlineFriend: bestFriend {
+            id
+          }
+        }
+        conditionalFriend: bestFriend @include(if: $cond) {
+          name
+        }
+        handledFriend: bestFriend @__clientField(handle: "test") {
+          name
+        }
+        handledFriends: friends(first: 5, orderby: ["name"])
+          @__clientField(handle: "test", key: "Test_friends", filters: ["orderby"]) {
+          count
+        }
+        upperName: name @__clientField(handle: "upper")
+    "#;
+
+    #[derive(Debug)]
+    struct FieldNode {
+        kind: StringKey,
+        name: StringKey,
+        has_arguments: bool,
+        has_storage_key: bool,
+    }
+
+    fn collect_field_nodes(builder: &AstBuilder, key: AstKey, nodes: &mut Vec<FieldNode>) {
+        match builder.lookup(key) {
+            Ast::Object(entries) => {
+                let value = |name: StringKey| {
+                    entries
+                        .iter()
+                        .find(|entry| entry.key == name)
+                        .map(|entry| &entry.value)
+                };
+                if let Some(Primitive::String(kind)) = value(CODEGEN_CONSTANTS.kind)
+                    && (*kind == CODEGEN_CONSTANTS.scalar_field
+                        || *kind == CODEGEN_CONSTANTS.linked_field)
+                {
+                    nodes.push(FieldNode {
+                        kind: *kind,
+                        name: value(CODEGEN_CONSTANTS.name)
+                            .expect("a field node should have a name")
+                            .assert_string(),
+                        has_arguments: matches!(
+                            value(CODEGEN_CONSTANTS.args),
+                            Some(Primitive::Key(arguments))
+                                if matches!(builder.lookup(*arguments), Ast::Array(items) if !items.is_empty())
+                        ),
+                        has_storage_key: value(CODEGEN_CONSTANTS.storage_key).is_some_and(
+                            |storage_key| {
+                                !matches!(storage_key, Primitive::SkippableNull | Primitive::Null)
+                            },
+                        ),
+                    });
+                }
+                for entry in entries {
+                    if let Primitive::Key(child) = entry.value {
+                        collect_field_nodes(builder, child, nodes);
+                    }
+                }
+            }
+            Ast::Array(items) => {
+                for item in items {
+                    if let Primitive::Key(child) = item {
+                        collect_field_nodes(builder, *child, nodes);
+                    }
+                }
+            }
+        }
+    }
+
+    fn field_nodes(builder: &AstBuilder, key: AstKey) -> Vec<FieldNode> {
+        let mut nodes = vec![];
+        collect_field_nodes(builder, key, &mut nodes);
+        nodes
+    }
+
+    #[test]
+    fn static_storage_key_only_for_fields_with_arguments() {
+        let schema = Arc::new(
+            relay_schema::build_schema_with_extensions_parallel::<_, &str>(
+                &[(SCHEMA, SourceLocationKey::generated())],
+                &[],
+            )
+            .expect("the test schema should be valid"),
+        );
+        let text = format!(
+            "fragment StaticStorageKeyTestFragment on User {{ {SELECTIONS} }}
+            query StaticStorageKeyTestQuery($format: String, $first: Int, $minSize: Int, $cond: Boolean!) {{
+              me {{ {SELECTIONS} }}
+            }}"
+        );
+        let document = parse_executable(&text, SourceLocationKey::generated())
+            .expect("the test document should parse");
+        let definitions = graphql_ir::build(&schema, &document.definitions)
+            .expect("the test document should be valid");
+        let program = Program::from_definitions(Arc::clone(&schema), definitions);
+        // As in the compiler, the reader AST is built after
+        // `handle_field_transform`, which keeps only the filter arguments of a
+        // handle field, and the normalization AST without it.
+        let reader_program = handle_field_transform(&program);
+        let fragment = reader_program
+            .fragments()
+            .next()
+            .expect("the test document should have a fragment");
+        let operation = program
+            .operations()
+            .next()
+            .expect("the test document should have a query");
+        let project_config = ProjectConfig::default();
+        let mut builder = AstBuilder::default();
+        let reader = build_fragment(
+            &schema,
+            &mut builder,
+            fragment,
+            fragment.name.map(|name| name.0),
+            &project_config,
+        );
+        let normalization = build_operation(
+            &schema,
+            &mut builder,
+            operation,
+            operation.name.map(|name| name.0),
+            &project_config,
+        );
+
+        for (ast, key) in [("reader", reader), ("normalization", normalization)] {
+            let nodes = field_nodes(&builder, key);
+            let without_arguments: Vec<StringKey> = nodes
+                .iter()
+                .filter(|node| node.has_storage_key && !node.has_arguments)
+                .map(|node| node.name)
+                .collect();
+            assert!(
+                without_arguments.is_empty(),
+                "codegen emitted a static storage key for fields without arguments in the {ast} \
+                 AST; relay-runtime's optimized reader reads such fields under their names: \
+                 {without_arguments:?}"
+            );
+            // Each AST has scalar and linked fields without arguments, with a
+            // static storage key, and with variable arguments.
+            for kind in [
+                CODEGEN_CONSTANTS.scalar_field,
+                CODEGEN_CONSTANTS.linked_field,
+            ] {
+                let of_kind = || nodes.iter().filter(|node| node.kind == kind);
+                assert!(
+                    of_kind().any(|node| !node.has_arguments),
+                    "expected {kind} nodes without arguments in the {ast} AST: {nodes:?}"
+                );
+                assert!(
+                    of_kind().any(|node| node.has_arguments && node.has_storage_key),
+                    "expected {kind} nodes with a static storage key in the {ast} AST: {nodes:?}"
+                );
+                assert!(
+                    of_kind().any(|node| node.has_arguments && !node.has_storage_key),
+                    "expected {kind} nodes with variable arguments in the {ast} AST: {nodes:?}"
+                );
+            }
+        }
+    }
+}
