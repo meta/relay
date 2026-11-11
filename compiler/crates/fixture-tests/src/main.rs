@@ -37,7 +37,8 @@ struct Options {
     /// which creates one test per fixture when the test compiles, instead of
     /// listing every fixture. The file then only changes if the directory is
     /// renamed. A directory whose test file already calls the macro keeps
-    /// that form without this flag.
+    /// that form without this flag. Either way, a fixture without a snapshot
+    /// still gets the placeholder `.expected` file.
     #[clap(long)]
     macro_tests: bool,
 }
@@ -56,18 +57,6 @@ fn main() {
     for dir in &opt.dirs {
         let test_name = dir.file_name().unwrap().to_str().unwrap();
         let fixtures_dir = dir.join("fixtures");
-        if opt.macro_tests || calls_fixture_tests_macro(dir, test_name) {
-            assert!(
-                fixtures_dir.is_dir(),
-                "Fixtures dir does not exist: {fixtures_dir:?}"
-            );
-            let body = format!(
-                "mod {test_name};\n\nuse {test_name}::transform_fixture;\n\nfixture_tests::fixture_tests!(\"{test_name}\");\n"
-            );
-            write_test_file(dir, test_name, &header(dir, &opt), &body);
-            check_build_file(dir);
-            continue;
-        }
         let paths = fs::read_dir(&fixtures_dir)
             .unwrap_or_else(|_| panic!("Fixtures dir does not exist: {:?}", fixtures_dir));
         let mut test_cases: HashMap<String, TestCase> = HashMap::new();
@@ -109,6 +98,14 @@ fn main() {
                 File::create(&expected).unwrap().write_all(fixer).unwrap();
                 test_case.expected = Some(expected);
             }
+        }
+        if opt.macro_tests || calls_fixture_tests_macro(dir, test_name) {
+            let body = format!(
+                "mod {test_name};\n\nuse {test_name}::transform_fixture;\n\nfixture_tests::fixture_tests!(\"{test_name}\");\n"
+            );
+            write_test_file(dir, test_name, &header(dir, &opt), &body);
+            check_build_file(dir);
+            continue;
         }
         let mut test_cases: Vec<(_, _)> = test_cases.into_iter().collect();
         test_cases.sort_by_key(|entry| entry.0.to_owned());
