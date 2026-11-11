@@ -31,12 +31,21 @@ the background" policy. Every step is an ordinary user action:
    the records. The zombie holds no retain, so nothing protects them.
 6. The user opens the profile again. It computes the same `cacheIdentifier`,
    finds the zombie, and reuses it — **issuing no request at all**. The fragment
-   reader walks into the reclaimed records and `useLazyLoadQuery` returns
-   `undefined`. There is no fetch to wait for, no error to catch, and no
-   suspense to fall back to, so the screen renders blank and stays blank.
+   reader walks into the reclaimed records: the collection left only the empty
+   root record the store recreates after every collection, so
+   `useLazyLoadQuery` returns `{}`, with `user` missing. There is no fetch to
+   wait for, no error to catch, and no suspense to fall back to, so the screen
+   renders blank and stays blank.
 
 Once a disposed entry stays disposed, step 6 will cache-miss, refetch, and
-render `Alice #3`. Until then the snapshot reads `(blank forever)`.
+render `Alice #3` after a third request. Until then the snapshot reads
+`(blank forever)` and `requests = 2`.
+
+Relay warns that it expected non-null fragment data only when a fragment reads
+as `undefined`, which here needed the root record itself to be gone. Since the
+store recreates it after collecting (`initializeRecordSource` in
+`RelayModernStore`'s collection), this fixture produces no such warning; the
+request count and the blank name are what it asserts.
 
 ## Relay Config
 
@@ -67,6 +76,12 @@ export function deliverPendingResponse(): void {
 }
 
 let responsesServed = 0;
+
+/** How many requests the server has received, so the app can show that the
+ * last visit sent none. */
+export function requestsReceived(): number {
+  return responsesServed;
+}
 
 /** @gqlType */
 export class User {
@@ -99,7 +114,7 @@ import { Suspense, useState } from "react";
 import { RelayEnvironmentProvider, useLazyLoadQuery } from "react-relay";
 import { graphql, Environment, RecordSource, Store } from "relay-runtime";
 import { gratsNetwork } from "../GratsNetwork";
-import { deliverPendingResponse } from "./server";
+import { deliverPendingResponse, requestsReceived } from "./server";
 import { AppSidebarQuery } from "./__generated__/AppSidebarQuery.graphql";
 import { AppProfileQuery } from "./__generated__/AppProfileQuery.graphql";
 
@@ -134,11 +149,16 @@ function Profile() {
     {},
     { fetchPolicy: "store-and-network" },
   );
-  // `data?.` rather than `data.`: when the zombie is reused the hook returns
-  // `undefined` outright, so the ordinary `data.user` a real app would write
+  // `data.user?.` rather than `data.user.`: when the zombie is reused the hook
+  // returns `{}`, so the ordinary `data.user.name` a real app would write
   // throws `Cannot read properties of undefined`. Guarded here only so the
   // fixture can render the symptom instead of crashing the tree.
-  return <div>name = {data?.user?.name ?? "(blank forever)"}</div>;
+  return (
+    <>
+      <div>name = {data.user?.name ?? "(blank forever)"}</div>
+      <div>requests = {requestsReceived()}</div>
+    </>
+  );
 }
 
 export default function TestApp() {
@@ -169,9 +189,9 @@ export default function TestApp() {
 
 ## Steps
 
-The last visit is the assertion, and it currently asserts the bug. When the
-zombie is fixed this becomes `wait "name = Alice #3"` and the snapshot changes
-with it.
+The last visit is the assertion, and it currently asserts the bug: a blank name
+and no third request. When the zombie is fixed this becomes
+`wait "name = Alice #3"` and the snapshot changes with it, to `requests = 3`.
 
 ```steps
 wait "sidebar = Alice #1"
