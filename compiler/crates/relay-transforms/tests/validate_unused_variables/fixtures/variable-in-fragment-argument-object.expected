@@ -1,0 +1,18 @@
+==================================== INPUT ====================================
+query QueryWithVariableInArgumentObject($id: ID!, $text: String) {
+  node(id: $id) {
+    ...StorySearchFragment @arguments(query: {text: $text})
+  }
+}
+
+fragment StorySearchFragment on User
+  @argumentDefinitions(query: {type: "StorySearchInput"}) {
+  storySearch(query: $query) {
+    id
+  }
+}
+==================================== OUTPUT ===================================
+OK.
+
+Cached Fragments:
+StorySearchFragment -> POPULATED ("")
