@@ -1,0 +1,51 @@
+//- FooQuery.js
+// A client-to-server (@waterfall) client edge that is only reachable through a
+// @no_inline split-operation boundary must still flag the PARENT operation with
+// `has_client_to_server_resolvers: true`. Codegen's per-operation traversal does
+// not descend into the split operation, so `generate_resolver_operation_metadata`
+// is what propagates the flag. Without it the runtime routes the query off the
+// executeWithNetwork path and trips the "C2S edge encountered without a
+// c2sConfig" invariant. (@module/3D edges exercise the same code path.)
+graphql`query FooQuery @exec_time_resolvers(enabledProvider: "execTimeResolversFlagProvider") {
+  ...BestFriendFragment
+}`
+
+//- BestFriendFragment.js
+graphql`fragment BestFriendFragment on Query @no_inline {
+  best_friend @waterfall {
+    name
+  }
+}`
+
+//- BestFriendResolver.js
+/**
+ * @relayField Query.best_friend: User
+ */
+export function best_friend() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "no_inline": {
+      "kind": "enabled"
+    }
+  }
+}
+
+//- schema.graphql
+interface Node {
+  id: ID!
+}
+
+type Query {
+  node(id: ID!): Node
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+}

@@ -36,6 +36,7 @@ mod generate_live_query_metadata;
 pub mod generate_relay_resolvers_model_fragments;
 mod generate_relay_resolvers_operations_for_nested_objects;
 mod generate_relay_resolvers_root_fragment_split_operation;
+mod generate_resolver_operation_metadata;
 mod generate_typename;
 mod generate_typename_union;
 mod handle_fields;
@@ -157,6 +158,8 @@ pub use generate_relay_resolvers_operations_for_nested_objects::generate_relay_r
 pub use generate_relay_resolvers_root_fragment_split_operation::IsResolverRootFragmentSplitOperation;
 pub use generate_relay_resolvers_root_fragment_split_operation::annotate_resolver_root_fragments;
 pub use generate_relay_resolvers_root_fragment_split_operation::generate_relay_resolvers_root_fragment_split_operation;
+pub use generate_resolver_operation_metadata::ClientToServerResolverOperationMetadata;
+pub use generate_resolver_operation_metadata::generate_resolver_operation_metadata;
 pub use generate_typename::TYPE_DISCRIMINATOR_DIRECTIVE_NAME;
 pub use generate_typename::generate_typename;
 pub use generate_typename_union::generate_typename_union;

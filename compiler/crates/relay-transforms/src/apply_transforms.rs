@@ -585,6 +585,16 @@ fn apply_normalization_transforms(
         print_stats("skip_redundant_nodes", &program);
     }
 
+    // Must run after the @module / @no_inline split operations exist so it can
+    // resolve those fragment spreads and flag operations that transitively
+    // contain a client-to-server (@waterfall) edge.
+    program = log_event.time("generate_resolver_operation_metadata", || {
+        generate_resolver_operation_metadata(&program, project_config)
+    });
+    if let Some(print_stats) = maybe_print_stats {
+        print_stats("generate_resolver_operation_metadata", &program);
+    }
+
     program = log_event.time("generate_test_operation_metadata", || {
         generate_test_operation_metadata(&program, project_config.test_path_regex.as_ref())
     })?;

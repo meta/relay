@@ -52,6 +52,7 @@ use relay_transforms::ClientEdgeMetadataDirective;
 use relay_transforms::ClientEdgeModelResolver;
 use relay_transforms::ClientExtensionAbstractTypeMetadataDirective;
 use relay_transforms::ClientRscSeamMetadata;
+use relay_transforms::ClientToServerResolverOperationMetadata;
 use relay_transforms::ConnectionConstants;
 use relay_transforms::ConnectionMetadata;
 use relay_transforms::DIRECTIVE_SPLIT_OPERATION;
@@ -487,7 +488,16 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
 
         let mut context = ContextualMetadata {
             has_client_edges: false,
-            has_client_to_server_resolvers: false,
+            // Seed from the operation-level marker stamped by
+            // `generate_resolver_operation_metadata`, which catches client-to-server
+            // edges reachable only through `@module` / `@no_inline` split operations
+            // that this per-operation traversal does not descend into. The
+            // `ClientEdgeMetadataDirective::ServerObject` arm below still sets this
+            // for edges inlined directly in the operation.
+            has_client_to_server_resolvers: ClientToServerResolverOperationMetadata::find(
+                &operation.directives,
+            )
+            .is_some(),
             has_exec_time_resolvers_directive,
             has_exec_time_resolvers_enabled_provider: exec_time_resolvers_enabled_provider
                 .is_some(),

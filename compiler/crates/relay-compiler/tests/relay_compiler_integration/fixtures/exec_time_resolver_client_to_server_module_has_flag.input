@@ -1,0 +1,48 @@
+//- FooQuery.js
+// The @module counterpart of exec_time_resolver_client_to_server_no_inline_has_flag:
+// a client-to-server (@waterfall) client edge reachable only through a @module
+// split operation must still flag the PARENT operation with
+// `has_client_to_server_resolvers: true`.
+graphql`query FooQuery @exec_time_resolvers(enabledProvider: "execTimeResolversFlagProvider") {
+  ...BestFriend_query @module(name: "BestFriend.react")
+}`
+
+//- BestFriend.js
+graphql`fragment BestFriend_query on Query {
+  best_friend @waterfall {
+    name
+  }
+}`
+
+//- BestFriendResolver.js
+/**
+ * @relayField Query.best_friend: User
+ */
+export function best_friend() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true
+  }
+}
+
+//- schema.graphql
+interface Node {
+  id: ID!
+}
+
+scalar JSDependency
+
+type Query {
+  js(module: String!, id: String): JSDependency
+  node(id: ID!): Node
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+}

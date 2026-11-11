@@ -4,7 +4,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<45fb306945a4be7b2a423d0a74665d33>>
+ * @generated SignedSource<<bef5b13b9712e807620163a19ddaefb3>>
  */
 
 mod relay_compiler_integration;
@@ -290,6 +290,20 @@ async fn exec_time_query_rooted_server_reading_resolver_routed() {
     let input = include_str!("relay_compiler_integration/fixtures/exec_time_query_rooted_server_reading_resolver_routed.input");
     let expected = include_str!("relay_compiler_integration/fixtures/exec_time_query_rooted_server_reading_resolver_routed.expected");
     test_fixture(transform_fixture, file!(), "exec_time_query_rooted_server_reading_resolver_routed.input", "relay_compiler_integration/fixtures/exec_time_query_rooted_server_reading_resolver_routed.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn exec_time_resolver_client_to_server_module_has_flag() {
+    let input = include_str!("relay_compiler_integration/fixtures/exec_time_resolver_client_to_server_module_has_flag.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/exec_time_resolver_client_to_server_module_has_flag.expected");
+    test_fixture(transform_fixture, file!(), "exec_time_resolver_client_to_server_module_has_flag.input", "relay_compiler_integration/fixtures/exec_time_resolver_client_to_server_module_has_flag.expected", input, expected).await;
+}
+
+#[tokio::test]
+async fn exec_time_resolver_client_to_server_no_inline_has_flag() {
+    let input = include_str!("relay_compiler_integration/fixtures/exec_time_resolver_client_to_server_no_inline_has_flag.input");
+    let expected = include_str!("relay_compiler_integration/fixtures/exec_time_resolver_client_to_server_no_inline_has_flag.expected");
+    test_fixture(transform_fixture, file!(), "exec_time_resolver_client_to_server_no_inline_has_flag.input", "relay_compiler_integration/fixtures/exec_time_resolver_client_to_server_no_inline_has_flag.expected", input, expected).await;
 }
 
 #[tokio::test]
