@@ -4,24 +4,11 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @generated SignedSource<<7e34c5750aebacfba9991874dd07a945>>
+ * @generated SignedSource<<851348a9140991a5468221fefef4c6aa>>
  */
 
 mod generate_live_query_metadata;
 
 use generate_live_query_metadata::transform_fixture;
-use fixture_tests::test_fixture;
 
-#[tokio::test]
-async fn live_by_at_live() {
-    let input = include_str!("generate_live_query_metadata/fixtures/live_by_at_live.graphql");
-    let expected = include_str!("generate_live_query_metadata/fixtures/live_by_at_live.expected");
-    test_fixture(transform_fixture, file!(), "live_by_at_live.graphql", "generate_live_query_metadata/fixtures/live_by_at_live.expected", input, expected).await;
-}
-
-#[tokio::test]
-async fn live_by_polling_interval() {
-    let input = include_str!("generate_live_query_metadata/fixtures/live_by_polling_interval.graphql");
-    let expected = include_str!("generate_live_query_metadata/fixtures/live_by_polling_interval.expected");
-    test_fixture(transform_fixture, file!(), "live_by_polling_interval.graphql", "generate_live_query_metadata/fixtures/live_by_polling_interval.expected", input, expected).await;
-}
+fixture_tests::fixture_tests!("generate_live_query_metadata");

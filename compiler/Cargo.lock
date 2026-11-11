@@ -607,8 +607,16 @@ dependencies = [
  "clap",
  "colored",
  "diff",
+ "fixture-tests-macros",
  "signedsource",
  "tokio",
+]
+
+[[package]]
+name = "fixture-tests-macros"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
 ]
 
 [[package]]

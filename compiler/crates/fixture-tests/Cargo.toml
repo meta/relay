@@ -20,5 +20,6 @@ path = "tests/uppercase_test.rs"
 clap = { version = "4.6.2", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 colored = "3.1.1"
 diff = "0.1.13"
+fixture-tests-macros = { path = "../fixture-tests-macros" }
 signedsource = { path = "../signedsource" }
 tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }

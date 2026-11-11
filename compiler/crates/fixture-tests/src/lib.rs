@@ -19,7 +19,7 @@
 //! example-crate/
 //!   src/ # typical source
 //!   tests/ # directory of integration tests
-//!     first_transform_test.rs # generated (see below)
+//!     first_transform_test.rs # the test root (see below)
 //!     first_transform/
 //!       mod.rs # exports the transform to test
 //!       fixtures/
@@ -37,16 +37,32 @@
 //! }
 //! ```
 //!
-//! Once the fixtures are in place or new ones are added, `fixture-tests` can
-//! be run as a binary to update the fixtures.
+//! `tests/first_transform_test.rs` declares one test per fixture, read from
+//! the `fixtures` directory when the test is compiled:
 //!
 //! ```ignore
-//! cargo run -p fixture-tests "example-create/tests/first_transform"
+//! mod first_transform;
+//!
+//! use first_transform::transform_fixture;
+//!
+//! fixture_tests::fixture_tests!("first_transform");
 //! ```
 //!
-//! *FB-internal: see `scripts/generate_fixture_tests.sh` to generate all.*
+//! Adding, renaming or removing a fixture needs no other change. For a new
+//! fixture, run its test with `UPDATE_SNAPSHOTS=1` to write its `.expected`
+//! snapshot. With Cargo, a newly added fixture file is picked up when the test
+//! crate is next rebuilt (for example after touching the test root); Buck
+//! rebuilds when the fixture glob changes.
+//!
+//! The `fixture-tests` binary writes these test roots for a list of fixture
+//! directories with `--macro-tests`, and keeps writing them for a directory
+//! whose test root already calls the macro. Otherwise it writes the older
+//! format, a test file that lists every fixture and must be regenerated
+//! whenever fixtures are added or removed.
+//!
+//! *FB-internal: see `scripts/generate_fixture_tests.sh` to write all of Relay's.*
 //
-//! *FB-internal: use buck run //relay/oss/crates/fixture-tests:fixture-tests-bin -- \<path to tests dir\>
+//! *FB-internal: use buck run //relay/oss/crates/fixture-tests:fixture-tests-bin -- --macro-tests \<path to tests dir\>
 
 mod print_diff;
 
@@ -59,6 +75,7 @@ use std::process::Command;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
+pub use fixture_tests_macros::fixture_tests;
 use tokio::sync::Mutex;
 
 static LOCK: LazyLock<Arc<Mutex<usize>>> = LazyLock::new(|| Arc::new(Mutex::new(0)));
