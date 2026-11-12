@@ -64,7 +64,7 @@
     "eslint-plugin-relay": "1.8.3",
     "eslint-plugin-relay-internal": "link:./packages/eslint-plugin-relay-internal",
     "fbjs": "^3.0.2",
-    "flow-bin": "^0.338.0",
+    "flow-bin": "^0.340.0",
     "flow-eslint": "0.336.0",
     "flow-parser": "0.336.0",
     "graphql": "17.0.2",
