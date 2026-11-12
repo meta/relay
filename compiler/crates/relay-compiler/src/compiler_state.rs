@@ -196,14 +196,36 @@ impl<V: Source + Clone> IncrementalSources<V> {
     /// corresponding source in `processed`, and compiler needs to do the work to remove it.
     fn merge_pending_sources(&mut self, additional_pending_sources: &IncrementalSourceSet<V>) {
         for (key, value) in additional_pending_sources.iter() {
-            match self.pending.entry(key.to_path_buf()) {
-                Entry::Occupied(mut entry) => {
-                    entry.insert(value.clone());
-                }
-                Entry::Vacant(vacant) => {
-                    if !value.is_empty() || self.processed.get(key).is_some_and(|v| !v.is_empty()) {
-                        vacant.insert(value.clone());
-                    }
+            self.merge_pending_source(key, value);
+        }
+    }
+
+    /// `merge_pending_sources`, except that a file that isn't pending and whose
+    /// contents equal its processed version is skipped: it was reported as
+    /// changed but didn't change. A file that is already pending is always
+    /// updated, because a build may already have used its pending version.
+    fn merge_changed_pending_sources(
+        &mut self,
+        additional_pending_sources: &IncrementalSourceSet<V>,
+    ) where
+        V: PartialEq,
+    {
+        for (key, value) in additional_pending_sources.iter() {
+            if !self.pending.contains_key(key) && self.processed.get(key) == Some(value) {
+                continue;
+            }
+            self.merge_pending_source(key, value);
+        }
+    }
+
+    fn merge_pending_source(&mut self, key: &Path, value: &V) {
+        match self.pending.entry(key.to_path_buf()) {
+            Entry::Occupied(mut entry) => {
+                entry.insert(value.clone());
+            }
+            Entry::Vacant(vacant) => {
+                if !value.is_empty() || self.processed.get(key).is_some_and(|v| !v.is_empty()) {
+                    vacant.insert(value.clone());
                 }
             }
         }
@@ -961,7 +983,7 @@ impl CompilerState {
                             for source in &removed {
                                 entry.pending.insert(source.clone(), "".to_string());
                             }
-                            entry.merge_pending_sources(&added);
+                            entry.merge_changed_pending_sources(&added);
                         }
                     }
                     FileSourceIntermediateResult::CompactSchema(project_set, added, removed) => {
@@ -3340,5 +3362,46 @@ mod tests {
 
         imported.complete_compilation(&configs, |_| true);
         assert!(!imported.project_has_pending_changes(base));
+    }
+
+    #[test]
+    fn merge_changed_pending_sources_skips_only_unchanged_files_that_were_not_pending() {
+        let mut sources = schema_sources(
+            &[
+                ("same.graphql", "type A { x: Int }"),
+                ("changed.graphql", "type B { x: Int }"),
+                ("reverted.graphql", "type C { x: Int }"),
+            ],
+            &[("reverted.graphql", "type C { y: Int }")],
+        );
+        let additional = [
+            ("same.graphql", "type A { x: Int }"),
+            ("changed.graphql", "type B { y: Int }"),
+            ("reverted.graphql", "type C { x: Int }"),
+            ("added.graphql", "type D { x: Int }"),
+        ]
+        .into_iter()
+        .map(|(path, source)| (PathBuf::from(path), source.to_string()))
+        .collect();
+
+        sources.merge_changed_pending_sources(&additional);
+
+        let mut pending: Vec<_> = sources
+            .pending
+            .iter()
+            .map(|(path, source)| (path.to_str().unwrap(), source.as_str()))
+            .collect();
+        pending.sort_unstable();
+        assert_eq!(
+            pending,
+            vec![
+                ("added.graphql", "type D { x: Int }"),
+                ("changed.graphql", "type B { y: Int }"),
+                // A build may have used the pending `y` version, so the revert
+                // stays pending and the next build rebuilds the schema.
+                ("reverted.graphql", "type C { x: Int }"),
+            ],
+            "only the unchanged file that wasn't pending is skipped",
+        );
     }
 }
