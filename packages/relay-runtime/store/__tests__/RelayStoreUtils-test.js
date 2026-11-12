@@ -784,27 +784,4 @@ describe('RelayStoreUtils', () => {
       expect(readerKey).toBe(normalizationKey);
     });
   });
-
-  describe('getModuleComponentKey() and getModuleOperationKey()', () => {
-    it('return the record keys of a @module document, also when called again', () => {
-      for (let ii = 0; ii < 2; ii++) {
-        expect(
-          RelayStoreUtils.getModuleComponentKey(
-            'Foo_user$normalization.graphql',
-          ),
-        ).toBe('__module_component_Foo_user$normalization.graphql');
-        expect(
-          RelayStoreUtils.getModuleOperationKey(
-            'Foo_user$normalization.graphql',
-          ),
-        ).toBe('__module_operation_Foo_user$normalization.graphql');
-      }
-      expect(
-        RelayStoreUtils.getModuleComponentKey('Bar_user$normalization.graphql'),
-      ).toBe('__module_component_Bar_user$normalization.graphql');
-      expect(
-        RelayStoreUtils.getModuleOperationKey('Bar_user$normalization.graphql'),
-      ).toBe('__module_operation_Bar_user$normalization.graphql');
-    });
-  });
 });

@@ -274,16 +274,10 @@ function getStableVariableValue(name: string, variables: Variables): unknown {
 }
 
 function getModuleComponentKey(documentName: string): string {
-  if (RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS) {
-    return getModuleComponentKeyPerf(documentName);
-  }
   return `${MODULE_COMPONENT_KEY_PREFIX}${documentName}`;
 }
 
 function getModuleOperationKey(documentName: string): string {
-  if (RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS) {
-    return getModuleOperationKeyPerf(documentName);
-  }
   return `${MODULE_OPERATION_KEY_PREFIX}${documentName}`;
 }
 
@@ -336,30 +330,6 @@ const RelayStoreUtils = {
 // Optimized variants (`*Perf`) of the functions above.
 // Used only when ENABLE_PERF_STORAGE_KEYS is on; with it off the code above runs
 // unchanged.
-
-// One string per @module document name for each of its two record keys (as
-// many entries as the @module selections of the operations the app ran), as
-// generateTypeIDPerf() keeps one per type name.
-const moduleComponentKeys: Map<string, string> = new Map();
-const moduleOperationKeys: Map<string, string> = new Map();
-
-function getModuleComponentKeyPerf(documentName: string): string {
-  let key = moduleComponentKeys.get(documentName);
-  if (key === undefined) {
-    key = `${MODULE_COMPONENT_KEY_PREFIX}${documentName}`;
-    moduleComponentKeys.set(documentName, key);
-  }
-  return key;
-}
-
-function getModuleOperationKeyPerf(documentName: string): string {
-  let key = moduleOperationKeys.get(documentName);
-  if (key === undefined) {
-    key = `${MODULE_OPERATION_KEY_PREFIX}${documentName}`;
-    moduleOperationKeys.set(documentName, key);
-  }
-  return key;
-}
 
 // getStorageKey() for fields with arguments and no static key.
 function getStorageKeyPerf(
