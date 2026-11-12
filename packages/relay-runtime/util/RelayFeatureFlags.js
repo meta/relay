@@ -118,7 +118,7 @@ export type FeatureFlags = {
   // change results. Set them once, to true, before creating any environment:
   // a store picks some of its helpers when it is created.
   //
-  // Storage keys, type IDs and handle fields.
+  // Storage keys and type IDs.
   ENABLE_PERF_STORAGE_KEYS: boolean,
   // RelayReader.
   ENABLE_PERF_READER: boolean,

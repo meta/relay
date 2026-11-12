@@ -19,8 +19,6 @@ import type {NormalizationLinkedHandle} from '../util/NormalizationNode';
 import type {Variables} from '../util/RelayRuntimeTypes';
 
 const {LINKED_FIELD} = require('../util/RelayConcreteNode');
-const RelayFeatureFlags = require('../util/RelayFeatureFlags');
-const cloneRelayHandleSourceFieldPerf = require('./cloneRelayHandleSourceFieldPerf');
 const {getHandleStorageKey} = require('./RelayStoreUtils');
 const areEqual = require('areEqual');
 const invariant = require('invariant');
@@ -37,9 +35,6 @@ function cloneRelayHandleSourceField(
   selections: ReadonlyArray<NormalizationSelection>,
   variables: Variables,
 ): NormalizationLinkedField {
-  if (RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS) {
-    return cloneRelayHandleSourceFieldPerf(handleField, selections, variables);
-  }
   const sourceField = selections.find(
     source =>
       source.kind === LINKED_FIELD &&

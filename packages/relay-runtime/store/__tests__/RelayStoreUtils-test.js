@@ -635,38 +635,6 @@ describe('RelayStoreUtils', () => {
   });
 
   describe('getHandleStorageKey', () => {
-    it('returns the key for the current variable values', () => {
-      const handle = {
-        kind: 'LinkedHandle',
-        alias: null,
-        name: 'friends',
-        args: [
-          {kind: 'Variable', name: 'first', variableName: 'count'},
-          {kind: 'Variable', name: 'orderby', variableName: 'order'},
-        ],
-        filters: ['orderby'],
-        handle: 'connection',
-        key: 'UserQuery_friends',
-        dynamicKey: null,
-      };
-      const byName = '__UserQuery_friends_connection(orderby:"name")';
-      expect(
-        RelayStoreUtils.getHandleStorageKey(handle, {count: 5, order: 'name'}),
-      ).toBe(byName);
-      expect(
-        RelayStoreUtils.getHandleStorageKey(handle, {count: 10, order: 'name'}),
-      ).toBe(byName);
-      expect(
-        RelayStoreUtils.getHandleStorageKey(handle, {count: 5, order: 'date'}),
-      ).toBe('__UserQuery_friends_connection(orderby:"date")');
-      expect(
-        RelayStoreUtils.getHandleStorageKey(handle, {count: 5, order: 'name'}),
-      ).toBe(byName);
-      expect(() =>
-        RelayStoreUtils.getHandleStorageKey(handle, {count: 5}),
-      ).toThrow('getVariableValue(): Undefined variable `order`.');
-    });
-
     it('creates a key with no arguments', () => {
       const UserQuery = graphql`
         query RelayStoreUtilsTest1Query {

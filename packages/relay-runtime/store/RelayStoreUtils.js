@@ -112,9 +112,6 @@ function getHandleStorageKey(
   handleField: NormalizationHandle,
   variables: Variables,
 ): string {
-  if (RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS) {
-    return getHandleStorageKeyPerf(handleField, variables);
-  }
   const {dynamicKey, handle, key, name, args, filters} = handleField;
   const handleName = getRelayHandleKey(handle, key, name);
   let filterArgs = null;
@@ -339,81 +336,6 @@ const RelayStoreUtils = {
 // Optimized variants (`*Perf`) of the functions above.
 // Used only when ENABLE_PERF_STORAGE_KEYS is on; with it off the code above runs
 // unchanged.
-
-function getHandleStorageKeyPerf(
-  handleField: NormalizationHandle,
-  variables: Variables,
-): string {
-  let cache = handleStorageKeys.get(handleField);
-  if (cache == null) {
-    const {dynamicKey, handle, key, name, args, filters} = handleField;
-    const handleName = getRelayHandleKey(handle, key, name);
-    let filterArgs = null;
-    if (args && filters && args.length !== 0 && filters.length !== 0) {
-      filterArgs = args.filter(arg => filters.indexOf(arg.name) > -1);
-    }
-    if (dynamicKey) {
-      // "Sort" the arguments by argument name: this is done by the compiler for
-      // user-supplied arguments but the dynamic argument must also be in sorted
-      // order.  Note that dynamic key argument name is double-underscore-
-      // -prefixed, and a double-underscore prefix is disallowed for user-supplied
-      // argument names, so there's no need to actually sort.
-      filterArgs =
-        filterArgs != null ? [dynamicKey, ...filterArgs] : [dynamicKey];
-    }
-    const newCache: HandleStorageKeys = {
-      filterArgs,
-      handleName,
-      key: handleName,
-      values: null,
-      variableNames:
-        filterArgs != null ? getArgumentVariableNames(filterArgs) : null,
-    };
-    cache = newCache;
-    handleStorageKeys.set(handleField, newCache);
-  }
-  const filterArgs = cache.filterArgs;
-  if (filterArgs == null) {
-    return cache.handleName;
-  }
-  // As in getStorageKey(): the last key is reused while the variables the
-  // arguments reference have the same values.
-  const variableNames = variables != null ? cache.variableNames : null;
-  if (variableNames != null) {
-    const values = cache.values;
-    if (
-      values != null &&
-      haveSameVariableValues(variableNames, variables, values)
-    ) {
-      return cache.key;
-    }
-  }
-  const storageKey = formatStorageKey(
-    cache.handleName,
-    getArgumentValues(filterArgs, variables),
-  );
-  if (variableNames != null) {
-    cache.key = storageKey;
-    cache.values = getVariableValues(variableNames, variables);
-  }
-  return storageKey;
-}
-
-type HandleStorageKeys = {
-  // The handle field's filter arguments (null if it has none) and handle name,
-  // which only depend on the field.
-  filterArgs: ReadonlyArray<NormalizationArgument> | null,
-  handleName: string,
-  // The last key, the values of the variables the filter arguments reference
-  // it was computed with (null until there is one), and those variables' names
-  // (see getArgumentVariableNames()).
-  key: string,
-  values: ?ReadonlyArray<unknown>,
-  variableNames: ReadonlyArray<string> | null,
-};
-
-const handleStorageKeys: WeakMap<NormalizationHandle, HandleStorageKeys> =
-  new WeakMap();
 
 // One string per @module document name for each of its two record keys (as
 // many entries as the @module selections of the operations the app ran), as
