@@ -272,7 +272,10 @@ impl GraphQLAsts {
             // Pre-flatten all definitions to avoid cloning on every call to
             // get_all_executable_definitions(). This trades memory for avoiding
             // ~222K deep clones per build on the intern project.
-            let all_definitions = asts.values().flatten().cloned().collect();
+            let all_definitions = asts
+                .par_iter()
+                .flat_map_iter(|(_, definitions)| definitions.iter().cloned())
+                .collect();
             Ok(Self {
                 asts,
                 all_definitions,
