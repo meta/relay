@@ -291,6 +291,15 @@ pub struct FeatureFlags {
     /// operation is `<Fragment>$normalization`.
     #[serde(default)]
     pub skip_impossible_inline_fragments: FeatureFlag,
+
+    /// Server interfaces and unions that client-defined types implement or
+    /// join. The compiler records those types in `clientAbstractTypes`, so a
+    /// fragment on such an interface or union reads their objects; it never
+    /// lists the server's members, which the server can add to without a
+    /// client compile. Limited and rollout variants are keyed by the server
+    /// interface or union name.
+    #[serde(default)]
+    pub enable_client_implementors_of_server_abstract_types: FeatureFlag,
 }
 
 impl Default for FeatureFlags {
@@ -333,6 +342,7 @@ impl Default for FeatureFlags {
             emit_document_type_registry: Default::default(),
             relay_resolver_model_semantic_non_null_id: Default::default(),
             skip_impossible_inline_fragments: Default::default(),
+            enable_client_implementors_of_server_abstract_types: Default::default(),
 
             // enabled-by-default
             enforce_fragment_alias_where_ambiguous: FeatureFlag::Enabled,

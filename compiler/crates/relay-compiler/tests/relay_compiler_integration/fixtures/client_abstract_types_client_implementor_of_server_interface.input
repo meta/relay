@@ -1,0 +1,48 @@
+//- CampaignQuery.js
+// `ClientCampaignGroup` is a client schema extension type implementing the
+// server interface `CampaignGroup`, which the flag names: the operation's
+// `clientAbstractTypes` lists it, so a fragment on the interface reads a
+// client object as a member. The server implementor is never listed.
+graphql`query CampaignQuery {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  __typename
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+}
+
+//- extensions/extension.graphql
+type ClientCampaignGroup implements CampaignGroup {
+  id: ID!
+}
+
+extend type Query {
+  client_group: CampaignGroup
+}

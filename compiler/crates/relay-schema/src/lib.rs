@@ -11,6 +11,7 @@
 #![deny(rust_2018_idioms)]
 #![deny(clippy::all)]
 
+pub mod client_implementors;
 pub mod definitions;
 use std::iter::once;
 use std::sync::LazyLock;

@@ -52,4 +52,5 @@ tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }
 [dev-dependencies]
 fixture-tests = { path = "../fixture-tests" }
 graphql-test-helpers = { path = "../graphql-test-helpers" }
+relay-schema = { path = "../relay-schema" }
 relay-test-schema = { path = "../relay-test-schema" }

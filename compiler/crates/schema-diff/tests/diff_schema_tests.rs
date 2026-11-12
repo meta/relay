@@ -2632,6 +2632,10 @@ fn sort_change(change: &mut SchemaChange) {
                 DefinitionChange::ObjectRemoved { interfaces, .. } => {
                     interfaces.sort();
                 }
+                DefinitionChange::InterfaceImplementsChanged { added, removed, .. } => {
+                    added.sort();
+                    removed.sort();
+                }
                 _ => {}
             }
         }
@@ -2724,4 +2728,40 @@ fn test_per_document_matches_joined_documents_across_many_types() {
         "expected definition changes, got {change:?}",
     );
     assert_eq!(change, Some(diff_joined(&current, &previous)));
+}
+
+#[test]
+fn test_interface_implements_change() {
+    let current = r"
+        interface IBase { name: String }
+        interface ISub implements IBase { name: String }
+        #";
+    let previous = r"
+        interface IBase { name: String }
+        interface ISub { name: String }
+        #";
+    let expected =
+        SchemaChange::DefinitionChanges(vec![DefinitionChange::InterfaceImplementsChanged {
+            name: "ISub".intern(),
+            added: vec!["IBase".intern()],
+            removed: vec![],
+        }]);
+    assert_eq!(diff(current, previous), expected);
+    assert_eq!(diff_from_schemas(current, previous), expected);
+    let reverse =
+        SchemaChange::DefinitionChanges(vec![DefinitionChange::InterfaceImplementsChanged {
+            name: "ISub".intern(),
+            added: vec![],
+            removed: vec!["IBase".intern()],
+        }]);
+    assert_eq!(diff(previous, current), reverse);
+    assert_eq!(diff_from_schemas(previous, current), reverse);
+    // The types implementing `IBase` now include the implementors of `ISub`.
+    assert_eq!(
+        get_safety(current, previous),
+        SchemaChangeSafety::SafeWithIncrementalBuild(FxHashSet::from_iter([
+            IncrementalBuildSchemaChange::Interface("ISub".intern()),
+            IncrementalBuildSchemaChange::Interface("IBase".intern()),
+        ]))
+    );
 }

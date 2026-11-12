@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use common::FeatureFlag;
 use common::SourceLocationKey;
 use fixture_tests::Fixture;
 use graphql_ir::Program;
@@ -15,6 +16,7 @@ use graphql_syntax::parse_executable;
 use graphql_text_printer::PrinterOptions;
 use graphql_text_printer::print_fragment;
 use graphql_text_printer::print_operation;
+use relay_schema::client_implementors::mark_client_implementors;
 use relay_test_schema::get_test_schema_with_extensions;
 use relay_transforms::client_extensions_abstract_types;
 
@@ -23,7 +25,10 @@ pub async fn transform_fixture(fixture: &Fixture<'_>) -> Result<String, String> 
     if let [base, extensions] = parts.as_slice() {
         let source_location = SourceLocationKey::standalone(fixture.file_name);
         let ast = parse_executable(base, source_location).unwrap();
-        let schema = get_test_schema_with_extensions(extensions);
+        let mut schema = Arc::try_unwrap(get_test_schema_with_extensions(extensions))
+            .expect("Expected a schema no one else holds");
+        mark_client_implementors(&mut schema, &FeatureFlag::Enabled).unwrap();
+        let schema = Arc::new(schema);
         let ir = build(&schema, &ast.definitions).unwrap();
         let program = Program::from_definitions(Arc::clone(&schema), ir);
         let next_program = client_extensions_abstract_types(&program);

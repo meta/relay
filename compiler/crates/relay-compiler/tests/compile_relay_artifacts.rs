@@ -40,6 +40,7 @@ use relay_compiler::validate;
 use relay_config::NonNodeIdFieldsConfig;
 use relay_config::ProjectName;
 use relay_config::SchemaConfig;
+use relay_schema::client_implementors::mark_client_implementors;
 use relay_test_schema::get_test_schema;
 use relay_test_schema::get_test_schema_with_extensions;
 use relay_transforms::DIRECTIVE_SPLIT_OPERATION;
@@ -176,7 +177,21 @@ pub async fn transform_fixture(fixture: &Fixture<'_>) -> Result<String, String> 
     };
 
     let (base, schema) = match other_parts.as_slice() {
-        [base, extensions] => (base, get_test_schema_with_extensions(extensions)),
+        [base, extensions] => {
+            let schema = get_test_schema_with_extensions(extensions);
+            // As the compiler's schema build does, once the client types are in.
+            let enabled = &project_config
+                .feature_flags
+                .enable_client_implementors_of_server_abstract_types;
+            if matches!(enabled, FeatureFlag::Disabled) {
+                (base, schema)
+            } else {
+                let mut schema =
+                    Arc::try_unwrap(schema).expect("Expected a schema no one else holds");
+                mark_client_implementors(&mut schema, enabled).unwrap();
+                (base, Arc::new(schema))
+            }
+        }
         [base] => (base, get_test_schema()),
         _ => panic!("Invalid fixture input {}", fixture.content),
     };

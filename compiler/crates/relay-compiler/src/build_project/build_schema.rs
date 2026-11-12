@@ -20,6 +20,7 @@ use relay_config::ProjectName;
 use relay_config::SchemaLocation;
 use relay_docblock::extend_schema_with_resolver_type_system_definition;
 use relay_docblock::validate_resolver_schema;
+use relay_schema::client_implementors::mark_client_implementors;
 use schema::SDLSchema;
 use schema::SchemaDocuments;
 use schema::parse_schema_with_extensions_parallel;
@@ -124,20 +125,7 @@ fn build_schema_impl(
             )
         })?;
 
-        // Validate
-        log_event.time("validate_resolver_schema_time", || {
-            validate_resolver_schema(
-                &schema,
-                &project_config.feature_flags,
-                project_config.schema_config.node_interface_id_field,
-            )
-        })?;
-        log_event.time("validate_composite_schema_time", || {
-            maybe_validate_schema(project_config, &schema)
-        })?;
-
-        finalize_root_field_lookup(&mut schema);
-        return Ok(Arc::new(schema));
+        return finish_schema(schema, project_config, log_event);
     }
 
     let extensions = get_extension_sources(compiler_state, project_config);
@@ -200,8 +188,28 @@ fn build_schema_impl(
         )
     })?;
 
-    // Now that the schema has been fully extended to include all Resolver types
-    // and fields we can apply resolver-specific validations.
+    finish_schema(schema, project_config, log_event)
+}
+
+/// Now that the schema includes every client type and Relay Resolver field:
+/// records the client-defined implementors of the server interfaces and unions
+/// the project enables, so later passes read them from the schema; applies the
+/// resolver and schema validations; and builds the root field lookup.
+fn finish_schema(
+    mut schema: SDLSchema,
+    project_config: &ProjectConfig,
+    log_event: &impl PerfLogEvent,
+) -> DiagnosticsResult<Arc<SDLSchema>> {
+    let timer = log_event.start("mark_client_implementors_time");
+    let marked = mark_client_implementors(
+        &mut schema,
+        &project_config
+            .feature_flags
+            .enable_client_implementors_of_server_abstract_types,
+    );
+    log_event.stop(timer);
+    marked?;
+
     log_event.time("validate_resolver_schema_time", || {
         validate_resolver_schema(
             &schema,

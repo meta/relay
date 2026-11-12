@@ -1,0 +1,8 @@
+==================================== INPUT ====================================
+{
+  "type_name": "Named"
+}
+==================================== OUTPUT ===================================
+interface Named @__clientImplementors(types = ["ClientNamed"]) {
+  name: String
+}

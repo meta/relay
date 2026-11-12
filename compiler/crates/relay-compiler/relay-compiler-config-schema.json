@@ -710,6 +710,13 @@
           "type": "boolean",
           "default": false
         },
+        "enable_client_implementors_of_server_abstract_types": {
+          "description": "Server interfaces and unions that client-defined types implement or\njoin. The compiler records those types in `clientAbstractTypes`, so a\nfragment on such an interface or union reads their objects; it never\nlists the server's members, which the server can add to without a\nclient compile. Limited and rollout variants are keyed by the server\ninterface or union name.",
+          "$ref": "#/$defs/FeatureFlag",
+          "default": {
+            "kind": "disabled"
+          }
+        },
         "enable_exec_time_resolvers_directive": {
           "description": "Allow per-query opt in to normalization AST for Resolvers with exec_time_resolvers\ndirective. In contrast to enable_resolver_normalization_ast, if this is true, a\nnormalization AST can be generated for a query using the @exec_time_resolvers directive",
           "type": "boolean",
@@ -1038,6 +1045,9 @@
               "kind": "disabled"
             },
             "enable_3d_branch_arg_generation": false,
+            "enable_client_implementors_of_server_abstract_types": {
+              "kind": "disabled"
+            },
             "enable_exec_time_resolvers_directive": false,
             "enable_fragment_argument_transform": false,
             "enable_relay_resolver_mutations": false,

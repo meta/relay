@@ -169,6 +169,25 @@ impl SchemaChange {
                                 }
                             }
                         }
+                        // The types that implement a server interface include the
+                        // implementors of its sub-interfaces, which artifacts
+                        // record (`clientAbstractTypes` lists client types
+                        // through server super-interfaces).
+                        DefinitionChange::InterfaceImplementsChanged {
+                            name,
+                            added,
+                            removed,
+                        } => {
+                            needs_incremental_build
+                                .insert(IncrementalBuildSchemaChange::Interface(name));
+                            for interface_name in added.into_iter().chain(removed) {
+                                add_interface_and_super_interfaces(
+                                    schema,
+                                    &mut needs_incremental_build,
+                                    interface_name,
+                                );
+                            }
+                        }
                         // safe changes
                         DefinitionChange::InterfaceAdded(_)
                         | DefinitionChange::EnumAdded(_)
@@ -392,6 +411,28 @@ fn add_field_return_types_for_incremental_build(
             && let Some(change) = schema_change_for_type_name(schema, type_name)
         {
             needs_incremental_build.insert(change);
+        }
+    }
+}
+
+/// Marks `interface_name` and every interface it implements in the current
+/// schema, directly or through other interfaces.
+fn add_interface_and_super_interfaces(
+    schema: &SDLSchema,
+    needs_incremental_build: &mut FxHashSet<IncrementalBuildSchemaChange>,
+    interface_name: StringKey,
+) {
+    let mut visited: FxHashSet<StringKey> = HashSet::default();
+    let mut pending = vec![interface_name];
+    while let Some(name) = pending.pop() {
+        if !visited.insert(name) {
+            continue;
+        }
+        needs_incremental_build.insert(IncrementalBuildSchemaChange::Interface(name));
+        if let Some(schema::Type::Interface(interface_id)) = schema.get_type(name) {
+            for super_interface_id in &schema.interface(interface_id).interfaces {
+                pending.push(schema.interface(*super_interface_id).name.item.0);
+            }
         }
     }
 }

@@ -1,0 +1,35 @@
+==================================== INPUT ====================================
+# The server answers `__isNamed` for its own types. Only the client-defined
+# implementor is recorded, never the server's.
+query TestQuery {
+  node(id: "4") {
+    ... on Named {
+      name
+    }
+  }
+}
+
+%extensions%
+
+type ClientNamedType implements Named {
+  name: String
+}
+==================================== OUTPUT ===================================
+query TestQuery @__ClientExtensionAbstractTypeMetadataDirective
+# ClientExtensionAbstractTypeMetadataDirective {
+#     abstract_types: [
+#         AbstractTypeImplements {
+#             name: "__isNamed",
+#             concrete: [
+#                 "ClientNamedType",
+#             ],
+#         },
+#     ],
+# }
+ {
+  node(id: "4") {
+    ... on Named {
+      name
+    }
+  }
+}

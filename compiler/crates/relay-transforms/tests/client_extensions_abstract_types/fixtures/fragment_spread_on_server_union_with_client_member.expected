@@ -1,0 +1,40 @@
+==================================== INPUT ====================================
+# Only the client-defined member of the server union is recorded.
+query TestQuery {
+  maybeNode {
+    ...ResultFragment
+  }
+}
+
+fragment ResultFragment on MaybeNode {
+  __typename
+}
+
+%extensions%
+
+type ClientMaybeNode {
+  name: String
+}
+
+extend union MaybeNode = ClientMaybeNode
+==================================== OUTPUT ===================================
+fragment ResultFragment on MaybeNode {
+  __typename
+}
+
+query TestQuery @__ClientExtensionAbstractTypeMetadataDirective
+# ClientExtensionAbstractTypeMetadataDirective {
+#     abstract_types: [
+#         AbstractTypeImplements {
+#             name: "__isMaybeNode",
+#             concrete: [
+#                 "ClientMaybeNode",
+#             ],
+#         },
+#     ],
+# }
+ {
+  maybeNode {
+    ...ResultFragment
+  }
+}

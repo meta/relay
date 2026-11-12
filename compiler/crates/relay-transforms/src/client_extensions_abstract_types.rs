@@ -22,6 +22,7 @@ use graphql_ir::Transformer;
 use graphql_ir::associated_data_impl;
 use intern::string_key::StringKey;
 use intern::string_key::StringKeySet;
+use relay_schema::client_implementors::client_implementors_of;
 use schema::ObjectID;
 use schema::Schema;
 use schema::Type;
@@ -82,9 +83,13 @@ impl<'program> ClientExtensionsAbstactTypesTransform<'program> {
                 if interface.is_extension {
                     self.add_abstract_type(type_condition, &interface.implementing_objects);
                 } else {
-                    // TODO: We should also record type information about
-                    // concrete types defined in the client schema extension
-                    // which implement a server interface
+                    // The server answers `__is<Interface>` for its own types
+                    // only, so record the client-defined ones.
+                    let client_implementors =
+                        client_implementors_of(&self.program.schema, type_condition);
+                    if !client_implementors.is_empty() {
+                        self.add_abstract_type(type_condition, &client_implementors);
+                    }
                 }
             }
             Type::Union(union_id) => {
@@ -92,9 +97,11 @@ impl<'program> ClientExtensionsAbstactTypesTransform<'program> {
                 if union.is_extension {
                     self.add_abstract_type(type_condition, &union.members)
                 } else {
-                    // TODO: We should also record type information about
-                    // concrete types defined in the client schema extension
-                    // which implement a server interface
+                    let client_members =
+                        client_implementors_of(&self.program.schema, type_condition);
+                    if !client_members.is_empty() {
+                        self.add_abstract_type(type_condition, &client_members);
+                    }
                 }
             }
             Type::Object(_) => {

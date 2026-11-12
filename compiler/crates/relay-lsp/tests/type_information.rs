@@ -5,10 +5,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::sync::Arc;
+
+use common::FeatureFlag;
 use fixture_tests::Fixture;
+use graphql_ir::reexport::Intern;
 use graphql_ir::reexport::StringKey;
 use itertools::Itertools;
 use relay_lsp::type_information::print_type;
+use relay_schema::client_implementors::mark_client_implementors;
 use relay_test_schema::get_test_schema_with_extensions;
 use serde::Deserialize;
 use serde::Serialize;
@@ -31,8 +36,22 @@ pub async fn transform_fixture(_fixture: &Fixture<'_>) -> Result<String, String>
 type MassiveType {{
 {lots_of_fields}
 }}
+
+type ClientNamed implements Named {{
+  name: String
+}}
 "
     ));
+    // The server interface `Named` lists its client-defined implementor.
+    let mut schema = Arc::try_unwrap(schema).expect("Expected a schema no one else holds");
+    mark_client_implementors(
+        &mut schema,
+        &FeatureFlag::Limited {
+            allowlist: ["Named".intern()].into_iter().collect(),
+        },
+    )
+    .unwrap();
+    let schema = Arc::new(schema);
 
     let type_ = *schema
         .get_type_map()

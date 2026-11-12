@@ -1,0 +1,18 @@
+# Only the client-defined member of the server union is recorded.
+query TestQuery {
+  maybeNode {
+    ...ResultFragment
+  }
+}
+
+fragment ResultFragment on MaybeNode {
+  __typename
+}
+
+%extensions%
+
+type ClientMaybeNode {
+  name: String
+}
+
+extend union MaybeNode = ClientMaybeNode

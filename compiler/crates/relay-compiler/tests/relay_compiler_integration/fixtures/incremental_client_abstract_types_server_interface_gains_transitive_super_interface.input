@@ -1,0 +1,83 @@
+//- NamedFragment.js
+// `IBase` already implements `ITop`. The server makes `ISub` implement `IBase`
+// without repeating `ITop`, which Relay accepts, so the client type
+// `ClientEntity` implements `ITop` through `IBase`: the incremental build lists
+// it under `__isITop`, as a full build does.
+graphql`fragment NamedFragment on ITop {
+  name
+}`
+
+//- NamedQuery.js
+graphql`query NamedQuery {
+  top {
+    ...NamedFragment
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  top: ITop
+  sub: ISub
+}
+
+interface ITop {
+  name: String
+}
+
+interface IBase implements ITop {
+  name: String
+}
+
+interface ISub {
+  name: String
+}
+
+type ServerTop implements ITop {
+  name: String
+}
+
+type ServerEntity implements ISub {
+  name: String
+}
+
+//- extensions/extension.graphql
+type ClientEntity implements ISub {
+  name: String
+}
+
+//-++ schema.graphql
+type Query {
+  top: ITop
+  sub: ISub
+}
+
+interface ITop {
+  name: String
+}
+
+interface IBase implements ITop {
+  name: String
+}
+
+interface ISub implements IBase {
+  name: String
+}
+
+type ServerTop implements ITop {
+  name: String
+}
+
+type ServerEntity implements ISub & IBase & ITop {
+  name: String
+}

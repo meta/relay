@@ -2137,6 +2137,7 @@ dependencies = [
  "rayon",
  "relay-compiler",
  "relay-docblock",
+ "relay-schema",
  "relay-test-schema",
  "relay-transforms",
  "resolution-path",

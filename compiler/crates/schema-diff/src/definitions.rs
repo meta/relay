@@ -42,6 +42,12 @@ pub enum DefinitionChange {
         changed: Vec<ArgumentChange>,
     },
     InterfaceRemoved(StringKey),
+    /// A server interface started or stopped implementing other interfaces.
+    InterfaceImplementsChanged {
+        name: StringKey,
+        added: Vec<StringKey>,
+        removed: Vec<StringKey>,
+    },
     ObjectAdded(StringKey),
     ObjectChanged {
         name: StringKey,
@@ -109,6 +115,14 @@ impl fmt::Debug for DefinitionChange {
             }
             DefinitionChange::InterfaceAdded(name) => write!(f, "InterfaceAdded {name:?}"),
             DefinitionChange::InterfaceRemoved(name) => write!(f, "InterfaceRemoved {name:?}"),
+            DefinitionChange::InterfaceImplementsChanged {
+                name,
+                added,
+                removed,
+            } => write!(
+                f,
+                "InterfaceImplementsChanged {name:?}: added:{added:?} removed:{removed:?}"
+            ),
             DefinitionChange::ObjectAdded(name) => write!(f, "ObjectAdded {name:?}"),
             DefinitionChange::ObjectRemoved { name, .. } => write!(f, "ObjectRemoved {name:?}"),
         }
@@ -133,6 +147,7 @@ impl DefinitionChange {
             DefinitionChange::InterfaceAdded(_) => "InterfaceAdded",
             DefinitionChange::InterfaceChanged { .. } => "InterfaceChanged",
             DefinitionChange::InterfaceRemoved(_) => "InterfaceRemoved",
+            DefinitionChange::InterfaceImplementsChanged { .. } => "InterfaceImplementsChanged",
             DefinitionChange::ObjectAdded(_) => "ObjectAdded",
             DefinitionChange::ObjectChanged { .. } => "ObjectChanged",
             DefinitionChange::ObjectRemoved { .. } => "ObjectRemoved",

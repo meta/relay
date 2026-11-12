@@ -34,6 +34,7 @@ use graphql_syntax::parse_schema_document;
 use intern::string_key::StringKey;
 use rayon::prelude::*;
 use schema::DirectiveValue;
+use schema::InterfaceID;
 use schema::SDLSchema;
 use schema::Schema;
 use schema::Type as SchemaType;
@@ -539,6 +540,7 @@ fn diff_definitions(
 
             TypeSystemDefinition::InterfaceTypeDefinition(InterfaceTypeDefinition {
                 name,
+                interfaces: previous_interfaces,
                 fields: optional_previous_fields,
                 ..
             }) => {
@@ -546,6 +548,7 @@ fn diff_definitions(
                 match def {
                     Some(TypeSystemDefinition::InterfaceTypeDefinition(
                         InterfaceTypeDefinition {
+                            interfaces: current_interfaces,
                             fields: optional_current_fields,
                             ..
                         },
@@ -560,6 +563,15 @@ fn diff_definitions(
                                 added,
                                 removed,
                                 changed,
+                            });
+                        }
+                        let (interfaces_added, interfaces_removed) =
+                            compare_string_keys(current_interfaces, previous_interfaces);
+                        if !interfaces_added.is_empty() || !interfaces_removed.is_empty() {
+                            changes.push(DefinitionChange::InterfaceImplementsChanged {
+                                name: name.value,
+                                added: interfaces_added,
+                                removed: interfaces_removed,
                             });
                         }
                     }
@@ -802,6 +814,14 @@ fn parse_documents_parallel(texts: &[&str]) -> Option<Vec<TypeSystemDefinition>>
             .flat_map(|document| document.definitions)
             .collect(),
     )
+}
+
+fn interface_name_set(schema: &SDLSchema, interface_ids: &[InterfaceID]) -> FnvHashSet<StringKey> {
+    let mut names = FnvHashSet::default();
+    for interface_id in interface_ids {
+        names.insert(schema.get_type_name(SchemaType::Interface(*interface_id)));
+    }
+    names
 }
 
 fn type_ref_to_diff_type(schema: &SDLSchema, type_ref: &TypeReference<SchemaType>) -> Type {
@@ -1047,6 +1067,23 @@ pub fn detect_changes_from_schemas(current: &SDLSchema, previous: &SDLSchema) ->
                             added,
                             removed,
                             changed,
+                        });
+                    }
+                    let prev_interfaces = interface_name_set(previous, &prev_iface.interfaces);
+                    let curr_interfaces = interface_name_set(current, &curr_iface.interfaces);
+                    let interfaces_added: Vec<StringKey> = curr_interfaces
+                        .difference(&prev_interfaces)
+                        .copied()
+                        .collect();
+                    let interfaces_removed: Vec<StringKey> = prev_interfaces
+                        .difference(&curr_interfaces)
+                        .copied()
+                        .collect();
+                    if !interfaces_added.is_empty() || !interfaces_removed.is_empty() {
+                        changes.push(DefinitionChange::InterfaceImplementsChanged {
+                            name: prev_name,
+                            added: interfaces_added,
+                            removed: interfaces_removed,
                         });
                     }
                 }
