@@ -29,6 +29,7 @@ use intern::string_key::StringKey;
 use intern::string_key::StringKeyMap;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSlice;
 
 use crate::definitions::Argument;
 use crate::definitions::Directive;
@@ -1008,10 +1009,16 @@ impl InMemorySchema {
                 schema.prebuild_definition(definition, location.source_location())
             })
             .collect();
+        let mut extended_field_names = ExtendedFieldNames::new();
         for ((definition, location), prebuilt) in schema_definitions.iter().zip(prebuilt) {
             match prebuilt {
                 Some(prebuilt) => schema.add_prebuilt_definition(prebuilt?),
-                None => schema.add_definition(definition, &location.source_location(), false)?,
+                None => schema.add_definition_with_field_names(
+                    definition,
+                    &location.source_location(),
+                    false,
+                    &mut extended_field_names,
+                )?,
             }
         }
 
@@ -1031,13 +1038,23 @@ impl InMemorySchema {
                 if is_type_system_extension(definition) {
                     deferred_client_extensions.push((*definition, document.1.source_location()));
                 } else {
-                    schema.add_definition(definition, &document.1.source_location(), true)?;
+                    schema.add_definition_with_field_names(
+                        definition,
+                        &document.1.source_location(),
+                        true,
+                        &mut extended_field_names,
+                    )?;
                 }
             }
         }
 
         for (definition, source_location) in deferred_client_extensions {
-            schema.add_definition(definition, &source_location, true)?;
+            schema.add_definition_with_field_names(
+                definition,
+                &source_location,
+                true,
+                &mut extended_field_names,
+            )?;
         }
 
         if !duplicate_definitions.is_empty() {
@@ -1141,13 +1158,24 @@ impl InMemorySchema {
             }
         }
 
-        for object in &self.objects {
-            self.check_repeated_directives(
-                &object.directives,
-                object.name.location,
-                &mut diagnostics,
-            );
-        }
+        diagnostics.extend(
+            self.objects
+                .par_chunks(DIRECTIVE_VALIDATION_CHUNK_SIZE)
+                .map(|objects| {
+                    let mut diagnostics = Vec::new();
+                    for object in objects {
+                        self.check_repeated_directives(
+                            &object.directives,
+                            object.name.location,
+                            &mut diagnostics,
+                        );
+                    }
+                    diagnostics
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .flatten(),
+        );
 
         for interface in &self.interfaces {
             self.check_repeated_directives(
@@ -1204,20 +1232,31 @@ impl InMemorySchema {
             }
         }
 
-        for field in &self.fields {
-            self.check_repeated_directives(
-                &field.directives,
-                field.name.location,
-                &mut diagnostics,
-            );
-            for argument in field.arguments.iter() {
-                self.check_repeated_directives(
-                    &argument.directives,
-                    argument.name.location,
-                    &mut diagnostics,
-                );
-            }
-        }
+        diagnostics.extend(
+            self.fields
+                .par_chunks(DIRECTIVE_VALIDATION_CHUNK_SIZE)
+                .map(|fields| {
+                    let mut diagnostics = Vec::new();
+                    for field in fields {
+                        self.check_repeated_directives(
+                            &field.directives,
+                            field.name.location,
+                            &mut diagnostics,
+                        );
+                        for argument in field.arguments.iter() {
+                            self.check_repeated_directives(
+                                &argument.directives,
+                                argument.name.location,
+                                &mut diagnostics,
+                            );
+                        }
+                    }
+                    diagnostics
+                })
+                .collect::<Vec<_>>()
+                .into_iter()
+                .flatten(),
+        );
 
         diagnostics
     }
@@ -1734,6 +1773,24 @@ impl InMemorySchema {
         location_key: &SourceLocationKey,
         is_extension: bool,
     ) -> DiagnosticsResult<()> {
+        self.add_definition_with_field_names(
+            definition,
+            location_key,
+            is_extension,
+            &mut ExtendedFieldNames::new(),
+        )
+    }
+
+    /// `add_definition`, reusing the field names of types that earlier
+    /// definitions extended. Root types can have 100k+ fields and many
+    /// extensions, so collecting their names for every extension is costly.
+    fn add_definition_with_field_names(
+        &mut self,
+        definition: &TypeSystemDefinition,
+        location_key: &SourceLocationKey,
+        is_extension: bool,
+        extended_field_names: &mut ExtendedFieldNames,
+    ) -> DiagnosticsResult<()> {
         self.root_field_lookup = None;
         match definition {
             TypeSystemDefinition::SchemaDefinition(SchemaDefinition {
@@ -1986,17 +2043,18 @@ impl InMemorySchema {
                         )]
                     })?;
 
-                    let field_ids = &obj.fields;
-                    let mut existing_fields = HashMap::with_capacity(
-                        field_ids.len() + len_of_option_list(fields.as_ref()),
-                    );
-                    for field_id in field_ids {
-                        let field_name = self.fields[field_id.as_usize()].name;
-                        existing_fields.insert(field_name.item, field_name.location);
-                    }
+                    let existing_fields = extended_field_names
+                        .entry(Type::Object(id))
+                        .or_insert_with(|| {
+                            field_names(
+                                &self.fields,
+                                &obj.fields,
+                                len_of_option_list(fields.as_ref()),
+                            )
+                        });
                     let client_fields = self.build_extend_fields(
                         fields.as_ref(),
-                        &mut existing_fields,
+                        existing_fields,
                         *location_key,
                         Some(Type::Object(id)),
                     )?;
@@ -2045,17 +2103,18 @@ impl InMemorySchema {
                             Location::new(*location_key, name.span),
                         )]
                     })?;
-                    let field_ids = &interface.fields;
-                    let mut existing_fields = HashMap::with_capacity(
-                        field_ids.len() + len_of_option_list(fields.as_ref()),
-                    );
-                    for field_id in field_ids {
-                        let field_name = self.fields[field_id.as_usize()].name;
-                        existing_fields.insert(field_name.item, field_name.location);
-                    }
+                    let existing_fields = extended_field_names
+                        .entry(Type::Interface(id))
+                        .or_insert_with(|| {
+                            field_names(
+                                &self.fields,
+                                &interface.fields,
+                                len_of_option_list(fields.as_ref()),
+                            )
+                        });
                     let client_fields = self.build_extend_fields(
                         fields.as_ref(),
-                        &mut existing_fields,
+                        existing_fields,
                         *location_key,
                         Some(Type::Interface(id)),
                     )?;
@@ -2602,6 +2661,26 @@ fn expect_object_type_name(type_map: &TypeMap, object_id: ObjectID) -> StringKey
 
 /// Field lists at least this long are prebuilt in parallel.
 const PARALLEL_PREBUILD_MIN_FIELDS: usize = 1024;
+
+/// Objects and fields are checked for repeated directives in parallel chunks
+/// of this size. Diagnostics are collected per chunk and kept in schema order.
+const DIRECTIVE_VALIDATION_CHUNK_SIZE: usize = 4096;
+
+/// The names and locations of the fields of each type extended so far.
+type ExtendedFieldNames = HashMap<Type, HashMap<StringKey, Location>>;
+
+fn field_names(
+    fields: &[Field],
+    field_ids: &[FieldID],
+    additional: usize,
+) -> HashMap<StringKey, Location> {
+    let mut names = HashMap::with_capacity(field_ids.len() + additional);
+    for field_id in field_ids {
+        let field_name = fields[field_id.as_usize()].name;
+        names.insert(field_name.item, field_name.location);
+    }
+    names
+}
 
 /// A server type definition built by `InMemorySchema::prebuild_definition`,
 /// with an object's or interface's fields not yet added.
@@ -3211,5 +3290,162 @@ mod tests {
             "the first error in field order wins, got: {}",
             errors[0].message()
         );
+    }
+
+    fn located_text<'a>(texts: &[(SourceLocationKey, &'a str)], location: Location) -> &'a str {
+        let (_, text) = texts
+            .iter()
+            .find(|(key, _)| *key == location.source_location())
+            .unwrap();
+        let span = location.span();
+        &text[span.start as usize..span.end as usize]
+    }
+
+    #[test]
+    fn test_repeated_directives_are_reported_in_schema_order() {
+        // More objects and fields than one validation chunk holds.
+        let mut text = String::from(
+            "directive @once on OBJECT | INTERFACE | FIELD_DEFINITION | ARGUMENT_DEFINITION\n\
+             scalar String\nscalar ID\nscalar Boolean\ntype Query {\n",
+        );
+        for index in 0..9000 {
+            let directives = if [1, 4095, 4096, 8191, 8192].contains(&index) {
+                " @once @once"
+            } else {
+                ""
+            };
+            text.push_str(&format!("  q{index}: String{directives}\n"));
+        }
+        text.push_str("  qa(a: String @once @once): String\n}\n");
+        for index in 0..5000 {
+            let directives = match index {
+                0 | 4095 | 4096 | 4999 => " @once @once",
+                2 => " @once",
+                _ => "",
+            };
+            text.push_str(&format!("type O{index}{directives} {{ f: String }}\n"));
+        }
+        text.push_str("interface I @once @once { i: String @once @once }\n");
+        text.push_str("extend type O1 @once @once\nextend type O2 @once\n");
+        let key = SourceLocationKey::standalone("schema.graphql");
+        let document = parse_schema_document(&text, key).unwrap();
+
+        let diagnostics = match InMemorySchema::build(&[document], &[]) {
+            Ok(_) => panic!("Expected repeated directive errors"),
+            Err(diagnostics) => diagnostics,
+        };
+
+        let texts = [(key, text.as_str())];
+        let located: Vec<&str> = diagnostics
+            .iter()
+            .map(|diagnostic| located_text(&texts, diagnostic.location()))
+            .collect();
+        assert_eq!(
+            located,
+            [
+                "O0", "O1", "O2", "O4095", "O4096", "O4999", "I", "q1", "q4095", "q4096", "q8191",
+                "q8192", "a", "i",
+            ]
+        );
+        let expected_message =
+            SchemaError::RepeatedNonRepeatableDirective("once".intern(), 2).to_string();
+        for diagnostic in &diagnostics {
+            assert_eq!(diagnostic.message().to_string(), expected_message);
+        }
+    }
+
+    const EXTENDED_SERVER_SCHEMA: &str = "scalar String\nscalar ID\nscalar Boolean\n\
+        type Query { a: String }\ninterface Node { id: ID }\n";
+
+    fn build_extended(client_text: &str) -> DiagnosticsResult<InMemorySchema> {
+        let server = parse_schema_document(
+            EXTENDED_SERVER_SCHEMA,
+            SourceLocationKey::standalone("server.graphql"),
+        )
+        .unwrap();
+        let client =
+            parse_schema_document(client_text, SourceLocationKey::standalone("client.graphql"))
+                .unwrap();
+        InMemorySchema::build(&[server], &[client])
+    }
+
+    #[test]
+    fn test_repeated_extensions_add_fields_in_order() {
+        let schema = build_extended(
+            "extend type Query { b: String }\nextend interface Node { n: String }\n\
+             extend type Query { c: String }\nextend interface Node { m: String }\n",
+        )
+        .unwrap();
+
+        let query = schema.get_type("Query".intern()).unwrap();
+        let query_fields = &schema.object(query.get_object_id().unwrap()).fields;
+        let node = schema.get_type("Node".intern()).unwrap();
+        let node_fields = &schema.interface(node.get_interface_id().unwrap()).fields;
+        for (fields, parent, names) in [
+            (query_fields, query, ["a", "b", "c"]),
+            (node_fields, node, ["id", "n", "m"]),
+        ] {
+            let built: Vec<(&str, Option<Type>)> = fields
+                .iter()
+                .map(|id| {
+                    let field = schema.field(*id);
+                    (field.name.item.lookup(), field.parent_type)
+                })
+                .collect();
+            assert_eq!(built, names.map(|name| (name, Some(parent))));
+            assert!(fields.windows(2).all(|ids| ids[0].0 < ids[1].0));
+        }
+    }
+
+    #[test]
+    fn test_repeated_extensions_report_duplicate_fields() {
+        for (client_text, field, previous) in [
+            (
+                "extend type Query { b: String }\nextend type Query { b: Int }\n",
+                "b",
+                ("client.graphql", 20),
+            ),
+            (
+                "extend type Query { b: String }\nextend type Query { a: Int }\n",
+                "a",
+                ("server.graphql", 52),
+            ),
+            (
+                "extend interface Node { n: String }\nextend interface Node { n: Int }\n",
+                "n",
+                ("client.graphql", 24),
+            ),
+        ] {
+            let diagnostics = match build_extended(client_text) {
+                Ok(_) => panic!("Expected a duplicate field error"),
+                Err(diagnostics) => diagnostics,
+            };
+            assert_eq!(diagnostics.len(), 1);
+            let diagnostic = &diagnostics[0];
+            assert_eq!(
+                diagnostic.message().to_string(),
+                SchemaError::DuplicateField(field.intern()).to_string()
+            );
+            let texts = [
+                (
+                    SourceLocationKey::standalone("server.graphql"),
+                    EXTENDED_SERVER_SCHEMA,
+                ),
+                (SourceLocationKey::standalone("client.graphql"), client_text),
+            ];
+            let location = diagnostic.location();
+            assert_eq!(located_text(&texts, location), field);
+            assert_eq!(
+                location.source_location(),
+                SourceLocationKey::standalone("client.graphql")
+            );
+            assert!(location.span().start as usize > client_text.find('\n').unwrap());
+            let related = &diagnostic.related_information()[0].location;
+            assert_eq!(located_text(&texts, *related), field);
+            assert_eq!(
+                (related.source_location(), related.span().start),
+                (SourceLocationKey::standalone(previous.0), previous.1)
+            );
+        }
     }
 }
