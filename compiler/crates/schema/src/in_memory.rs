@@ -1660,28 +1660,36 @@ impl InMemorySchema {
         let Some(field_defs) = field_defs else {
             return Ok(Vec::new());
         };
+        let prebuild_field = |field_def: &FieldDefinition| {
+            Ok(Field {
+                name: WithLocation::new(
+                    Location::new(field_location_key, field_def.name.span),
+                    field_def.name.value,
+                ),
+                is_extension: false,
+                arguments: self
+                    .build_arguments(field_def.arguments.as_ref(), field_location_key)?,
+                type_: self.build_type_reference(&field_def.type_, field_location_key)?,
+                directives: self.build_directive_values(&field_def.directives),
+                parent_type: None,
+                description: field_def.description.as_ref().map(|desc| desc.value),
+                hack_source: field_def
+                    .hack_source
+                    .as_ref()
+                    .map(|hack_source| hack_source.value),
+            })
+        };
+        if field_defs.items.len() < PARALLEL_PREBUILD_MIN_FIELDS {
+            return field_defs.items.iter().map(prebuild_field).collect();
+        }
+        // Root types can have 100k+ fields. Collecting the results before the
+        // `Result` keeps the first error in field order.
         field_defs
             .items
-            .iter()
-            .map(|field_def| {
-                Ok(Field {
-                    name: WithLocation::new(
-                        Location::new(field_location_key, field_def.name.span),
-                        field_def.name.value,
-                    ),
-                    is_extension: false,
-                    arguments: self
-                        .build_arguments(field_def.arguments.as_ref(), field_location_key)?,
-                    type_: self.build_type_reference(&field_def.type_, field_location_key)?,
-                    directives: self.build_directive_values(&field_def.directives),
-                    parent_type: None,
-                    description: field_def.description.as_ref().map(|desc| desc.value),
-                    hack_source: field_def
-                        .hack_source
-                        .as_ref()
-                        .map(|hack_source| hack_source.value),
-                })
-            })
+            .par_iter()
+            .map(prebuild_field)
+            .collect::<Vec<_>>()
+            .into_iter()
             .collect()
     }
 
@@ -2592,6 +2600,9 @@ fn expect_object_type_name(type_map: &TypeMap, object_id: ObjectID) -> StringKey
         .0
 }
 
+/// Field lists at least this long are prebuilt in parallel.
+const PARALLEL_PREBUILD_MIN_FIELDS: usize = 1024;
+
 /// A server type definition built by `InMemorySchema::prebuild_definition`,
 /// with an object's or interface's fields not yet added.
 enum PrebuiltDefinition {
@@ -3155,6 +3166,50 @@ mod tests {
         assert_eq!(
             copy.named_field(Type::Object(query), "renamed".intern()),
             Some(a)
+        );
+    }
+
+    fn large_root_type_sdl(field_types: impl Fn(usize) -> &'static str) -> String {
+        let fields: String = (0..3000)
+            .map(|i| format!("  f{i}: {}\n", field_types(i)))
+            .collect();
+        format!("type Query {{\n{fields}}}\n")
+    }
+
+    #[test]
+    fn test_large_field_list_keeps_field_order() {
+        let schema = crate::build_schema(&large_root_type_sdl(|_| "String")).unwrap();
+        let query = schema.get_type("Query".intern()).unwrap();
+        let object = schema.object(query.get_object_id().unwrap());
+        let names: Vec<String> = object
+            .fields
+            .iter()
+            .map(|id| schema.field(*id).name.item.to_string())
+            .collect();
+        let expected: Vec<String> = (0..3000).map(|i| format!("f{i}")).collect();
+        assert_eq!(names, expected, "fields keep their SDL order");
+        assert!(
+            object
+                .fields
+                .iter()
+                .all(|id| schema.field(*id).parent_type == Some(query)),
+            "every field points at its parent"
+        );
+    }
+
+    #[test]
+    fn test_large_field_list_reports_first_error() {
+        let sdl = large_root_type_sdl(|i| match i {
+            1500 => "MissingFirst",
+            2900 => "MissingLater",
+            _ => "String",
+        });
+        let errors = crate::build_schema(&sdl).unwrap_err();
+        assert_eq!(errors.len(), 1);
+        assert!(
+            errors[0].message().to_string().contains("MissingFirst"),
+            "the first error in field order wins, got: {}",
+            errors[0].message()
         );
     }
 }
