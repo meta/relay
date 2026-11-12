@@ -22,7 +22,7 @@ fn diff(current: &str, previous: &str) -> SchemaChange {
 fn get_safety(current: &str, previous: &str) -> SchemaChangeSafety {
     let schema = build_schema(current).unwrap();
     let change = detect_changes(&[current], &[previous]);
-    change.get_safety(&schema, &Default::default())
+    change.get_safety(&schema, &Default::default(), &Default::default())
 }
 
 fn diff_from_schemas(current: &str, previous: &str) -> SchemaChange {

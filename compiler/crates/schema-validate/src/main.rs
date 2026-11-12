@@ -37,6 +37,7 @@ pub fn main() {
                 SchemaValidationOptions {
                     allow_introspection_names: false,
                     exempt_coordinates: &FeatureFlag::Disabled,
+                    client_implementors_of_server_interfaces: &FeatureFlag::Disabled,
                 },
             ) {
                 let printer = DiagnosticPrinter::new(sources);

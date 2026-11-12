@@ -65,6 +65,20 @@ pub struct ProvidedVariableMetadata {
 }
 
 impl ProvidedVariableMetadata {
+    /// A provided variable the compiler declares itself, read from
+    /// `module_name` by the document at `source_location`.
+    pub fn new(
+        module_name: StringKey,
+        original_variable_name: VariableName,
+        source_location: SourceLocationKey,
+    ) -> Self {
+        Self {
+            module_name,
+            original_variable_name,
+            fragment_source_location: source_location,
+        }
+    }
+
     /// Returns true if the provider module's path is a bare identifier (i.e.
     /// doesn't start with './' nor '../' nor '/'), otherwise false.
     pub fn is_bare(&self) -> bool {

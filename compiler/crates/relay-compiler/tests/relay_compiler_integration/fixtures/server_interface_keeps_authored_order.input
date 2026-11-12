@@ -1,0 +1,86 @@
+//- CampaignFragment.js
+// `name` has a case for `ClientCampaignGroup`, which serves it with a resolver,
+// and `note` has one for `AdCampaignGroup`, which serves the client field with
+// a resolver on server data. The selections stay in authored order, followed
+// by the cases, so a client type's case leaves the query text of the others
+// alone.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+  id
+  note
+  status
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    ...CampaignFragment
+  }
+}`
+
+//- AdCampaignGroupResolvers.js
+/**
+ * @relayField AdCampaignGroup.note: String
+ * @rootFragment AdCampaignGroupResolversFragment
+ */
+export function note() {}
+
+graphql`fragment AdCampaignGroupResolversFragment on AdCampaignGroup {
+  id
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField ClientCampaignGroup.note: String
+ */
+export function note() {}
+
+/**
+ * @relayField ClientCampaignGroup.status: String
+ */
+export function status() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: CampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+  status: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+  status: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  note: String
+}

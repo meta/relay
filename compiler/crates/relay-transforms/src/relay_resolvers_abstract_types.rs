@@ -28,6 +28,7 @@ use graphql_ir::Transformed;
 use graphql_ir::TransformedValue;
 use graphql_ir::Transformer;
 use graphql_ir::transform_list;
+use relay_schema::client_implementors::has_client_implementors;
 use schema::FieldID;
 use schema::InterfaceID;
 use schema::SDLSchema;
@@ -225,7 +226,11 @@ impl RelayResolverAbstractTypesTransform<'_> {
         selections: &[Selection],
     ) -> TransformedValue<Vec<Selection>> {
         if let Some(Type::Interface(interface_id)) = entry_type {
-            if self.is_interface_implemented_by_all_server_defined_types(interface_id) {
+            // A server interface with client-defined implementors gets cases
+            // (`add_client_implementor_cases`), so this transform leaves it alone.
+            if has_client_implementors(&self.program.schema, Type::Interface(interface_id))
+                || self.is_interface_implemented_by_all_server_defined_types(interface_id)
+            {
                 return TransformedValue::Keep;
             }
             let transformed_selections = transform_list(selections, |selection| match selection {

@@ -1,0 +1,69 @@
+//- CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignQuery.js
+// `ad_group` is a client edge to the server object type `AdCampaignGroup`, so
+// only `AdCampaignGroup` objects are read through `CampaignFragment` here, and
+// a read-time query may spread it.
+graphql`query CampaignQuery {
+  client_model {
+    ad_group @waterfall {
+      ...CampaignFragment
+    }
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField ClientCampaignGroup.ad_group: AdCampaignGroup
+ */
+export function ad_group() {}
+
+/**
+ * @relayField Query.client_model: ClientCampaignGroup
+ */
+export function client_model() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup & Node {
+  id: ID!
+  name: String
+}

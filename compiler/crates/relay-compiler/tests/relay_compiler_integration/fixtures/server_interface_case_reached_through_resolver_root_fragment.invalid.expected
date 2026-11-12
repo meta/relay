@@ -1,0 +1,72 @@
+==================================== INPUT ====================================
+//- Queries.js
+// A read-time query selects a resolver whose root fragment reads `name` on the
+// server interface `CampaignGroup`, which `ClientCampaignGroup` serves with a
+// resolver only exec time computes.
+graphql`query QueriesReadTimeQuery {
+  group_summary
+}`
+
+//- Summary.js
+/**
+ * @relayField Query.group_summary: String
+ * @rootFragment SummaryFragment
+ */
+export function group_summary() {}
+
+graphql`fragment SummaryFragment on Query {
+  client_group {
+    name
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` implements the server interface `CampaignGroup` and serves `name` with its own resolver, which only exec time reads: the executor computes it when the query runs. `QueriesReadTimeQuery` reaches this selection through the root fragment of `group_summary` and runs at read time, where an object of `ClientCampaignGroup` would have no `name`. Move `group_summary` into a fragment and select it there under `@include(if: $__relay_exec_time)`, add `@exec_time_resolvers` without `enabledProvider` to `QueriesReadTimeQuery`, or select this inside `... on` the server types.
+
+  Summary.js:9:5
+    8 │   client_group {
+    9 │     name
+      │     ^^^^
+   10 │   }

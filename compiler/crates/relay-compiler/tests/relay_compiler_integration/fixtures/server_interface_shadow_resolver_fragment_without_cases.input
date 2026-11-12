@@ -1,0 +1,51 @@
+//- GroupIds.js
+// A fragment on the server interface with no field served differently has no
+// cases, but the transplant still refines on the interface, so the server
+// answers `__isICampaignGroup` for its objects: the operation's
+// `clientAbstractTypes` lists only the client implementors.
+graphql`query GroupIdsQuery @exec_time_resolvers {
+  mixed_groups {
+    ...GroupIds_group
+  }
+}`;
+graphql`fragment GroupIds_group on ICampaignGroup {
+  id
+}`;
+
+//- MixedGroups.js
+/**
+ * @relayField Query.mixed_groups: [ICampaignGroup!]
+ * @rootFragment MixedGroupsResolverFragment
+ * @returnFragment MixedGroupsReturnFragment
+ */
+export function mixed_groups(): ReadonlyArray<{id: string}> { return []; }
+graphql`fragment MixedGroupsResolverFragment on Query {
+  groups { ...MixedGroupsReturnFragment }
+}`;
+
+//- CombinedCampaignGroup.js
+/**
+ * @relayType CombinedCampaignGroup implements ICampaignGroup
+ */
+export function CombinedCampaignGroup(id: string): ?{id: string} { return {id}; }
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_shadow_resolvers": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query { groups: [AdCampaignGroup!]! }
+interface ICampaignGroup { id: ID! name: String }
+type AdCampaignGroup implements ICampaignGroup {
+  id: ID!
+  name: String
+}

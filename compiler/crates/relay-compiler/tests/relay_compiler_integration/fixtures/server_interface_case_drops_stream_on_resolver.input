@@ -1,0 +1,82 @@
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- CampaignFragment.js
+// `ClientCampaignGroup` serves `members` with a resolver, which the executor
+// computes whole: its case drops `@stream`, which the interface's `members`
+// keeps for server objects.
+graphql`fragment CampaignFragment on CampaignGroup {
+  members @stream(initialCount: 1, label: "members") {
+    name
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.members: [ClientMember]
+ */
+export function members() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- ClientMember.js
+/**
+ * @relayType ClientMember implements Member
+ * @weak
+ */
+export type ClientMember = {name: string};
+
+/**
+ * @relayField ClientMember.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+directive @stream(label: String!, initialCount: Int!, if: Boolean = true, useCustomizedBatch: Boolean = false) on FIELD
+directive @defer(label: String!, if: Boolean = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+type Query {
+  group: AdCampaignGroup
+}
+
+interface Member {
+  name: String
+}
+
+type User implements Member {
+  name: String
+}
+
+interface CampaignGroup {
+  id: ID!
+  members: [Member]
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  members: [User]
+}

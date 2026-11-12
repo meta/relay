@@ -1,0 +1,52 @@
+//- GroupNames.js
+// A shadow resolver whose root fragment shadows `nodes`, a server list typed by
+// the `Node` interface: the transplant refines the consumer's selection on
+// `ICampaignGroup` directly inside `nodes`, without asking the server whether
+// each item implements `Node`, which every item of `nodes` does.
+graphql`query GroupNamesQuery($ids: [ID!]!) @exec_time_resolvers {
+  mixed_groups(ids: $ids) {
+    name
+  }
+}`;
+
+//- MixedGroups.js
+/**
+ * @relayField Query.mixed_groups: [ICampaignGroup!]
+ * @rootFragment MixedGroupsResolverFragment
+ * @returnFragment MixedGroupsReturnFragment
+ */
+export function mixed_groups(): ReadonlyArray<{id: string}> { return []; }
+graphql`fragment MixedGroupsResolverFragment on Query
+  @argumentDefinitions(ids: {type: "[ID!]!"}) {
+  nodes(ids: $ids) { ...MixedGroupsReturnFragment }
+}`;
+
+//- CombinedCampaignGroup.js
+/**
+ * @relayType CombinedCampaignGroup implements ICampaignGroup
+ */
+export function CombinedCampaignGroup(id: string): ?{id: string} { return {id}; }
+/**
+ * @relayField CombinedCampaignGroup.name: String
+ */
+export function name(model: {id: string}): ?string { return null; }
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_shadow_resolvers": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query { nodes(ids: [ID!]!): [Node] }
+interface Node { id: ID! }
+interface ICampaignGroup { id: ID! name: String }
+type AdCampaignGroup implements Node & ICampaignGroup { id: ID! name: String }
+

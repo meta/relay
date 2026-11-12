@@ -1,0 +1,62 @@
+//- CampaignListFragment.js
+// A read-time query fetches the fragment; its refetch query runs at exec time.
+// The generated query binds `$__relay_exec_time` to `true` for a run on its
+// own; a refetch passes the fetching query's `false`, which exec time reads
+// safely.
+graphql`fragment CampaignListFragment on Query
+  @refetchable(queryName: "CampaignListRefetchQuery", directives: ["@exec_time_resolvers"]) {
+  client_group @include(if: $__relay_exec_time) {
+    name
+  }
+  group @skip(if: $__relay_exec_time) {
+    name
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery {
+  ...CampaignListFragment
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}

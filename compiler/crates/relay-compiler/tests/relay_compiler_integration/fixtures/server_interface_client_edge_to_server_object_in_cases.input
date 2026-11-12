@@ -1,0 +1,75 @@
+//- CampaignFragment.js
+// `product_catalog` is a client field of the server interface `CampaignGroup`
+// that both a server type and a client type serve with a client edge to the
+// server object `ProductCatalog`. Each case mints its own client edge query,
+// named after its type in the reader, normalization and typegen pipelines
+// alike; the selection on the interface reads the client field from the
+// store, where a `@waterfall` has nothing to opt into.
+graphql`fragment CampaignFragment on CampaignGroup {
+  product_catalog @waterfall {
+    name
+  }
+}`
+
+//- AdCampaignGroupResolvers.js
+/**
+ * @relayField AdCampaignGroup.product_catalog: ProductCatalog
+ * @rootFragment AdCampaignGroupResolversFragment
+ */
+export function product_catalog() {}
+
+graphql`fragment AdCampaignGroupResolversFragment on AdCampaignGroup {
+  product_catalog_id
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.product_catalog: ProductCatalog
+ */
+export function product_catalog() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  product_catalog_id: ID
+}
+
+type ProductCatalog implements Node {
+  id: ID!
+  name: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  product_catalog: ProductCatalog
+}

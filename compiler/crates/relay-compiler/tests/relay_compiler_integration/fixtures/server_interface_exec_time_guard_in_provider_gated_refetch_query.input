@@ -1,0 +1,69 @@
+//- CampaignFragment.js
+// A provider-gated refetch query binds `$__relay_exec_time` to its own
+// provider, so the guard follows how the refetch query runs.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignListFragment.js
+graphql`fragment CampaignListFragment on Query
+  @refetchable(queryName: "CampaignListRefetchQuery", directives: ["""@exec_time_resolvers(enabledProvider: "ExecTimeProvider")"""]) {
+  client_group @include(if: $__relay_exec_time) {
+    ...CampaignFragment
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  ...CampaignListFragment
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- ExecTimeProvider.js
+export default {
+  get(): boolean {
+    return true;
+  },
+};
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}

@@ -1,0 +1,65 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// A query with an `enabledProvider` runs at read time whenever the provider
+// returns false, so it cannot reach cases outside a guard on that provider.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers(enabledProvider: "ExecTimeProvider") {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` implements the server interface `CampaignGroup` and serves `name` with its own resolver, which only exec time reads: the executor computes it when the query runs. `CampaignQuery` reaches this selection and runs at read time when its provider `ExecTimeProvider` returns false, where an object of `ClientCampaignGroup` would have no `name`. Select this under `@include(if: $__relay_exec_time)`, remove `enabledProvider` from the `@exec_time_resolvers` of `CampaignQuery`, or select this inside `... on` the server types.
+
+  CampaignFragment.js:4:3
+    3 │ fragment CampaignFragment on CampaignGroup {
+    4 │   name
+      │   ^^^^
+    5 │ }

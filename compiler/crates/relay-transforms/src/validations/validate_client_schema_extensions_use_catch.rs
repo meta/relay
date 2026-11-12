@@ -65,7 +65,11 @@ impl<'a> EnsureCatch<'a> {
                 let concrete_field = self.schema.field(concrete_field_id);
                 self.is_error_semantic_field(concrete_field)
             } else {
-                panic!("Expected field to exist on concrete type since this code runs after schema validation.")
+                // A client type implementing a server interface may leave out
+                // the interface's fields that no document reads on its objects.
+                // A server type can only lack one through a schema validation
+                // exemption, and its objects have no value there.
+                self.schema.object(*object_id).is_extension
             }
         })
     }

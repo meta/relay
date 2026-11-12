@@ -9,6 +9,7 @@ use common::Diagnostic;
 use common::DiagnosticsResult;
 use common::FeatureFlag;
 use common::FeatureFlags;
+use common::InterfaceName;
 use common::NamedItem;
 use docblock_shared::HAS_OUTPUT_TYPE_ARGUMENT_NAME;
 use docblock_shared::KEY_RESOLVER_ID_FIELD;
@@ -20,6 +21,7 @@ use errors::try_all;
 use errors::try3;
 use intern::string_key::StringKey;
 use relay_schema::definitions::is_server_value_object;
+use schema::InterfaceID;
 use schema::Object;
 use schema::SDLSchema;
 use schema::Schema;
@@ -33,8 +35,15 @@ pub fn validate_resolver_schema(
     feature_flags: &FeatureFlags,
     id_field_name: StringKey,
 ) -> DiagnosticsResult<()> {
+    validate_client_implementors_of_server_interfaces(
+        schema,
+        &feature_flags.enable_client_implementors_of_server_abstract_types,
+    )?;
     try3(
-        validate_strong_resolver_types(schema),
+        validate_strong_resolver_types(
+            schema,
+            &feature_flags.enable_client_implementors_of_server_abstract_types,
+        ),
         validate_output_type_resolver_types(
             schema,
             &feature_flags.allow_output_type_resolvers,
@@ -46,15 +55,80 @@ pub fn validate_resolver_schema(
     Ok(())
 }
 
-fn validate_strong_resolver_types(schema: &SDLSchema) -> DiagnosticsResult<()> {
+/// A client type that implements a server interface the project enables
+/// implements that interface's server super-interfaces too, so fragments on
+/// those read its objects: each must be enabled as well. The field types are
+/// left to schema validation, which honors `disable_schema_validation`.
+fn validate_client_implementors_of_server_interfaces(
+    schema: &SDLSchema,
+    enabled: &FeatureFlag,
+) -> DiagnosticsResult<()> {
+    if matches!(enabled, FeatureFlag::Disabled) {
+        return Ok(());
+    }
+    let mut errors = vec![];
+    for object in schema.objects() {
+        if !object.is_extension {
+            continue;
+        }
+        // Each interface with the enabled server interface it is reached
+        // through, if any.
+        let mut pending: Vec<(InterfaceID, Option<InterfaceName>)> = vec![];
+        for interface_id in &object.interfaces {
+            pending.push((*interface_id, None));
+        }
+        let mut seen = vec![];
+        while let Some((interface_id, through)) = pending.pop() {
+            if seen.contains(&interface_id) {
+                continue;
+            }
+            seen.push(interface_id);
+            let interface = schema.interface(interface_id);
+            let is_enabled =
+                !interface.is_extension && enabled.is_enabled_for(interface.name.item.0);
+            if !interface.is_extension
+                && !is_enabled
+                && let Some(through) = through
+            {
+                errors.push(Diagnostic::error(
+                    SchemaValidationErrorMessages::ClientImplementorServerSuperInterfaceNotEnabled {
+                        object_name: object.name.item,
+                        interface_name: through,
+                        super_interface_name: interface.name.item,
+                    },
+                    object.name.location,
+                ));
+            }
+            let next_through = if is_enabled {
+                Some(interface.name.item)
+            } else {
+                through
+            };
+            for super_interface_id in &interface.interfaces {
+                pending.push((*super_interface_id, next_through));
+            }
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+fn validate_strong_resolver_types(
+    schema: &SDLSchema,
+    client_implementors_of_server_abstract_types: &FeatureFlag,
+) -> DiagnosticsResult<()> {
     try_all(
         schema
             .objects()
             .filter(|obj| object_is_strong_model_type(obj))
             .map(|strong_model_object| {
-                validate_strong_object_implements_client_interface_with_id_field(
+                validate_strong_object_interfaces(
                     strong_model_object,
                     schema,
+                    client_implementors_of_server_abstract_types,
                 )
             }),
     )?;
@@ -191,11 +265,13 @@ fn is_valid_mutation_resolver_return_type(type_: &TypeReference<Type>) -> bool {
 }
 
 /// Validate that each interface that the strong object implements is client
-/// defined and contains an id field that is non-null, either structurally
-/// (`id: ID!`) or semantically (`id: ID @semanticNonNull`).
-fn validate_strong_object_implements_client_interface_with_id_field(
+/// defined, or a server interface the project lets client types implement, and
+/// contains an id field that is non-null, either structurally (`id: ID!`) or
+/// semantically (`id: ID @semanticNonNull`).
+fn validate_strong_object_interfaces(
     object: &Object,
     schema: &SDLSchema,
+    client_implementors_of_server_abstract_types: &FeatureFlag,
 ) -> DiagnosticsResult<()> {
     let location = object.name.location;
     let mut errors = vec![];
@@ -212,7 +288,9 @@ fn validate_strong_object_implements_client_interface_with_id_field(
     for interface in &object.interfaces {
         let interface = schema.interface(*interface);
 
-        if !interface.is_extension {
+        if !interface.is_extension
+            && !client_implementors_of_server_abstract_types.is_enabled_for(interface.name.item.0)
+        {
             errors.push(
                 Diagnostic::error(
                     SchemaValidationErrorMessages::UnexpectedServerInterface {

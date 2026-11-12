@@ -1,0 +1,68 @@
+//- CampaignQuery.js
+// `ClientCampaignGroup` leaves out the interface's client field `note`, which
+// only server objects are read for here: `group` is a server field. The
+// incremental build must accept it like the full build.
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    note
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: CampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  note: String
+}
+
+extend type AdCampaignGroup {
+  note: String
+}
+
+//-++ CampaignQuery.js
+// `ClientCampaignGroup` leaves out the interface's client field `note`, which
+// only server objects are read for here: `group` is a server field. The
+// incremental build must accept it like the full build.
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    note
+    name
+  }
+}`

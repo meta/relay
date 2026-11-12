@@ -1,0 +1,74 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// A fragment on the server interface `CampaignGroup` starts reading `budget`,
+// which the Relay Resolver type `ClientCampaignGroup` does not define. Only the
+// fragment changes; the conformance error is reported, as in a full build.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+  budget: Int
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+  budget: Int
+}
+
+//-++ CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+  budget
+}`
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` implements the server interface `CampaignGroup` but does not define `budget`, which is selected here. An object of `ClientCampaignGroup` read here would have no `budget`: define it on `ClientCampaignGroup`, or select it inside `... on` the server types that have it.
+
+  CampaignFragment.js:3:3
+    2 │   name
+    3 │   budget
+      │   ^^^^^^
+    4 │ }

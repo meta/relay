@@ -1,0 +1,77 @@
+//- CampaignFragment.js
+// `note` is a client field of the server interface `CampaignGroup`. The
+// server type `AdCampaignGroup` first serves it from the store, read on the
+// interface; once it serves `note` with a resolver, the incremental build
+// adds that type's case, as a full build does.
+graphql`fragment CampaignFragment on CampaignGroup {
+  note
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.note: String
+ */
+export function note() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: CampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  note: String
+}
+
+extend type AdCampaignGroup {
+  note: String
+}
+
+//-++ extensions/extension.graphql
+extend interface CampaignGroup {
+  note: String
+}
+
+//-++ AdCampaignGroupResolvers.js
+/**
+ * @relayField AdCampaignGroup.note: String
+ * @rootFragment AdCampaignGroupResolversFragment
+ */
+export function note() {}
+
+graphql`fragment AdCampaignGroupResolversFragment on AdCampaignGroup {
+  id
+}`

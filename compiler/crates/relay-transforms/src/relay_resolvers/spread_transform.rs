@@ -31,8 +31,11 @@ use graphql_ir::Transformer;
 use graphql_ir::Value;
 use graphql_ir::VariableName;
 use intern::string_key::StringKey;
+use relay_schema::client_implementors::has_client_implementors;
 use relay_schema::definitions::weak_object_instance_field;
 use schema::FieldID;
+use schema::InterfaceID;
+use schema::SDLSchema;
 use schema::Schema;
 use schema::Type;
 
@@ -42,7 +45,10 @@ use super::ResolversPipeline;
 use super::ShadowReturnMarker;
 use super::ValidationMessage;
 use crate::ClientEdgeMetadata;
+use crate::ClientImplementorCaseDirective;
 use crate::NO_INLINE_DIRECTIVE_NAME;
+use crate::client_implementor_cases::is_client_field;
+use crate::client_implementor_cases::is_client_implementor_case;
 
 /// Convert fields with attached Relay Resolver metadata into the fragment
 /// spread of their data dependencies (root fragment). Their
@@ -447,12 +453,18 @@ impl<'program> RelayResolverSpreadTransform<'program> {
         parent_type: Type,
         drop_incompatible: bool,
     ) -> Vec<Selection> {
-        selections
-            .iter()
-            .filter_map(|selection| {
+        if let Some(interface_id) = client_implementor_cases_interface(selections) {
+            return self.rebind_on_server_interface(selections, interface_id, parent_type);
+        }
+        let mut rebound = Vec::with_capacity(selections.len());
+        for selection in selections {
+            if let Some(selection) =
                 self.rebind_selection(selection, parent_type, drop_incompatible)
-            })
-            .collect()
+            {
+                rebound.push(selection);
+            }
+        }
+        rebound
     }
 
     fn rebind_selection(
@@ -616,7 +628,9 @@ impl<'program> RelayResolverSpreadTransform<'program> {
                 //   per implementor. Re-binding that body onto the shadowed server
                 //   type lets the per-arm classification above transplant the
                 //   server arms and drop the client-extension arms (which are read
-                //   through the model edge minted in `client_edges`).
+                //   through the model edge minted in `client_edges`). A server
+                //   interface with client implementors has cases instead
+                //   (`rebind_on_server_interface`).
                 // - A UNION type condition is not yet supported.
                 match fragment.type_condition {
                     Type::Interface(_) => {
@@ -639,8 +653,21 @@ impl<'program> RelayResolverSpreadTransform<'program> {
                         // so expand it in drop-incompatible mode: arms for other
                         // implementors (and client-extension arms) are dropped, only
                         // what applies to the shadowed server type is transplanted.
-                        let selections =
-                            self.rebind_selections(&fragment.selections, parent_type, true);
+                        let selections = match fragment.type_condition {
+                            Type::Interface(interface_id)
+                                if has_client_implementors(
+                                    &self.program.schema,
+                                    fragment.type_condition,
+                                ) =>
+                            {
+                                self.rebind_on_server_interface(
+                                    &fragment.selections,
+                                    interface_id,
+                                    parent_type,
+                                )
+                            }
+                            _ => self.rebind_selections(&fragment.selections, parent_type, true),
+                        };
                         if selections.is_empty() {
                             return None;
                         }
@@ -736,6 +763,78 @@ impl<'program> RelayResolverSpreadTransform<'program> {
                 None
             }
         }
+    }
+
+    /// Transplants selections on a server interface with client implementors.
+    /// They go in a refinement on the interface, so the server answers whether
+    /// its object implements it: the operation's `clientAbstractTypes` lists
+    /// only the client implementors. A server type's case goes in a refinement
+    /// on that type, without the plain fields the interface refinement already
+    /// fetches; a client type's case is read through the model edge, so it is
+    /// dropped. Both refinements are placed directly in the shadowed selection:
+    /// a wrapping inline fragment with no type would make the server answer
+    /// `__is<FieldType>` too.
+    fn rebind_on_server_interface(
+        &mut self,
+        selections: &[Selection],
+        interface_id: InterfaceID,
+        parent_type: Type,
+    ) -> Vec<Selection> {
+        let interface_type = Type::Interface(interface_id);
+        if !self
+            .program
+            .schema
+            .are_overlapping_types(interface_type, parent_type)
+        {
+            return vec![];
+        }
+        let schema = Arc::clone(&self.program.schema);
+        let mut on_interface = vec![];
+        let mut cases = vec![];
+        for selection in selections {
+            if let Selection::InlineFragment(case) = selection
+                && is_client_implementor_case(case)
+            {
+                cases.push(case);
+                continue;
+            }
+            // The interface's client fields are never fetched.
+            if let Some(rebound) = self.rebind_selection(selection, interface_type, true)
+                && !is_client_field(&schema, &rebound)
+            {
+                on_interface.push(rebound);
+            }
+        }
+        let mut case_refinements = vec![];
+        for case in cases {
+            let Some(case_type) = case.type_condition else {
+                continue;
+            };
+            match self.classify_inline_fragment_type(case_type, parent_type) {
+                MagicFragmentInlineFragmentArm::TransplantServer => {}
+                MagicFragmentInlineFragmentArm::DropClientExtension
+                | MagicFragmentInlineFragmentArm::Incompatible => continue,
+            }
+            let mut case_selections = vec![];
+            for selection in self.rebind_selections(&case.selections, case_type, true) {
+                if !fetches_same_plain_scalar(&schema, &on_interface, &selection) {
+                    case_selections.push(selection);
+                }
+            }
+            if !case_selections.is_empty() {
+                case_refinements.push(refinement(case_type, case_selections, case.spread_location));
+            }
+        }
+        let mut rebound = Vec::with_capacity(case_refinements.len() + 1);
+        if !on_interface.is_empty() {
+            rebound.push(refinement(
+                interface_type,
+                on_interface,
+                Location::generated(),
+            ));
+        }
+        rebound.extend(case_refinements);
+        rebound
     }
 
     /// Classify how an inline fragment's `type_condition` relates to
@@ -949,4 +1048,53 @@ fn substitute_value(value: &Value, argument_substitutions: &HashMap<VariableName
             Value::Object(substitute_arguments(arguments, argument_substitutions))
         }
     }
+}
+
+/// The interface of the first case among `selections`, when the compiler added
+/// cases for a server interface with client implementors here.
+fn client_implementor_cases_interface(selections: &[Selection]) -> Option<InterfaceID> {
+    for selection in selections {
+        if let Selection::InlineFragment(fragment) = selection
+            && let Some(case) = ClientImplementorCaseDirective::find(&fragment.directives)
+        {
+            return Some(case.interface);
+        }
+    }
+    None
+}
+
+fn refinement(type_: Type, selections: Vec<Selection>, location: Location) -> Selection {
+    Selection::InlineFragment(Arc::new(InlineFragment {
+        type_condition: Some(type_),
+        directives: vec![],
+        selections,
+        spread_location: location,
+    }))
+}
+
+/// Whether one of `fetched` is the same scalar field as `selection`, with no
+/// arguments or directives, so fetching it already fetches `selection`.
+fn fetches_same_plain_scalar(
+    schema: &SDLSchema,
+    fetched: &[Selection],
+    selection: &Selection,
+) -> bool {
+    let Selection::ScalarField(field) = selection else {
+        return false;
+    };
+    if !field.arguments.is_empty() || !field.directives.is_empty() {
+        return false;
+    }
+    for fetched_selection in fetched {
+        if let Selection::ScalarField(fetched_field) = fetched_selection
+            && fetched_field.arguments.is_empty()
+            && fetched_field.directives.is_empty()
+            && fetched_field.alias_or_name(schema) == field.alias_or_name(schema)
+            && schema.field(fetched_field.definition.item).name.item
+                == schema.field(field.definition.item).name.item
+        {
+            return true;
+        }
+    }
+    false
 }

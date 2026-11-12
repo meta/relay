@@ -1,0 +1,81 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// `related` is a client field of `CampaignGroup` that `ClientCampaignGroup`
+// serves with its own resolver, so the refinement on `Node` below it is read
+// on the interface and in that type's case: one error.
+graphql`fragment CampaignFragment on CampaignGroup {
+  related {
+    ... on Node {
+      id
+    }
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField ClientCampaignGroup.related: CampaignGroup
+ */
+export function related() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+  node(id: ID!): Node
+  search: SearchResult
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup & Node {
+  id: ID!
+  name: String
+}
+
+union SearchResult = AdCampaignGroup
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  related: CampaignGroup
+}
+
+extend type AdCampaignGroup {
+  related: CampaignGroup
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` is a client-defined type of `CampaignGroup` that Relay does not list for `Node`, so an object of `ClientCampaignGroup` read through this refinement would read as missing data: the reader answers `__isNode` for a client object only from the types the compiler lists. Select this inside `... on` the server types.
+
+  CampaignFragment.js:6:5
+    5 │   related {
+    6 │     ... on Node {
+      │     ^^^
+    7 │       id

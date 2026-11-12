@@ -69,6 +69,13 @@ pub struct SchemaValidationOptions<'a> {
     /// satisfies the interfaces `Type` implements. An entry of a limited
     /// allowlist that skips no error is reported.
     pub exempt_coordinates: &'a FeatureFlag,
+    /// Server interfaces that client-defined types may implement without
+    /// defining every field: the server owns such an interface and can add a
+    /// field to it without a client compile. The compiler requires a client
+    /// type to define a field only where a selection reads it on an object
+    /// that can be of that type, and still checks each field the type does
+    /// define. Keyed by the interface name.
+    pub client_implementors_of_server_interfaces: &'a FeatureFlag,
 }
 
 pub fn validate(schema: &SDLSchema, options: SchemaValidationOptions<'_>) -> DiagnosticsResult<()> {
@@ -216,7 +223,7 @@ impl<'schema> ValidationContext<'schema> {
                 // Validate cyclic references
                 if !self.validate_cyclic_implements_reference(interface) {
                     // Ensure interface implement the interfaces they claim to.
-                    self.validate_type_with_interfaces(interface);
+                    self.validate_type_with_interfaces(interface, interface.is_extension);
                 }
             }
             Type::Object(id) => {
@@ -225,7 +232,7 @@ impl<'schema> ValidationContext<'schema> {
                 self.validate_fields(type_name, &object.fields);
 
                 // Ensure objects implement the interfaces they claim to.
-                self.validate_type_with_interfaces(object);
+                self.validate_type_with_interfaces(object, object.is_extension);
             }
             Type::Union(id) => {
                 // Ensure Unions include valid member types.
@@ -388,7 +395,11 @@ impl<'schema> ValidationContext<'schema> {
         }
     }
 
-    fn validate_type_with_interfaces<T: TypeWithFields + Named>(&mut self, type_: &T) {
+    fn validate_type_with_interfaces<T: TypeWithFields + Named>(
+        &mut self,
+        type_: &T,
+        is_client_type: bool,
+    ) {
         let typename = type_.name().lookup().intern();
         let mut interface_names: FnvHashMap<InterfaceName, Location> = FnvHashMap::default();
         for interface_id in type_.interfaces().iter() {
@@ -407,7 +418,13 @@ impl<'schema> ValidationContext<'schema> {
                 continue;
             }
             interface_names.insert(interface.name.item, interface.name.location);
-            self.validate_type_implements_interface(type_, interface);
+            let may_leave_fields_undefined = is_client_type
+                && !interface.is_extension
+                && self
+                    .options
+                    .client_implementors_of_server_interfaces
+                    .is_enabled_for(interface.name.item.0);
+            self.validate_type_implements_interface(type_, interface, may_leave_fields_undefined);
         }
     }
 
@@ -415,6 +432,7 @@ impl<'schema> ValidationContext<'schema> {
         &mut self,
         type_: &T,
         interface: &Interface,
+        may_leave_fields_undefined: bool,
     ) {
         let typename = type_.name().lookup().intern();
         let object_field_map = self.field_map(type_.fields());
@@ -425,6 +443,9 @@ impl<'schema> ValidationContext<'schema> {
             self.validate_field(typename, field_name, |this| {
                 // Assert interface field exists on object.
                 let Some(object_field) = object_field_map.get(&field_name) else {
+                    if may_leave_fields_undefined {
+                        return;
+                    }
                     this.report_diagnostic(
                         Diagnostic::error(
                             SchemaValidationError::InterfaceFieldNotProvided(
@@ -801,6 +822,7 @@ mod tests {
             SchemaValidationOptions {
                 allow_introspection_names: false,
                 exempt_coordinates: &FeatureFlag::Disabled,
+                client_implementors_of_server_interfaces: &FeatureFlag::Disabled,
             },
         )
     }
@@ -812,6 +834,7 @@ mod tests {
             SchemaValidationOptions {
                 allow_introspection_names: false,
                 exempt_coordinates: &FeatureFlag::Disabled,
+                client_implementors_of_server_interfaces: &FeatureFlag::Disabled,
             },
         )
         .expect_err("O.value should not satisfy I.value");
@@ -892,6 +915,7 @@ mod tests {
                 SchemaValidationOptions {
                     allow_introspection_names: false,
                     exempt_coordinates: &exemptions,
+                    client_implementors_of_server_interfaces: &FeatureFlag::Disabled,
                 },
             )
             .is_ok()

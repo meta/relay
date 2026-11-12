@@ -40,6 +40,7 @@ use node_query_generator::NODE_QUERY_GENERATOR;
 use query_query_generator::QUERY_QUERY_GENERATOR;
 use relay_config::ProjectConfig;
 use relay_config::SchemaConfig;
+use relay_schema::client_implementors::has_client_implementors;
 use schema::SDLSchema;
 use schema::Schema;
 pub use utils::CONSTANTS;
@@ -222,6 +223,15 @@ impl<'program, 'pc> RefetchableFragment<'program, 'pc> {
     ) -> DiagnosticsResult<(RefetchableDirective, RefetchRoot)> {
         let refetchable_directive =
             RefetchableDirective::from_directive(&self.program.schema, directive)?;
+        if has_client_implementors(&self.program.schema, fragment.type_condition) {
+            return Err(vec![Diagnostic::error(
+                ValidationMessage::RefetchableFragmentOnTypeWithClientImplementors {
+                    fragment_name: fragment.name.item,
+                    type_name: self.program.schema.get_type_name(fragment.type_condition),
+                },
+                fragment.name.location,
+            )]);
+        }
         self.validate_sibling_directives(fragment)?;
         self.validate_refetch_name(fragment, &refetchable_directive)?;
         let variables_map = self

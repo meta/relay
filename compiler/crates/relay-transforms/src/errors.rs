@@ -220,6 +220,73 @@ pub enum ValidationMessage {
     RelayResolverClientInterfaceMustBeImplemented { interface_name: InterfaceName },
 
     #[error(
+        "`{type_name}` implements the server interface `{interface_name}` but does not define `{field_name}`, which is selected here. An object of `{type_name}` read here would have no `{field_name}`: define it on `{type_name}`, or select it inside `... on` the server types that have it."
+    )]
+    ClientImplementorMissingInterfaceField {
+        type_name: StringKey,
+        interface_name: InterfaceName,
+        field_name: StringKey,
+    },
+
+    #[error(
+        "`{type_name}` is a client-defined type of `{parent_name}` that Relay does not list for `{abstract_type_name}`, so an object of `{type_name}` read through this refinement would read as missing data: the reader answers `__is{abstract_type_name}` for a client object only from the types the compiler lists. {remedy}"
+    )]
+    ClientImplementorRefinementOnUnlistedAbstractType {
+        type_name: StringKey,
+        parent_name: StringKey,
+        abstract_type_name: StringKey,
+        remedy: String,
+    },
+
+    #[error(
+        "`{type_name}` implements the server interface `{interface_name}` and serves `{field_name}` with its own resolver, which only exec time reads: the executor computes it when the query runs. `{operation_name}` reaches this selection{via} and runs at read time{provider}, where an object of `{type_name}` would have no `{field_name}`. {remedy}"
+    )]
+    ClientImplementorCaseReachableAtReadTime {
+        interface_name: InterfaceName,
+        type_name: ObjectName,
+        field_name: StringKey,
+        operation_name: StringKey,
+        provider: String,
+        via: String,
+        remedy: String,
+    },
+
+    #[error(
+        "`{type_name}` implements the server interface `{interface_name}` and serves `{field_name}` with its own resolver, which only exec time reads: the executor computes it when the query runs. `{operation_name}`, the query Relay generates for `@refetchable` on `{fragment_name}`, reaches this selection{via} and runs at read time{provider}. A refetch passes it `$__relay_exec_time` from the query that fetched `{fragment_name}`, and only an `enabledProvider` in its `directives` overrides that. Add `directives: [\"@exec_time_resolvers\"]` to that `@refetchable`, use `@exec_time_resolvers(enabledProvider: ...)` there and select {guard_target} under `@include(if: $__relay_exec_time)`, or select this inside `... on` the server types."
+    )]
+    ClientImplementorCaseReachableFromRefetchQuery {
+        interface_name: InterfaceName,
+        type_name: ObjectName,
+        field_name: StringKey,
+        operation_name: StringKey,
+        fragment_name: FragmentDefinitionName,
+        provider: String,
+        via: String,
+        guard_target: String,
+    },
+
+    #[error(
+        "`$__relay_exec_time` is reserved: the compiler sets it to whether the operation runs at exec time. Remove this declaration or argument."
+    )]
+    ReservedExecTimeVariable,
+
+    #[error(
+        "An @updatable query or fragment cannot select `{field_name}` of `{interface_name}` here: client types implement `{interface_name}` and serve `{field_name}` themselves, and an updatable proxy reads and writes the store fields of server objects only."
+    )]
+    ClientImplementorCasesInUpdatableDocument {
+        interface_name: InterfaceName,
+        field_name: StringKey,
+    },
+
+    #[error(
+        "The @assignable fragment `{fragment_name}` is on `{type_name}`, which client-defined types implement or belong to: an assignment through it could link a client object into a server field. Use an @assignable fragment on a server type of `{type_name}` instead."
+    )]
+    AssignableFragmentOnTypeWithClientImplementors {
+        fragment_name: FragmentDefinitionName,
+        type_name: StringKey,
+    },
+
+    #[error(
         "The interface {interface_name} is being used as an @outputType of a @RelayResolver. For this to be valid, all Object types that implement the interface must be client types. However, the {object_name}, which implements {interface_name}, is a server type."
     )]
     RelayResolverClientInterfaceImplementingTypeMustBeClientTypes {

@@ -28,6 +28,7 @@ pub async fn transform_fixture(fixture: &Fixture<'_>) -> Result<String, String> 
             SchemaValidationOptions {
                 allow_introspection_names: false,
                 exempt_coordinates: &FeatureFlag::Disabled,
+                client_implementors_of_server_interfaces: &FeatureFlag::Disabled,
             },
         )
     });

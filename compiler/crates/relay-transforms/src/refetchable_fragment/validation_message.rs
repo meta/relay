@@ -23,6 +23,14 @@ pub(super) enum ValidationMessage {
     },
 
     #[error(
+        "Invalid use of @refetchable on fragment `{fragment_name}`: client-defined types implement or belong to `{type_name}`, and a refetch query fetches server objects only, so refetching one of their objects would ask the server for a client id. Put @refetchable on a fragment on a server type, such as the parent that spreads `{fragment_name}`."
+    )]
+    RefetchableFragmentOnTypeWithClientImplementors {
+        fragment_name: FragmentDefinitionName,
+        type_name: StringKey,
+    },
+
+    #[error(
         "Invalid use of @refetchable on fragment `{fragment_name}`, fragments cannot be annotated with both @refetchable and @relay(plural: true)."
     )]
     InvalidRefetchableFragmentWithRelayPlural {

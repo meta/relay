@@ -39,8 +39,8 @@ use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 use log::debug;
 use rayon::prelude::*;
+use relay_config::ProjectConfig;
 use relay_config::ProjectName;
-use relay_config::SchemaConfig;
 use schema::SDLSchema;
 use schema::ends_with_right_curly_brace;
 use schema_diff::check::SchemaChangeSafety;
@@ -57,7 +57,6 @@ use zstd::stream::write::Encoder as ZstdEncoder;
 use crate::artifact_map::ArtifactMap;
 use crate::artifact_map::ArtifactSourceKey;
 use crate::config::Config;
-use crate::config::ProjectConfig;
 use crate::errors::Error;
 use crate::errors::Result;
 use crate::file_source::Clock;
@@ -803,16 +802,20 @@ impl CompilerState {
     /// This method is looking at the pending schema changes to see if they may be breaking (removed types, renamed field, etc)
     /// When `built_schema` is provided, it is reused for the safety check
     /// instead of rebuilding the schema. `diff_changed_sources_only` mirrors
-    /// [`Config::schema_diff_changed_sources_only`].
+    /// [`Config::schema_diff_changed_sources_only`]. The check reads the schema
+    /// config and feature flags of `project_config`, also when `project_name`
+    /// is its base project.
     pub fn schema_change_safety(
         &self,
         log_event: &impl PerfLogEvent,
         project_name: ProjectName,
-        schema_config: &SchemaConfig,
+        project_config: &ProjectConfig,
         built_schema: Option<&SDLSchema>,
         diff_changed_sources_only: bool,
         check: SchemaChangeCheck,
     ) -> SchemaChangeSafety {
+        let schema_config = &project_config.schema_config;
+        let feature_flags = &project_config.feature_flags;
         if let Some(extension) = self.extensions.get(&project_name)
             && !extension.pending.is_empty()
         {
@@ -850,7 +853,7 @@ impl CompilerState {
                         SchemaChangeSafety::Safe
                     } else {
                         let schema = built_schema.unwrap_or(&current_schema);
-                        schema_change.get_safety(schema, schema_config)
+                        schema_change.get_safety(schema, schema_config, feature_flags)
                     };
                     match schema_change_safety {
                         SchemaChangeSafety::Unsafe => {
@@ -886,10 +889,10 @@ impl CompilerState {
             let schema_change_safety = if schema_change == SchemaChange::None {
                 SchemaChangeSafety::Safe
             } else if let Some(schema) = built_schema {
-                schema_change.get_safety(schema, schema_config)
+                schema_change.get_safety(schema, schema_config, feature_flags)
             } else {
                 match self.build_schema_for_safety_check(schema_sources) {
-                    Ok(schema) => schema_change.get_safety(&schema, schema_config),
+                    Ok(schema) => schema_change.get_safety(&schema, schema_config, feature_flags),
                     Err(_) => SchemaChangeSafety::Unsafe,
                 }
             };

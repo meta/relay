@@ -267,7 +267,7 @@ fn collect_client_implementors(
 
 /// Sorts by type name, so artifacts do not depend on schema order, and drops
 /// duplicates.
-fn sort_by_name(schema: &SDLSchema, object_ids: &mut Vec<ObjectID>) {
+pub fn sort_by_name(schema: &SDLSchema, object_ids: &mut Vec<ObjectID>) {
     let mut named = Vec::with_capacity(object_ids.len());
     for object_id in object_ids.iter() {
         named.push((schema.object(*object_id).name.item.0.lookup(), *object_id));

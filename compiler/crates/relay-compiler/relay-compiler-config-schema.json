@@ -711,7 +711,7 @@
           "default": false
         },
         "enable_client_implementors_of_server_abstract_types": {
-          "description": "Server interfaces and unions that client-defined types implement or\njoin. The compiler records those types in `clientAbstractTypes`, so a\nfragment on such an interface or union reads their objects; it never\nlists the server's members, which the server can add to without a\nclient compile. Limited and rollout variants are keyed by the server\ninterface or union name.",
+          "description": "Server interfaces and unions that client-defined types (Relay Resolver\ntypes and client schema extension types) implement or join. The\ncompiler records those types in `clientAbstractTypes`, and in\noperations that run at exec time reads each type's own resolvers\nthrough the interface's fields; it never lists the server's members,\nwhich the server can add to without a client compile. Limited and\nrollout variants are keyed by the server interface or union name.",
           "$ref": "#/$defs/FeatureFlag",
           "default": {
             "kind": "disabled"

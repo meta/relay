@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use common::DiagnosticsResult;
 use common::DirectiveName;
+use common::FeatureFlag;
 use common::PerfLogEvent;
 use common::PerfLogger;
 use common::sync::try_join;
@@ -16,6 +17,7 @@ use graphql_ir::FragmentDefinitionNameSet;
 use graphql_ir::Program;
 use raw_text::set_raw_text;
 use relay_config::ProjectConfig;
+use relay_schema::client_implementors::has_any_client_implementors;
 use validate_operation_variables::ValidateVariablesOptions;
 
 use super::*;
@@ -25,7 +27,16 @@ use crate::apply_custom_transforms::apply_before_custom_transforms;
 use crate::assignable_fragment_spread::annotate_updatable_fragment_spreads;
 use crate::assignable_fragment_spread::replace_updatable_fragment_spreads;
 use crate::client_extensions_abstract_types::client_extensions_abstract_types;
+use crate::client_implementor_cases::add_client_implementor_cases;
+use crate::client_implementor_cases::add_client_implementor_cases_for_typegen;
+use crate::client_implementor_cases::client_implementor_cases_for_normalization;
+use crate::client_implementor_cases::remove_client_implementor_cases;
+use crate::client_implementor_cases::validate_client_implementor_cases_run_at_exec_time;
 use crate::disallow_non_node_id_fields;
+use crate::exec_time_variable::bind_exec_time_variable;
+use crate::exec_time_variable::bind_exec_time_variable_in_refetch_queries;
+use crate::exec_time_variable::remove_exec_time_variable_from_refetch_queries;
+use crate::exec_time_variable::validate_exec_time_variable_is_reserved;
 use crate::generate_relay_resolvers_model_fragments::generate_relay_resolvers_model_fragments;
 use crate::generate_relay_resolvers_operations_for_nested_objects::generate_relay_resolvers_operations_for_nested_objects;
 use crate::generate_relay_resolvers_root_fragment_split_operation::generate_relay_resolvers_root_fragment_split_operation;
@@ -191,6 +202,17 @@ fn apply_common_transforms(
             &base_fragment_names,
         )
     })?;
+    // With the flag on, `$__relay_exec_time` is the compiler's even before a
+    // client type implements an interface it names.
+    if has_client_implementors_of_server_abstract_types(project_config) {
+        log_event.time("validate_exec_time_variable_is_reserved", || {
+            validate_exec_time_variable_is_reserved(&program)
+        })?;
+        program = log_event.time("bind_exec_time_variable", || {
+            bind_exec_time_variable(&program, &project_config.feature_flags)
+        });
+    }
+    let has_client_implementors = has_client_implementor_cases(project_config, &program);
     program = log_event.time("transform_connections", || {
         transform_connections(
             &program,
@@ -206,6 +228,21 @@ fn apply_common_transforms(
             &project_config.schema_config.defer_stream_interface,
         )
     })?;
+    // Must run after transform_defer_stream for the same reason as
+    // relay_resolvers_abstract_types below, and before it, so the cases come
+    // from the selections as authored and that transform's fan-out of other
+    // interfaces' resolvers applies inside them.
+    if has_client_implementors {
+        program = log_event.time("add_client_implementor_cases", || {
+            add_client_implementor_cases(
+                &program,
+                project_config
+                    .schema_config
+                    .defer_stream_interface
+                    .stream_name,
+            )
+        })?;
+    }
     // Must run after transform_defer_stream: it copies selections into one inline
     // fragment per implementor, and each copy of an authored @defer or @stream must
     // keep the single label assigned to it.
@@ -232,6 +269,21 @@ fn apply_common_transforms(
             transferrable_refetchable_query_directives,
         )
     })?;
+    // After transform_refetchable_fragment, so the refetch and pagination
+    // queries it generates are bound and checked too.
+    if has_client_implementors_of_server_abstract_types(project_config) {
+        program = log_event.time("bind_exec_time_variable_in_refetch_queries", || {
+            bind_exec_time_variable_in_refetch_queries(&program, &project_config.feature_flags)
+        });
+    }
+    if has_client_implementors {
+        log_event.time("validate_client_implementor_cases_run_at_exec_time", || {
+            validate_client_implementor_cases_run_at_exec_time(
+                &program,
+                &project_config.feature_flags,
+            )
+        })?;
+    }
 
     program = log_event.time("infer_client_component_boundaries", || {
         infer_client_component_boundaries(
@@ -332,6 +384,15 @@ fn apply_reader_transforms(
         )
     })?;
 
+    // The executor writes a case's values under the storage keys of the
+    // interface's fields, so the reader reads the selection as authored. After
+    // `client_edges`, so the client edge queries minted in cases match the
+    // other pipelines'.
+    if has_client_implementors_of_server_abstract_types(project_config) {
+        program = log_event.time("remove_client_implementor_cases", || {
+            remove_client_implementor_cases(&program)
+        });
+    }
     program = log_event.time("client_extensions", || client_extensions(&program));
     program = log_event.time("handle_field_transform", || {
         handle_field_transform(&program)
@@ -558,6 +619,14 @@ fn apply_normalization_transforms(
     });
     if let Some(print_stats) = maybe_print_stats {
         print_stats("inline_fragments", &program);
+    }
+
+    // After inline_fragments, which puts each fragment where it is spread: a
+    // client type's case is dropped below a server field.
+    if has_client_implementor_cases(project_config, &program) {
+        program = log_event.time("client_implementor_cases_for_normalization", || {
+            client_implementor_cases_for_normalization(&program)
+        });
     }
 
     program = log_event.time("client_extensions", || client_extensions(&program));
@@ -813,6 +882,21 @@ fn apply_typegen_transforms(
         annotate_updatable_fragment_spreads(&program)
     });
 
+    // Before `client_edges`, so the cases mint the client edge queries the
+    // operation pipeline mints.
+    let has_client_implementors = has_client_implementor_cases(project_config, &program);
+    if has_client_implementors {
+        program = log_event.time("add_client_implementor_cases_for_typegen", || {
+            add_client_implementor_cases_for_typegen(
+                &program,
+                project_config
+                    .schema_config
+                    .defer_stream_interface
+                    .stream_name,
+            )
+        });
+    }
+
     program = log_event.time("client_edges", || {
         client_edges(&program, project_config, &base_fragment_names, false, true)
     })?;
@@ -827,6 +911,12 @@ fn apply_typegen_transforms(
         )
     })?;
 
+    if has_client_implementors {
+        program = log_event.time("remove_client_implementor_cases", || {
+            remove_client_implementor_cases(&program)
+        });
+    }
+
     log_event.time("flatten", || flatten(&mut program, false, false))?;
     program = log_event.time("transform_refetchable_fragment", || {
         transform_refetchable_fragment(
@@ -837,6 +927,11 @@ fn apply_typegen_transforms(
             transferrable_refetchable_query_directives,
         )
     })?;
+    if has_client_implementors_of_server_abstract_types(project_config) {
+        program = log_event.time("remove_exec_time_variable_from_refetch_queries", || {
+            remove_exec_time_variable_from_refetch_queries(&program)
+        });
+    }
     program = log_event.time("annotate_server_fragment_spreads", || {
         annotate_server_fragment_spreads(&program)
     });
@@ -865,4 +960,22 @@ fn apply_typegen_transforms(
     log_event.complete();
 
     Ok(Arc::new(program))
+}
+
+/// Whether a server abstract type the project enables has a client-defined
+/// implementor. Otherwise no selection has cases, and their transforms are
+/// skipped.
+fn has_client_implementor_cases(project_config: &ProjectConfig, program: &Program) -> bool {
+    has_client_implementors_of_server_abstract_types(project_config)
+        && has_any_client_implementors(&program.schema)
+}
+
+/// Whether the project lets client types implement a server abstract type.
+fn has_client_implementors_of_server_abstract_types(project_config: &ProjectConfig) -> bool {
+    !matches!(
+        project_config
+            .feature_flags
+            .enable_client_implementors_of_server_abstract_types,
+        FeatureFlag::Disabled
+    )
 }

@@ -47,6 +47,7 @@ use relay_config::TypegenLanguage;
 use relay_schema::CUSTOM_SCALAR_DIRECTIVE_NAME;
 use relay_schema::EXPORT_NAME_CUSTOM_SCALAR_ARGUMENT_NAME;
 use relay_schema::PATH_CUSTOM_SCALAR_ARGUMENT_NAME;
+use relay_schema::client_implementors::has_client_implementors;
 use relay_schema::definitions::AbstractInlineKind;
 use relay_schema::definitions::ResolverType;
 use relay_schema::definitions::abstract_shadow_return_has_server_implementor;
@@ -3269,6 +3270,16 @@ fn create_edge_to_return_type_ast(
             read_only: true,
             optional: false,
         }))
+    } else if has_client_implementors(schema, *inner_type) {
+        // A server abstract type: the value is a client object, whose model
+        // resolver the `__typename` selects, or any server type, including
+        // ones the server adds later.
+        fields.push(Prop::KeyValuePair(KeyValuePairProp {
+            key: *KEY_TYPENAME,
+            value: AST::String,
+            read_only: true,
+            optional: false,
+        }));
     }
 
     AST::ExactObject(ExactObject::new(fields))

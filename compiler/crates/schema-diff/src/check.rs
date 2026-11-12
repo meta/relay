@@ -9,6 +9,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::sync::LazyLock;
 
+use common::FeatureFlag;
+use common::FeatureFlags;
 use common::InterfaceName;
 use intern::string_key::Intern;
 use intern::string_key::StringKey;
@@ -70,7 +72,10 @@ impl SchemaChange {
         self: SchemaChange,
         schema: &SDLSchema,
         schema_config: &SchemaConfig,
+        feature_flags: &FeatureFlags,
     ) -> SchemaChangeSafety {
+        let client_implementor_interfaces =
+            &feature_flags.enable_client_implementors_of_server_abstract_types;
         let mut needs_incremental_build: FxHashSet<IncrementalBuildSchemaChange> =
             HashSet::default();
         match self {
@@ -88,6 +93,17 @@ impl SchemaChange {
                             interfaces_added,
                             interfaces_removed,
                         } => {
+                            needs_incremental_build.extend(interfaces_with_changed_cases(
+                                schema,
+                                client_implementor_interfaces,
+                                name,
+                                &ObjectChanges {
+                                    added: &added,
+                                    removed: &removed,
+                                    interfaces_added: &interfaces_added,
+                                    interfaces_removed: &interfaces_removed,
+                                },
+                            ));
                             let id_name = schema_config.node_interface_id_field;
                             if !interfaces_added.is_empty()
                                 || !interfaces_removed.is_empty()
@@ -141,6 +157,22 @@ impl SchemaChange {
                             }
                         }
                         DefinitionChange::ObjectAdded(name) => {
+                            if !matches!(client_implementor_interfaces, FeatureFlag::Disabled)
+                                && let Some(schema::Type::Object(id)) = schema.get_type(name)
+                            {
+                                let interfaces = interface_names(schema, schema.object(id));
+                                needs_incremental_build.extend(interfaces_with_changed_cases(
+                                    schema,
+                                    client_implementor_interfaces,
+                                    name,
+                                    &ObjectChanges {
+                                        added: &[],
+                                        removed: &[],
+                                        interfaces_added: &interfaces,
+                                        interfaces_removed: &[],
+                                    },
+                                ));
+                            }
                             if !is_object_add_safe(name, schema, schema_config) {
                                 // The new type has an id field and implements
                                 // non-Node interfaces. Queries spreading on
@@ -234,6 +266,32 @@ impl SchemaChange {
                                 }
                                 needs_incremental_build
                                     .insert(IncrementalBuildSchemaChange::Interface(*iface_name));
+                            }
+                            // The removed type may have had a case on any enabled
+                            // interface it implemented, including through another
+                            // interface, and including `Node`.
+                            if !matches!(client_implementor_interfaces, FeatureFlag::Disabled) {
+                                let mut reached = vec![];
+                                for iface_name in &interfaces {
+                                    collect_interface_and_super_interfaces(
+                                        schema,
+                                        *iface_name,
+                                        &mut reached,
+                                    );
+                                }
+                                for iface_name in reached {
+                                    if !client_fields_of_enabled_server_interface(
+                                        schema,
+                                        client_implementor_interfaces,
+                                        iface_name,
+                                    )
+                                    .is_empty()
+                                    {
+                                        needs_incremental_build.insert(
+                                            IncrementalBuildSchemaChange::Interface(iface_name),
+                                        );
+                                    }
+                                }
                             }
                         }
 
@@ -437,6 +495,140 @@ fn add_interface_and_super_interfaces(
     }
 }
 
+/// What a server schema change did to one object type.
+struct ObjectChanges<'a> {
+    added: &'a [TypeChange],
+    removed: &'a [TypeChange],
+    interfaces_added: &'a [StringKey],
+    interfaces_removed: &'a [StringKey],
+}
+
+/// With `enable_client_implementors_of_server_abstract_types`, a server type
+/// that serves a client field of an enabled server interface, as a server field
+/// or with its own resolver, gets a case wherever the field is selected on the
+/// interface, though no document names the type. Returns the interfaces whose
+/// cases `changes` to `object_name` may add or remove.
+fn interfaces_with_changed_cases(
+    schema: &SDLSchema,
+    enabled: &FeatureFlag,
+    object_name: StringKey,
+    changes: &ObjectChanges<'_>,
+) -> Vec<IncrementalBuildSchemaChange> {
+    let mut interfaces = vec![];
+    if matches!(enabled, FeatureFlag::Disabled) {
+        return interfaces;
+    }
+    let Some(schema::Type::Object(object_id)) = schema.get_type(object_name) else {
+        return interfaces;
+    };
+    let object = schema.object(object_id);
+    // The interfaces the object implements, directly or through other
+    // interfaces, and the ones it no longer implements.
+    let mut candidates = vec![];
+    for interface_name in interface_names(schema, object) {
+        collect_interface_and_super_interfaces(schema, interface_name, &mut candidates);
+    }
+    let mut changed_membership = vec![];
+    for interface_name in changes
+        .interfaces_added
+        .iter()
+        .chain(changes.interfaces_removed)
+    {
+        collect_interface_and_super_interfaces(schema, *interface_name, &mut changed_membership);
+        collect_interface_and_super_interfaces(schema, *interface_name, &mut candidates);
+    }
+    for interface_name in candidates {
+        let membership_changed = changed_membership.contains(&interface_name);
+        for field_name in client_fields_of_enabled_server_interface(schema, enabled, interface_name)
+        {
+            if has_field_named(changes.added, field_name)
+                || has_field_named(changes.removed, field_name)
+                || (membership_changed && defines_field(schema, object, field_name))
+            {
+                interfaces.push(IncrementalBuildSchemaChange::Interface(interface_name));
+                break;
+            }
+        }
+    }
+    interfaces
+}
+
+/// Adds `interface_name` and every interface it implements in the current
+/// schema, directly or through other interfaces, to `names`.
+fn collect_interface_and_super_interfaces(
+    schema: &SDLSchema,
+    interface_name: StringKey,
+    names: &mut Vec<StringKey>,
+) {
+    let mut pending = vec![interface_name];
+    while let Some(name) = pending.pop() {
+        if names.contains(&name) {
+            continue;
+        }
+        names.push(name);
+        if let Some(schema::Type::Interface(interface_id)) = schema.get_type(name) {
+            for super_interface_id in &schema.interface(interface_id).interfaces {
+                pending.push(schema.interface(*super_interface_id).name.item.0);
+            }
+        }
+    }
+}
+
+fn interface_names(schema: &SDLSchema, object: &schema::Object) -> Vec<StringKey> {
+    let mut names = Vec::with_capacity(object.interfaces.len());
+    for interface_id in &object.interfaces {
+        names.push(schema.interface(*interface_id).name.item.0);
+    }
+    names
+}
+
+/// The client fields of `interface_name` when it is a server interface that
+/// `enabled` names.
+fn client_fields_of_enabled_server_interface(
+    schema: &SDLSchema,
+    enabled: &FeatureFlag,
+    interface_name: StringKey,
+) -> Vec<StringKey> {
+    let mut names = vec![];
+    if !enabled.is_enabled_for(interface_name) {
+        return names;
+    }
+    let Some(schema::Type::Interface(interface_id)) = schema.get_type(interface_name) else {
+        return names;
+    };
+    let interface = schema.interface(interface_id);
+    if interface.is_extension {
+        return names;
+    }
+    for field_id in &interface.fields {
+        let field = schema.field(*field_id);
+        if field.is_extension {
+            names.push(field.name.item);
+        }
+    }
+    names
+}
+
+fn has_field_named(fields: &[TypeChange], name: StringKey) -> bool {
+    for field in fields {
+        if field.name == name {
+            return true;
+        }
+    }
+    false
+}
+
+/// Whether `object` defines a field `name`: a server field, or a client field
+/// that its own resolver may serve.
+fn defines_field(schema: &SDLSchema, object: &schema::Object, name: StringKey) -> bool {
+    for field_id in &object.fields {
+        if schema.field(*field_id).name.item == name {
+            return true;
+        }
+    }
+    false
+}
+
 fn add_unions_for_incremental_build(
     schema: &SDLSchema,
     needs_incremental_build: &mut FxHashSet<IncrementalBuildSchemaChange>,
@@ -448,5 +640,162 @@ fn add_unions_for_incremental_build(
         }) {
             needs_incremental_build.insert(IncrementalBuildSchemaChange::Union(u.name.item.0));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use common::FeatureFlag;
+    use common::FeatureFlags;
+    use common::SourceLocationKey;
+    use intern::string_key::Intern;
+    use schema::build_schema_with_extensions_parallel;
+
+    use super::*;
+    use crate::detect_changes;
+
+    /// `note` is a client field of the server interface `Spec`.
+    const EXTENSION: &str = "extend interface Spec { note: String }";
+
+    fn safety(current: &str, previous: &str, enabled: FeatureFlag) -> SchemaChangeSafety {
+        safety_with_extension(current, previous, EXTENSION, enabled)
+    }
+
+    fn safety_with_extension(
+        current: &str,
+        previous: &str,
+        extension: &str,
+        enabled: FeatureFlag,
+    ) -> SchemaChangeSafety {
+        let schema = build_schema_with_extensions_parallel::<_, &str>(
+            &[(current, SourceLocationKey::generated())],
+            &[(extension, SourceLocationKey::generated())],
+        )
+        .expect("Expected the test schema to build");
+        let feature_flags = FeatureFlags {
+            enable_client_implementors_of_server_abstract_types: enabled,
+            ..Default::default()
+        };
+        detect_changes(&[current], &[previous]).get_safety(
+            &schema,
+            &Default::default(),
+            &feature_flags,
+        )
+    }
+
+    fn rebuild(changes: Vec<IncrementalBuildSchemaChange>) -> SchemaChangeSafety {
+        SchemaChangeSafety::SafeWithIncrementalBuild(changes.into_iter().collect())
+    }
+
+    #[test]
+    fn a_new_server_type_serving_a_client_field_rebuilds_the_interface() {
+        let previous = "interface Spec { interval_days: Int }";
+        let current = "interface Spec { interval_days: Int }
+            type NewSpec implements Spec { interval_days: Int note: String }";
+        assert_eq!(
+            safety(current, previous, FeatureFlag::Enabled),
+            rebuild(vec![IncrementalBuildSchemaChange::Interface(
+                "Spec".intern()
+            )]),
+            "NewSpec serves `note` as a server field, so a selection of `note` on Spec gets its case"
+        );
+        assert_eq!(
+            safety(current, previous, FeatureFlag::Disabled),
+            SchemaChangeSafety::Safe,
+            "Without the flag no selection has cases"
+        );
+        assert_eq!(
+            safety(
+                current,
+                previous,
+                FeatureFlag::Limited {
+                    allowlist: ["Other".intern()].into_iter().collect(),
+                },
+            ),
+            SchemaChangeSafety::Safe,
+            "The flag does not name Spec"
+        );
+    }
+
+    #[test]
+    fn a_server_field_named_like_a_client_field_rebuilds_the_interface() {
+        let previous = "interface Spec { interval_days: Int }
+            type FrequencySpec implements Spec { interval_days: Int }";
+        assert_eq!(
+            safety(
+                "interface Spec { interval_days: Int }
+                type FrequencySpec implements Spec { interval_days: Int note: String }",
+                previous,
+                FeatureFlag::Enabled,
+            ),
+            rebuild(vec![IncrementalBuildSchemaChange::Interface(
+                "Spec".intern()
+            )]),
+        );
+        assert_eq!(
+            safety(
+                "interface Spec { interval_days: Int }
+                type FrequencySpec implements Spec { interval_days: Int other: String }",
+                previous,
+                FeatureFlag::Enabled,
+            ),
+            SchemaChangeSafety::Safe,
+            "`other` is no client field of Spec"
+        );
+    }
+
+    #[test]
+    fn removing_a_server_field_named_like_a_client_field_rebuilds_the_interface() {
+        assert_eq!(
+            safety(
+                "interface Spec { interval_days: Int }
+                type FrequencySpec implements Spec { interval_days: Int }",
+                "interface Spec { interval_days: Int }
+                type FrequencySpec implements Spec { interval_days: Int note: String }",
+                FeatureFlag::Enabled,
+            ),
+            rebuild(vec![
+                IncrementalBuildSchemaChange::Object("FrequencySpec".intern()),
+                IncrementalBuildSchemaChange::Interface("Spec".intern()),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_server_type_joining_the_interface_rebuilds_it() {
+        assert_eq!(
+            safety(
+                "interface Spec { interval_days: Int }
+                type FrequencySpec implements Spec { interval_days: Int note: String }",
+                "interface Spec { interval_days: Int }
+                type FrequencySpec { interval_days: Int note: String }",
+                FeatureFlag::Enabled,
+            ),
+            rebuild(vec![
+                IncrementalBuildSchemaChange::Object("FrequencySpec".intern()),
+                IncrementalBuildSchemaChange::Interface("Spec".intern()),
+            ]),
+        );
+    }
+
+    #[test]
+    fn a_server_type_serving_a_client_field_itself_leaving_the_interface_rebuilds_it() {
+        // `OtherSpec` defines `note` itself, as a type with its own resolver for
+        // it does.
+        assert_eq!(
+            safety_with_extension(
+                "interface Spec { interval_days: Int }
+                type OtherSpec { interval_days: Int }",
+                "interface Spec { interval_days: Int }
+                type OtherSpec implements Spec { interval_days: Int }",
+                "extend interface Spec { note: String }
+                extend type OtherSpec { note: String }",
+                FeatureFlag::Enabled,
+            ),
+            rebuild(vec![
+                IncrementalBuildSchemaChange::Object("OtherSpec".intern()),
+                IncrementalBuildSchemaChange::Interface("Spec".intern()),
+            ]),
+        );
     }
 }

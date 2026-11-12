@@ -13,7 +13,7 @@
  * @RelayResolver ClientUser implements Node
  */
 ==================================== ERROR ====================================
-✖︎ The interface `Node` is not defined in a client schema extension. Resolver types that implement interfaces can only implement client-defined interfaces.
+✖︎ The interface `Node` is not defined in a client schema extension. Resolver types can implement a server interface only where the project enables `enable_client_implementors_of_server_abstract_types` for it.
 
   /path/to/test/fixture/relay-resolver-strong-object-with-implements-server-interface.invalid.js:2:19
     1 │ *

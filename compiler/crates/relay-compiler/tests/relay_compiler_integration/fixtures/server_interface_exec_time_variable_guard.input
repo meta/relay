@@ -1,0 +1,75 @@
+//- CampaignFragment.js
+// `$__relay_exec_time` is true only while the operation runs at exec time, so
+// the cases under `@include(if: $__relay_exec_time)` are never read at read
+// time and every operation may reach them. The compiler declares the variable:
+// the gated query reads its `enabledProvider`, the exec-time query defaults it
+// to true and the read-time query to false, which reads the legacy branch.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignRoot.js
+graphql`fragment CampaignRootFragment on Query {
+  client_group @include(if: $__relay_exec_time) {
+    ...CampaignFragment
+  }
+  group @skip(if: $__relay_exec_time) {
+    name
+  }
+}`
+
+//- CampaignQueries.js
+graphql`query CampaignQueriesGatedQuery @exec_time_resolvers(enabledProvider: "ExecTimeProvider") {
+  ...CampaignRootFragment
+}`
+
+graphql`query CampaignQueriesExecTimeQuery @exec_time_resolvers {
+  ...CampaignRootFragment
+}`
+
+graphql`query CampaignQueriesReadTimeQuery {
+  ...CampaignRootFragment
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}

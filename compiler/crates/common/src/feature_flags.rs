@@ -292,12 +292,13 @@ pub struct FeatureFlags {
     #[serde(default)]
     pub skip_impossible_inline_fragments: FeatureFlag,
 
-    /// Server interfaces and unions that client-defined types implement or
-    /// join. The compiler records those types in `clientAbstractTypes`, so a
-    /// fragment on such an interface or union reads their objects; it never
-    /// lists the server's members, which the server can add to without a
-    /// client compile. Limited and rollout variants are keyed by the server
-    /// interface or union name.
+    /// Server interfaces and unions that client-defined types (Relay Resolver
+    /// types and client schema extension types) implement or join. The
+    /// compiler records those types in `clientAbstractTypes`, and in
+    /// operations that run at exec time reads each type's own resolvers
+    /// through the interface's fields; it never lists the server's members,
+    /// which the server can add to without a client compile. Limited and
+    /// rollout variants are keyed by the server interface or union name.
     #[serde(default)]
     pub enable_client_implementors_of_server_abstract_types: FeatureFlag,
 }

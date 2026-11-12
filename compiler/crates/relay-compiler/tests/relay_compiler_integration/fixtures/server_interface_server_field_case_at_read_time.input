@@ -1,0 +1,49 @@
+//- CampaignFragment.js
+// The only case is `AdCampaignGroup`'s, which serves the interface's client
+// field as a server field: the server writes it where a read-time read looks.
+graphql`fragment CampaignFragment on CampaignGroup {
+  smart_promotion_type
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery {
+  group {
+    ...CampaignFragment
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  smart_promotion_type: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  smart_promotion_type: String
+}
+
+type ClientGroup implements CampaignGroup {
+  id: ID!
+  smart_promotion_type: String
+}

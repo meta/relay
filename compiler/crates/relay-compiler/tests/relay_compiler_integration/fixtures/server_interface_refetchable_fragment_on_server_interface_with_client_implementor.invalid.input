@@ -1,0 +1,48 @@
+//- CampaignFragment.js
+// A refetch query fetches server objects only; a `ClientCampaignGroup` read
+// through this fragment would be refetched with its client id.
+graphql`fragment CampaignFragment on CampaignGroup
+  @refetchable(queryName: "CampaignFragmentRefetchQuery") {
+  name
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name(group: ClientCampaignGroup): string {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements Node & CampaignGroup {
+  id: ID!
+  name: String
+}

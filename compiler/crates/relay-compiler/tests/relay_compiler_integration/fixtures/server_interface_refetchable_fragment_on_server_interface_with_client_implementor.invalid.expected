@@ -1,0 +1,56 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// A refetch query fetches server objects only; a `ClientCampaignGroup` read
+// through this fragment would be refetched with its client id.
+graphql`fragment CampaignFragment on CampaignGroup
+  @refetchable(queryName: "CampaignFragmentRefetchQuery") {
+  name
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name(group: ClientCampaignGroup): string {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements Node & CampaignGroup {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Invalid use of @refetchable on fragment `CampaignFragment`: client-defined types implement or belong to `CampaignGroup`, and a refetch query fetches server objects only, so refetching one of their objects would ask the server for a client id. Put @refetchable on a fragment on a server type, such as the parent that spreads `CampaignFragment`.
+
+  CampaignFragment.js:3:18
+    3 │ fragment CampaignFragment on CampaignGroup
+      │          ^^^^^^^^^^^^^^^^
+    4 │   @refetchable(queryName: "CampaignFragmentRefetchQuery") {

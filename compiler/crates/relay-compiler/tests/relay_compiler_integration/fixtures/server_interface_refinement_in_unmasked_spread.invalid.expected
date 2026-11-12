@@ -1,0 +1,65 @@
+==================================== INPUT ====================================
+//- Fragments.js
+// An unmasked spread becomes an inline fragment without a location: the error
+// on its refinement on `Node` points at the enclosing fragment.
+graphql`fragment Fragments_unmasked on CampaignGroup {
+  ...Fragments_nodeId @relay(mask: false)
+}`
+
+graphql`fragment Fragments_nodeId on Node {
+  id
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enforce_fragment_alias_where_ambiguous": { "kind": "disabled" },
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+  node(id: ID!): Node
+  search: SearchResult
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup & Node {
+  id: ID!
+  name: String
+}
+
+union SearchResult = AdCampaignGroup
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` is a client-defined type of `CampaignGroup` that Relay does not list for `Node`, so an object of `ClientCampaignGroup` read through this refinement would read as missing data: the reader answers `__isNode` for a client object only from the types the compiler lists. Select this inside `... on` the server types.
+
+  Fragments.js:3:18
+    3 │ fragment Fragments_unmasked on CampaignGroup {
+      │          ^^^^^^^^^^^^^^^^^^
+    4 │   ...Fragments_nodeId @relay(mask: false)

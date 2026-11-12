@@ -441,8 +441,8 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
             let project_schema_change = compiler_state.schema_change_safety(
                 log_event,
                 project_config.name,
-                &project_config.schema_config,
-                None,
+                project_config,
+                Some(&schema),
                 self.lsp_state.config.schema_diff_changed_sources_only,
                 SchemaChangeCheck::Project,
             );
@@ -453,7 +453,7 @@ impl<TPerfLogger: PerfLogger + 'static, TSchemaDocumentation: SchemaDocumentatio
                         compiler_state.schema_change_safety(
                             log_event,
                             base,
-                            &project_config.schema_config,
+                            project_config,
                             None,
                             self.lsp_state.config.schema_diff_changed_sources_only,
                             SchemaChangeCheck::BaseProject,

@@ -1,0 +1,59 @@
+//- PetsQuery.js
+// A read-time query reads the interface's client field `nickname` below the
+// server field `pets`, where only server objects are, and `Dog` serves it from
+// the store. `ClientPet`'s own `nickname` resolver, and its root fragment, are
+// never read here.
+graphql`query PetsQuery {
+  pets {
+    nickname
+  }
+}`
+
+//- ClientPet.js
+/**
+ * @relayType ClientPet implements IPet
+ */
+export function ClientPet(id: string) {}
+
+/**
+ * @relayField ClientPet.friend: IPet
+ */
+export function friend() {}
+
+/**
+ * @relayField ClientPet.nickname: String
+ * @rootFragment ClientPet_nicknameFragment
+ */
+export function nickname() {}
+graphql`fragment ClientPet_nicknameFragment on ClientPet {
+  friend {
+    name
+  }
+}`
+
+/**
+ * @relayField ClientPet.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query { pets: [IPet] }
+interface IPet { id: ID! name: String }
+type Dog implements IPet { id: ID! name: String }
+
+//- extensions/extension.graphql
+extend interface IPet { nickname: String }
+extend type Dog { nickname: String }

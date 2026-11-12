@@ -1,0 +1,46 @@
+==================================== INPUT ====================================
+//- CampaignAssignable.js
+// Assigning through this fragment could link a `ClientCampaignGroup` into a
+// server field.
+graphql`fragment CampaignAssignable on CampaignGroup @assignable {
+  __typename
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ The @assignable fragment `CampaignAssignable` is on `CampaignGroup`, which client-defined types implement or belong to: an assignment through it could link a client object into a server field. Use an @assignable fragment on a server type of `CampaignGroup` instead.
+
+  CampaignAssignable.js:3:18
+    3 │ fragment CampaignAssignable on CampaignGroup @assignable {
+      │          ^^^^^^^^^^^^^^^^^^
+    4 │   __typename

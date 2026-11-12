@@ -1,0 +1,101 @@
+//- SpecFragment.js
+// `OtherSpec` has no `id` and a resolver for `note` without a root fragment.
+// The server makes `OtherSpec` implement `Spec`, which gives it a case in an
+// exec-time query: the incremental build reports the missing root fragment, as
+// a full build does.
+graphql`fragment SpecFragment on Spec {
+  note
+}`
+
+//- SpecQuery.js
+graphql`query SpecQuery @exec_time_resolvers {
+  group {
+    spec {
+      ...SpecFragment
+    }
+  }
+}`
+
+//- ClientSpec.js
+/**
+ * @relayType ClientSpec implements Spec
+ * @weak
+ */
+export type ClientSpec = {note: string};
+
+/**
+ * @relayField ClientSpec.note: String
+ */
+export function note() {}
+
+//- OtherSpecResolvers.js
+/**
+ * @relayField OtherSpec.note: String
+ */
+export function note() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+type AdCampaignGroup {
+  id: ID!
+  spec: Spec
+}
+
+interface Spec {
+  interval_days: Int
+}
+
+type FrequencySpec implements Spec {
+  interval_days: Int
+}
+
+type OtherSpec {
+  interval_days: Int
+}
+
+//- extensions/extension.graphql
+extend interface Spec {
+  note: String
+}
+
+extend type FrequencySpec {
+  note: String
+}
+
+//-++ schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+type AdCampaignGroup {
+  id: ID!
+  spec: Spec
+}
+
+interface Spec {
+  interval_days: Int
+}
+
+type FrequencySpec implements Spec {
+  interval_days: Int
+}
+
+type OtherSpec implements Spec {
+  interval_days: Int
+}

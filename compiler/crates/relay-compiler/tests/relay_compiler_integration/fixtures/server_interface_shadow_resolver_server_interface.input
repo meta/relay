@@ -1,0 +1,93 @@
+//- WeeklyFixture.js
+// A shadow resolver (magic fragment) returning a server interface that client
+// models implement: the shape of Ads Manager's `mixed_campaign_groups`, with
+// a nested server interface implemented by a weak client model.
+graphql`query WeeklyFixtureQuery @exec_time_resolvers {
+  mixed_groups {
+    ...WeeklyFixture_groups
+  }
+}`;
+graphql`fragment WeeklyFixture_groups on ICampaignGroup @relay(plural: true) @throwOnFieldError {
+  frequency_control_specs {
+    interval_days
+    max_frequency
+  }
+}`;
+
+//- WeeklyShadow.js
+/**
+ * @relayField Query.mixed_groups: [ICampaignGroup!]
+ * @rootFragment WeeklyShadowResolverFragment
+ * @returnFragment WeeklyShadowReturnFragment
+ */
+export function mixed_groups(): ReadonlyArray<{id: string}> { return []; }
+graphql`fragment WeeklyShadowResolverFragment on Query {
+  groups { ...WeeklyShadowReturnFragment }
+}`;
+
+//- ParentModel.js
+/**
+ * @relayType CombinedCampaignGroup implements ICampaignGroup
+ */
+export function CombinedCampaignGroup(id: string): ?{id: string} { return {id}; }
+/**
+ * @relayField CombinedCampaignGroup.frequency_control_specs: [ClientFrequencyControlSpec!] @semanticNonNull
+ */
+export function frequency_control_specs(model: {id: string}): ReadonlyArray<ClientFrequencyControlSpec> { return []; }
+
+//- NestedModel.js
+/**
+ * @relayType ClientFrequencyControlSpec
+ * @weak
+ */
+export type ClientFrequencyControlSpec = {interval_days: number, max_frequency: number};
+
+//- NumericFields.js
+/**
+ * @relayField ClientFrequencyControlSpec.interval_days: Int @semanticNonNull
+ */
+export function interval_days(model: ClientFrequencyControlSpec): number { return model.interval_days; }
+/**
+ * @relayField ClientFrequencyControlSpec.max_frequency: Int @semanticNonNull
+ */
+export function max_frequency(model: ClientFrequencyControlSpec): number { return model.max_frequency; }
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_shadow_resolvers": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": {
+      "kind": "limited",
+      "allowlist": ["ICampaignGroup", "IFrequencyControlSpec"]
+    }
+  }
+}
+
+//- schema.graphql
+directive @semanticNonNull on FIELD_DEFINITION
+type Query { groups: [AdCampaignGroup!]! }
+interface ICampaignGroup {
+  id: ID!
+  frequency_control_specs: [IFrequencyControlSpec!] @semanticNonNull
+}
+interface IFrequencyControlSpec {
+  interval_days: Int @semanticNonNull
+  max_frequency: Int @semanticNonNull
+}
+type AdCampaignGroup implements ICampaignGroup {
+  id: ID!
+  frequency_control_specs: [FrequencyControlSpec!]!
+}
+type FrequencyControlSpec implements IFrequencyControlSpec {
+  interval_days: Int @semanticNonNull
+  max_frequency: Int @semanticNonNull
+}
+
+//- extensions/extension.graphql
+extend type ClientFrequencyControlSpec implements IFrequencyControlSpec

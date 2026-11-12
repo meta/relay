@@ -1,0 +1,70 @@
+//- CampaignFragment.js
+// `ClientCampaignGroup` implements `CampaignGroup` but not `Node`: the reader
+// cannot answer `__isNode` for its objects, so the refinement and the spread
+// on `Node` are errors.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+  ... on Node {
+    id
+  }
+  ...CampaignFragment_node @alias
+}`
+
+graphql`fragment CampaignFragment_node on Node {
+  id
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup & Node {
+  id: ID!
+  name: String
+}

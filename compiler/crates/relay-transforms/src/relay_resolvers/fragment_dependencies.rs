@@ -104,9 +104,15 @@ pub fn get_all_resolver_fragment_dependency_names(
 
         // Collect all fragment names from concrete implementations
         for object_id in implementing_objects.iter() {
-            let concrete_field_id = schema
-                .named_field(Type::Object(*object_id), field.name.item)
-                .expect("Expected field to be defined on concrete type");
+            // An implementor without the field has no resolver to depend on: a
+            // client type implementing a server interface may leave out the
+            // fields no document reads on its objects, and a server type can
+            // lack one through a schema validation exemption.
+            let Some(concrete_field_id) =
+                schema.named_field(Type::Object(*object_id), field.name.item)
+            else {
+                continue;
+            };
             let concrete_field = schema.field(concrete_field_id);
 
             if let Some(fragment_name) = concrete_field

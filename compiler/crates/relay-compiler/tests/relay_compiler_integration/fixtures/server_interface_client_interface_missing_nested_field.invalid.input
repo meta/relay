@@ -1,0 +1,88 @@
+//- CampaignFragment.js
+// `ClientCampaignGroup.owner` returns the client interface `ClientOwnerI`,
+// which implements the server interface `Owner` without `email`.
+graphql`fragment CampaignFragment on CampaignGroup {
+  owner {
+    email
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.owner: ClientOwnerI
+ */
+export function owner() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- ClientOwner.js
+/**
+ * @relayType ClientOwner implements ClientOwnerI & Owner
+ */
+export function ClientOwner(id: string) {}
+
+/**
+ * @relayField ClientOwner.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface Owner {
+  id: ID!
+  name: String
+  email: String
+}
+
+type User implements Owner {
+  id: ID!
+  name: String
+  email: String
+}
+
+interface CampaignGroup {
+  id: ID!
+  owner: Owner
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  owner: User
+}
+
+//- extensions/extension.graphql
+interface ClientOwnerI implements Owner {
+  id: ID!
+  name: String
+}

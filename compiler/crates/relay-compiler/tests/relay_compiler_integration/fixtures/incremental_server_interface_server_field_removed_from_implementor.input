@@ -1,0 +1,72 @@
+//- CampaignFragment.js
+// `smart_promotion_type` is a client field of the server interface
+// `CampaignGroup` that `AdCampaignGroup` first serves as a server field, with a
+// case. The server then removes it: the incremental build drops the case, as a
+// full build does. (A server type can only lack the field without schema
+// validation.)
+graphql`fragment CampaignFragment on CampaignGroup {
+  smart_promotion_type
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.smart_promotion_type: String
+ */
+export function smart_promotion_type() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "disable_schema_validation": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  smart_promotion_type: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  smart_promotion_type: String
+}
+
+//-++ schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+}

@@ -1,0 +1,69 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// The client schema extension type `ClientCampaignGroup` implements the server
+// interface `AdObject`, which the flag does not name, so the compiler does not
+// list it for `__isAdObject`: the error offers naming `AdObject`.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+  ... on AdObject {
+    status
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery {
+  local_group {
+    ...CampaignFragment
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_client_implementors_of_server_abstract_types": { "kind": "limited", "allowlist": ["CampaignGroup"] }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+interface AdObject {
+  id: ID!
+  status: String
+}
+
+type AdCampaignGroup implements CampaignGroup & AdObject {
+  id: ID!
+  name: String
+  status: String
+}
+
+//- extensions/extension.graphql
+type ClientCampaignGroup implements CampaignGroup & AdObject {
+  id: ID!
+  name: String
+  status: String
+}
+
+extend type Query {
+  local_group: CampaignGroup
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` is a client-defined type of `CampaignGroup` that Relay does not list for `AdObject`, so an object of `ClientCampaignGroup` read through this refinement would read as missing data: the reader answers `__isAdObject` for a client object only from the types the compiler lists. Name `AdObject` in `enable_client_implementors_of_server_abstract_types`, or select this inside `... on` the server types.
+
+  CampaignFragment.js:6:3
+    5 │   name
+    6 │   ... on AdObject {
+      │   ^^^
+    7 │     status

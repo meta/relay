@@ -1,0 +1,82 @@
+==================================== INPUT ====================================
+//- AccountFragment.js
+// The `@refetchable` fragment reaching the server interface `CampaignGroup`
+// drops `@exec_time_resolvers` from its `directives`, so its generated query
+// runs at read time. The rule reports the generated query, as in a full build.
+graphql`fragment AccountFragment on Query
+  @refetchable(queryName: "AccountRefetchQuery", directives: ["@exec_time_resolvers"]) {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- AccountQuery.js
+graphql`query AccountQuery @exec_time_resolvers {
+  ...AccountFragment
+}`
+
+//- CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+  budget: Int
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+  budget: Int
+}
+
+//-++ AccountFragment.js
+graphql`fragment AccountFragment on Query
+  @refetchable(queryName: "AccountRefetchQuery") {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` implements the server interface `CampaignGroup` and serves `name` with its own resolver, which only exec time reads: the executor computes it when the query runs. `AccountRefetchQuery`, the query Relay generates for `@refetchable` on `AccountFragment`, reaches this selection and runs at read time. A refetch passes it `$__relay_exec_time` from the query that fetched `AccountFragment`, and only an `enabledProvider` in its `directives` overrides that. Add `directives: ["@exec_time_resolvers"]` to that `@refetchable`, use `@exec_time_resolvers(enabledProvider: ...)` there and select this under `@include(if: $__relay_exec_time)`, or select this inside `... on` the server types.
+
+  CampaignFragment.js:2:3
+    1 │ fragment CampaignFragment on CampaignGroup {
+    2 │   name
+      │   ^^^^
+    3 │ }

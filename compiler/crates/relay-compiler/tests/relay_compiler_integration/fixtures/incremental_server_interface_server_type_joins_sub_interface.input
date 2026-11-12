@@ -1,0 +1,85 @@
+//- NoteFragment.js
+// `ISub` implements the enabled `Spec`, whose client field `note` the server
+// type `FrequencySpec` serves as a server field. The server makes
+// `FrequencySpec` implement `ISub` without listing `Spec`, which Relay accepts:
+// the incremental build gives `note` a `FrequencySpec` case, as a full build
+// does.
+graphql`fragment NoteFragment on Spec {
+  note
+}`
+
+//- NoteQuery.js
+graphql`query NoteQuery {
+  spec {
+    ...NoteFragment
+  }
+}`
+
+//- ClientSpec.js
+/**
+ * @relayType ClientSpec implements Spec
+ */
+export function ClientSpec(id: string) {}
+
+/**
+ * @relayField ClientSpec.note: String
+ */
+export function note() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "limited", "allowlist": ["Spec"] }
+  }
+}
+
+//- schema.graphql
+type Query {
+  spec: Spec
+}
+
+interface Spec {
+  id: ID!
+}
+
+interface ISub implements Spec {
+  id: ID!
+}
+
+type FrequencySpec {
+  id: ID!
+  note: String
+}
+
+//- extensions/extension.graphql
+extend interface Spec {
+  note: String
+}
+
+extend interface ISub {
+  note: String
+}
+
+//-++ schema.graphql
+type Query {
+  spec: Spec
+}
+
+interface Spec {
+  id: ID!
+}
+
+interface ISub implements Spec {
+  id: ID!
+}
+
+type FrequencySpec implements ISub {
+  id: ID!
+  note: String
+}

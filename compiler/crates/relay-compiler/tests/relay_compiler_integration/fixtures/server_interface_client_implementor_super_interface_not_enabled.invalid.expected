@@ -1,0 +1,50 @@
+==================================== INPUT ====================================
+//- ClientCampaignGroup.js
+// `CampaignGroup` implements `AdObject`, so `ClientCampaignGroup` implements
+// `AdObject` too: fragments on `AdObject` would read it, so the project must
+// enable `AdObject` as well.
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": {
+      "kind": "limited",
+      "allowlist": ["CampaignGroup"]
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface AdObject {
+  id: ID!
+}
+
+interface CampaignGroup implements AdObject {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements AdObject & CampaignGroup {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` implements the server interface `AdObject` through `CampaignGroup`, so `enable_client_implementors_of_server_abstract_types` must enable `AdObject` too.
+
+  ClientCampaignGroup.js:5:15
+    4 │ *
+    5 │  * @relayType ClientCampaignGroup implements CampaignGroup
+      │               ^^^^^^^^^^^^^^^^^^^
+    6 │

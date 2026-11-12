@@ -1,0 +1,67 @@
+//- NoteFragment.js
+// The flag names `Node`, which the client type `ClientNode` implements. `note`
+// is a client field of `Node` that the server type `FrequencySpec` serves as a
+// server field, so `note` has a `FrequencySpec` case. The server removes
+// `FrequencySpec`: the incremental build drops the case, as a full build does.
+graphql`fragment NoteFragment on Node {
+  note
+}`
+
+//- NoteQuery.js
+graphql`query NoteQuery {
+  node(id: "1") {
+    ...NoteFragment
+  }
+}`
+
+//- ClientNode.js
+/**
+ * @relayType ClientNode implements Node
+ */
+export function ClientNode(id: string) {}
+
+/**
+ * @relayField ClientNode.note: String
+ */
+export function note() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "limited", "allowlist": ["Node"] }
+  }
+}
+
+//- schema.graphql
+type Query {
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+type FrequencySpec implements Node {
+  id: ID!
+  note: String
+}
+
+//- extensions/extension.graphql
+extend interface Node {
+  note: String
+}
+
+//-++ schema.graphql
+type Query {
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}

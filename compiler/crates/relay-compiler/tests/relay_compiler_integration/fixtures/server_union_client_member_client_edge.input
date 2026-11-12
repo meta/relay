@@ -1,0 +1,63 @@
+//- Queries.js
+// `SearchResult` is a server union that the Relay Resolver type
+// `ClientResult` joins. The edge lists the model resolver of the client member
+// only: every other value is a server record, and no server member gets a
+// refetch query.
+graphql`query QueriesQuery {
+  search_result {
+    ... on ClientResult {
+      title
+    }
+    ... on User {
+      name
+    }
+  }
+}`
+
+//- SearchResult.js
+/**
+ * @relayField Query.search_result: SearchResult
+ */
+export function search_result() {}
+
+//- ClientResult.js
+/**
+ * @relayType ClientResult
+ */
+export function ClientResult(id: string) {}
+
+/**
+ * @relayField ClientResult.title: String
+ */
+export function title() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+}
+
+interface Node {
+  id: ID!
+}
+
+union SearchResult = User
+
+//- extensions/extension.graphql
+extend union SearchResult = ClientResult

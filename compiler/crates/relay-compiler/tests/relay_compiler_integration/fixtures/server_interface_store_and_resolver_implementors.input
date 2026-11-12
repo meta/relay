@@ -1,0 +1,87 @@
+//- CampaignQuery.js
+// `ResolverGroup` serves `owner` with a resolver, so `owner` has its case;
+// `ClientGroup` serves `owner` from the store, where the client can link a
+// `ClientOwner`, so `ClientOwner` still gets a case below the interface's
+// `owner`.
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_groups {
+    ...CampaignFragment
+  }
+}`
+
+//- CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  owner {
+    name
+  }
+}`
+
+//- ResolverGroup.js
+/**
+ * @relayType ResolverGroup implements CampaignGroup
+ */
+export function ResolverGroup(id: string) {}
+
+/**
+ * @relayField ResolverGroup.owner: ClientOwner
+ */
+export function owner() {}
+
+//- ClientOwner.js
+/**
+ * @relayType ClientOwner implements Owner
+ */
+export function ClientOwner(id: string) {}
+
+/**
+ * @relayField ClientOwner.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface Owner {
+  id: ID!
+  name: String
+}
+
+type User implements Owner {
+  id: ID!
+  name: String
+}
+
+interface CampaignGroup {
+  id: ID!
+  owner: Owner
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  owner: User
+}
+
+//- extensions/extension.graphql
+type ClientGroup implements CampaignGroup {
+  id: ID!
+  owner: Owner
+}
+
+extend type Query {
+  client_groups: [CampaignGroup]
+}

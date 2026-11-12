@@ -1,0 +1,58 @@
+//- CampaignFragment.js
+// Every type reads `note` as client data, so the query text keeps nothing of
+// the fragment and drops it with its spread.
+graphql`fragment CampaignFragment on CampaignGroup {
+  note
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.note: String
+ */
+export function note() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  note: String
+}
+
+extend type AdCampaignGroup {
+  note: String
+}

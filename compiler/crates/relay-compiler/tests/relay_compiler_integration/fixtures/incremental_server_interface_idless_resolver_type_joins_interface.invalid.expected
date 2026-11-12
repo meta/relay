@@ -1,0 +1,118 @@
+==================================== INPUT ====================================
+//- SpecFragment.js
+// `OtherSpec` has no `id` and a resolver for `note` without a root fragment.
+// The server makes `OtherSpec` implement `Spec`, which gives it a case in an
+// exec-time query: the incremental build reports the missing root fragment, as
+// a full build does.
+graphql`fragment SpecFragment on Spec {
+  note
+}`
+
+//- SpecQuery.js
+graphql`query SpecQuery @exec_time_resolvers {
+  group {
+    spec {
+      ...SpecFragment
+    }
+  }
+}`
+
+//- ClientSpec.js
+/**
+ * @relayType ClientSpec implements Spec
+ * @weak
+ */
+export type ClientSpec = {note: string};
+
+/**
+ * @relayField ClientSpec.note: String
+ */
+export function note() {}
+
+//- OtherSpecResolvers.js
+/**
+ * @relayField OtherSpec.note: String
+ */
+export function note() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+type AdCampaignGroup {
+  id: ID!
+  spec: Spec
+}
+
+interface Spec {
+  interval_days: Int
+}
+
+type FrequencySpec implements Spec {
+  interval_days: Int
+}
+
+type OtherSpec {
+  interval_days: Int
+}
+
+//- extensions/extension.graphql
+extend interface Spec {
+  note: String
+}
+
+extend type FrequencySpec {
+  note: String
+}
+
+//-++ schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+type AdCampaignGroup {
+  id: ID!
+  spec: Spec
+}
+
+interface Spec {
+  interval_days: Int
+}
+
+type FrequencySpec implements Spec {
+  interval_days: Int
+}
+
+type OtherSpec implements Spec {
+  interval_days: Int
+}
+==================================== OUTPUT ===================================
+✖︎ Resolver `OtherSpec.note` is on a server type and is selected in an @exec_time_resolvers operation, but it declares no @rootFragment. At exec time a resolver on a server record runs once per record, scheduled by its root fragment; without one it never runs and the field reads `undefined`. Add a @rootFragment on `OtherSpec` that selects `id` or `__typename`, or move the field to `Query` if it does not depend on the record.
+
+  SpecFragment.js:6:3
+    5 │ fragment SpecFragment on Spec {
+    6 │   note
+      │   ^^^^
+    7 │ }
+
+  ℹ︎ Resolver defined here
+
+  OtherSpecResolvers.js:2:26
+    1 │ *
+    2 │  * @relayField OtherSpec.note: String
+      │                          ^^^^
+    3 │

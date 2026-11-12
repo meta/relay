@@ -92,6 +92,8 @@ use relay_transforms::relay_resolvers::resolver_import_alias;
 use relay_transforms::remove_directive;
 use relay_transforms::rsc_fragment_prop_name;
 use relay_transforms::rsc_seam_arguments;
+use relay_transforms::runs_at_exec_time;
+use relay_transforms::runs_at_exec_time_while_provider;
 use schema::Field;
 use schema::SDLSchema;
 use schema::Schema;
@@ -435,18 +437,19 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
     }
 
     fn use_exec_time_resolvers(&self, context: &ContextualMetadata) -> bool {
-        let feature_flags = &self.project_config.feature_flags;
-        feature_flags.enable_resolver_normalization_ast
-            || (feature_flags.enable_exec_time_resolvers_directive
-                && context.has_exec_time_resolvers_directive
-                && !context.has_exec_time_resolvers_enabled_provider)
+        runs_at_exec_time(
+            &self.project_config.feature_flags,
+            context.has_exec_time_resolvers_directive,
+            context.has_exec_time_resolvers_enabled_provider,
+        )
     }
 
     fn use_exec_and_read_time_resolvers(&self, context: &ContextualMetadata) -> bool {
-        let feature_flags = &self.project_config.feature_flags;
-        feature_flags.enable_exec_time_resolvers_directive
-            && context.has_exec_time_resolvers_directive
-            && context.has_exec_time_resolvers_enabled_provider
+        runs_at_exec_time_while_provider(
+            &self.project_config.feature_flags,
+            context.has_exec_time_resolvers_directive,
+            context.has_exec_time_resolvers_enabled_provider,
+        )
     }
 
     fn build_operation(&mut self, operation: &OperationDefinition) -> AstKey {

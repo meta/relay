@@ -1,0 +1,71 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// The refetch query runs at read time but receives `$__relay_exec_time` from
+// CampaignQuery, which runs at exec time, so the guard does not protect it.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignListFragment.js
+graphql`fragment CampaignListFragment on Query
+  @refetchable(queryName: "CampaignListRefetchQuery") {
+  client_group @include(if: $__relay_exec_time) {
+    ...CampaignFragment
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  ...CampaignListFragment
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientCampaignGroup` implements the server interface `CampaignGroup` and serves `name` with its own resolver, which only exec time reads: the executor computes it when the query runs. `CampaignListRefetchQuery`, the query Relay generates for `@refetchable` on `CampaignListFragment`, reaches this selection and runs at read time. A refetch passes it `$__relay_exec_time` from the query that fetched `CampaignListFragment`, and only an `enabledProvider` in its `directives` overrides that. Add `directives: ["@exec_time_resolvers"]` to that `@refetchable`, use `@exec_time_resolvers(enabledProvider: ...)` there and select this under `@include(if: $__relay_exec_time)`, or select this inside `... on` the server types.
+
+  CampaignFragment.js:4:3
+    3 │ fragment CampaignFragment on CampaignGroup {
+    4 │   name
+      │   ^^^^
+    5 │ }

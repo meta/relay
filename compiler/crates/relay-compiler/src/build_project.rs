@@ -338,7 +338,7 @@ pub fn build_programs(
         let project_schema_change = compiler_state.schema_change_safety(
             log_event,
             project_name,
-            &project_config.schema_config,
+            project_config,
             Some(&schema),
             config.schema_diff_changed_sources_only,
             SchemaChangeCheck::Project,
@@ -360,7 +360,7 @@ pub fn build_programs(
                         compiler_state.schema_change_safety(
                             log_event,
                             base,
-                            &project_config.schema_config,
+                            project_config,
                             None,
                             config.schema_diff_changed_sources_only,
                             SchemaChangeCheck::BaseProject,

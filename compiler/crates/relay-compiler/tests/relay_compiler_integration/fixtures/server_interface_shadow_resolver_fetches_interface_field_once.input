@@ -1,0 +1,62 @@
+//- GroupNames.js
+// `smart_promotion_type` is a client field of `ICampaignGroup` that the server
+// type `AdCampaignGroup` has as a server field, so the transplant fetches it in
+// that type's case. `name` is fetched once, by the refinement on the interface,
+// which applies to every server type, `AdCampaignGroup` included.
+graphql`query GroupNamesQuery @exec_time_resolvers {
+  mixed_groups {
+    name
+    smart_promotion_type
+  }
+}`;
+
+//- MixedGroups.js
+/**
+ * @relayField Query.mixed_groups: [ICampaignGroup!]
+ * @rootFragment MixedGroupsResolverFragment
+ * @returnFragment MixedGroupsReturnFragment
+ */
+export function mixed_groups(): ReadonlyArray<{id: string}> { return []; }
+graphql`fragment MixedGroupsResolverFragment on Query {
+  groups { ...MixedGroupsReturnFragment }
+}`;
+
+//- CombinedCampaignGroup.js
+/**
+ * @relayType CombinedCampaignGroup implements ICampaignGroup
+ */
+export function CombinedCampaignGroup(id: string): ?{id: string} { return {id}; }
+/**
+ * @relayField CombinedCampaignGroup.name: String
+ */
+export function name(model: {id: string}): ?string { return null; }
+/**
+ * @relayField CombinedCampaignGroup.smart_promotion_type: String
+ */
+export function smart_promotion_type(model: {id: string}): ?string { return null; }
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_shadow_resolvers": { "kind": "enabled" },
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query { groups: [AdCampaignGroup!]! }
+interface ICampaignGroup { id: ID! name: String }
+type AdCampaignGroup implements ICampaignGroup {
+  id: ID!
+  name: String
+  smart_promotion_type: String
+}
+
+//- extensions/extension.graphql
+extend interface ICampaignGroup { smart_promotion_type: String }

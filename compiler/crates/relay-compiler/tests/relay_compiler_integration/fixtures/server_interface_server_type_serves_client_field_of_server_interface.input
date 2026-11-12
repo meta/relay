@@ -1,0 +1,71 @@
+//- CampaignFragment.js
+// `objective_graph_api` is a client field of the server interface
+// `CampaignGroup`. The server type `AdCampaignGroup` serves it with a resolver
+// that reads the server field `objective`, so it gets a case of its own, kept
+// below the server field `group` and in the query text, which must fetch
+// `objective`. Any other server type reads the client field from the store
+// through the selection on the interface.
+graphql`fragment CampaignFragment on CampaignGroup {
+  objective_graph_api
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  group {
+    ...CampaignFragment
+  }
+}`
+
+//- AdCampaignGroupResolvers.js
+/**
+ * @relayField AdCampaignGroup.objective_graph_api: String
+ * @rootFragment AdCampaignGroupResolversFragment
+ */
+export function objective_graph_api() {}
+
+graphql`fragment AdCampaignGroupResolversFragment on AdCampaignGroup {
+  objective
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.objective_graph_api: String
+ */
+export function objective_graph_api() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup @UNSTABLE_key(fields: "objective") {
+  id: ID!
+  objective: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  objective_graph_api: String
+}

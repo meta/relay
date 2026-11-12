@@ -1,0 +1,66 @@
+//- CampaignMutation.js
+// Only a query takes `@exec_time_resolvers`, so the errors for a mutation and a
+// subscription offer the guard and the server types.
+graphql`mutation CampaignMutation {
+  rename_group {
+    ...CampaignFragment
+  }
+}`
+
+graphql`subscription CampaignMutationSubscription {
+  group_updated {
+    ...CampaignFragment
+  }
+}`
+
+//- CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  ad_object_id
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.ad_object_id: String
+ */
+export function ad_object_id() {}
+
+/**
+ * @relayField AdCampaignGroup.ad_object_id: String
+ * @rootFragment ClientCampaignGroupAdObjectIdFragment
+ */
+export function server_ad_object_id() {}
+graphql`fragment ClientCampaignGroupAdObjectIdFragment on AdCampaignGroup { id }`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query { group: AdCampaignGroup }
+type Mutation { rename_group: CampaignGroup }
+type Subscription { group_updated: CampaignGroup }
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup { ad_object_id: String }

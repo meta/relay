@@ -1,0 +1,58 @@
+//- CampaignFragment.js
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignQuery.js
+// `local_group` is a client field of the server object type `AdCampaignGroup`,
+// so no `ClientCampaignGroup` object is read through `CampaignFragment` here,
+// and a read-time query may spread it.
+graphql`query CampaignQuery {
+  local_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}
+
+//- extensions/extension.graphql
+extend type Query {
+  local_group: AdCampaignGroup
+}

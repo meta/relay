@@ -355,6 +355,9 @@ fn maybe_validate_schema(
         SchemaValidationOptions {
             allow_introspection_names: true,
             exempt_coordinates: disable_schema_validation,
+            client_implementors_of_server_interfaces: &project_config
+                .feature_flags
+                .enable_client_implementors_of_server_abstract_types,
         },
     )
 }

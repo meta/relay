@@ -1,0 +1,63 @@
+//- CampaignFragment.js
+// Only the compiler sets `$__relay_exec_time`: a document that declares it or
+// passes it could claim exec time for an operation that runs at read time.
+graphql`fragment CampaignFragment on CampaignGroup
+  @argumentDefinitions(__relay_exec_time: {type: "Boolean", defaultValue: true}) {
+  name @include(if: $__relay_exec_time)
+}`
+
+//- CampaignQueries.js
+graphql`query CampaignQueriesDeclaredQuery($__relay_exec_time: Boolean!) {
+  client_group {
+    name @include(if: $__relay_exec_time)
+  }
+}`
+
+graphql`query CampaignQueriesPassedQuery {
+  client_group {
+    ...CampaignFragment @arguments(__relay_exec_time: true)
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}

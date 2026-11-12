@@ -1,0 +1,98 @@
+==================================== INPUT ====================================
+//- CampaignFragment.js
+// `owner` is a client field of the server interface `CampaignGroup`, and
+// `Owner` has a client implementor too. The weak model `ClientOwner` lacks
+// `email`, which is reported once.
+graphql`fragment CampaignFragment on CampaignGroup {
+  owner {
+    email
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.owner: ClientOwner
+ */
+export function owner() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- ClientOwner.js
+/**
+ * @relayType ClientOwner implements Owner
+ * @weak
+ */
+export type ClientOwner = {name: string};
+
+/**
+ * @relayField ClientOwner.name: String
+ */
+export function name() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["extensions"],
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface Owner {
+  name: String
+  email: String
+}
+
+type User implements Owner {
+  name: String
+  email: String
+}
+
+interface CampaignGroup {
+  id: ID!
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+}
+
+//- extensions/extension.graphql
+extend interface CampaignGroup {
+  owner: Owner
+}
+
+extend type AdCampaignGroup {
+  owner: User
+}
+==================================== OUTPUT ===================================
+✖︎ `ClientOwner` implements the server interface `Owner` but does not define `email`, which is selected here. An object of `ClientOwner` read here would have no `email`: define it on `ClientOwner`, or select it inside `... on` the server types that have it.
+
+  CampaignFragment.js:6:5
+    5 │   owner {
+    6 │     email
+      │     ^^^^^
+    7 │   }

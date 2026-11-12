@@ -7,6 +7,7 @@
 
 use common::DiagnosticDisplay;
 use common::InterfaceName;
+use common::ObjectName;
 use common::WithDiagnosticData;
 use intern::string_key::StringKey;
 use schema::suggestion_list::did_you_mean;
@@ -209,9 +210,18 @@ pub enum SchemaValidationErrorMessages {
     ResolversCantImplementId { id_field_name: StringKey },
 
     #[error(
-        "The interface `{interface_name}` is not defined in a client schema extension. Resolver types that implement interfaces can only implement client-defined interfaces."
+        "The interface `{interface_name}` is not defined in a client schema extension. Resolver types can implement a server interface only where the project enables `enable_client_implementors_of_server_abstract_types` for it."
     )]
     UnexpectedServerInterface { interface_name: InterfaceName },
+
+    #[error(
+        "`{object_name}` implements the server interface `{super_interface_name}` through `{interface_name}`, so `enable_client_implementors_of_server_abstract_types` must enable `{super_interface_name}` too."
+    )]
+    ClientImplementorServerSuperInterfaceNotEnabled {
+        object_name: ObjectName,
+        interface_name: InterfaceName,
+        super_interface_name: InterfaceName,
+    },
 
     #[error("Expected interface `{interface_name}` to define an `id: ID!` field.")]
     InterfaceWithNoIdField { interface_name: InterfaceName },

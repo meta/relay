@@ -1,0 +1,71 @@
+//- CampaignFragment.js
+// `ClientCampaignGroup` also implements the enabled server interface
+// `AdObject`, so the compiler lists it for `__isAdObject` and the refinement
+// reads its objects.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+  ... on AdObject {
+    status
+  }
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup & AdObject
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField ClientCampaignGroup.status: String
+ */
+export function status() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+interface AdObject {
+  id: ID!
+  status: String
+}
+
+type AdCampaignGroup implements CampaignGroup & AdObject {
+  id: ID!
+  name: String
+  status: String
+}

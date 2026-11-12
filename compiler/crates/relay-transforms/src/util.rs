@@ -32,6 +32,7 @@ use schema::Type;
 use crate::ClientComponentBoundaryMetadata;
 use crate::ClientEdgeGeneratedQueryMetadataDirective;
 use crate::ClientEdgeMetadataDirective;
+use crate::ClientImplementorCaseDirective;
 use crate::ClientRscSeamMetadata;
 use crate::DIRECTIVE_SPLIT_OPERATION;
 use crate::FragmentAliasMetadata;
@@ -98,7 +99,7 @@ pub fn extract_variable_name(argument: Option<&Argument>) -> Option<StringKey> {
     }
 }
 
-static CUSTOM_METADATA_DIRECTIVES: LazyLock<[DirectiveName; 27]> = LazyLock::new(|| {
+static CUSTOM_METADATA_DIRECTIVES: LazyLock<[DirectiveName; 28]> = LazyLock::new(|| {
     [
         *CATCH_DIRECTIVE_NAME,
         *CLIENT_EXTENSION_DIRECTIVE_NAME,
@@ -127,6 +128,7 @@ static CUSTOM_METADATA_DIRECTIVES: LazyLock<[DirectiveName; 27]> = LazyLock::new
         ShadowReturnMarker::directive_name(),
         ServerOperationHandoffMetadata::directive_name(),
         IsResolverRootFragment::directive_name(),
+        ClientImplementorCaseDirective::directive_name(),
     ]
 });
 
@@ -149,7 +151,7 @@ static DIRECTIVES_SKIPPED_IN_NODE_IDENTIFIER: LazyLock<[DirectiveName; 11]> = La
     ]
 });
 
-static RELAY_CUSTOM_INLINE_FRAGMENT_DIRECTIVES: LazyLock<[DirectiveName; 7]> =
+static RELAY_CUSTOM_INLINE_FRAGMENT_DIRECTIVES: LazyLock<[DirectiveName; 8]> =
     LazyLock::new(|| {
         [
             *CLIENT_EXTENSION_DIRECTIVE_NAME,
@@ -159,6 +161,7 @@ static RELAY_CUSTOM_INLINE_FRAGMENT_DIRECTIVES: LazyLock<[DirectiveName; 7]> =
             DirectiveName("defer".intern()),
             FragmentAliasMetadata::directive_name(),
             RelayResolverMetadata::directive_name(),
+            ClientImplementorCaseDirective::directive_name(),
         ]
     });
 

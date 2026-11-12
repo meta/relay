@@ -1,0 +1,56 @@
+//- CampaignFragment.js
+// `@exec_time_resolvers(enabledProvider:)` without
+// `enable_exec_time_resolvers_directive`: turning the flag on would leave the
+// query gated by its provider, so the remedy offers the guard, not the flag.
+graphql`fragment CampaignFragment on CampaignGroup {
+  name
+}`
+
+//- CampaignQuery.js
+graphql`query CampaignQuery @exec_time_resolvers(enabledProvider: "ExecTimeProvider") {
+  client_group {
+    ...CampaignFragment
+  }
+}`
+
+//- ClientCampaignGroup.js
+/**
+ * @relayType ClientCampaignGroup implements CampaignGroup
+ */
+export function ClientCampaignGroup(id: string) {}
+
+/**
+ * @relayField ClientCampaignGroup.name: String
+ */
+export function name() {}
+
+/**
+ * @relayField Query.client_group: CampaignGroup
+ */
+export function client_group() {}
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
+    "enable_client_implementors_of_server_abstract_types": { "kind": "enabled" }
+  }
+}
+
+//- schema.graphql
+type Query {
+  group: AdCampaignGroup
+}
+
+interface CampaignGroup {
+  id: ID!
+  name: String
+}
+
+type AdCampaignGroup implements CampaignGroup {
+  id: ID!
+  name: String
+}

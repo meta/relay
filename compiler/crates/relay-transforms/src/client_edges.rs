@@ -45,6 +45,8 @@ use intern::string_key::Intern;
 use intern::string_key::StringKey;
 use intern::string_key::StringKeyMap;
 use relay_config::ProjectConfig;
+use relay_schema::client_implementors::client_implementors_of;
+use relay_schema::client_implementors::has_client_implementors;
 use relay_schema::definitions::ResolverType;
 use relay_schema::definitions::is_server_value_object;
 use relay_schema::definitions::weak_object_instance_field;
@@ -610,6 +612,21 @@ impl<'program, 'pc> ClientEdgesTransform<'program, 'pc> {
         };
 
         let result = match edge_to_type {
+            Type::Interface(_) | Type::Union(_)
+                if has_client_implementors(&self.program.schema, edge_to_type) =>
+            {
+                // A server abstract type: the client-defined implementors take a
+                // model resolver and every other value is a server record, so
+                // no server implementor is listed and none gets a refetch query.
+                let members = client_implementors_of(&self.program.schema, edge_to_type);
+                self.get_client_object_for_abstract_type(
+                    members.iter(),
+                    self.program.schema.get_type_name(edge_to_type),
+                    field,
+                    new_selections,
+                    server_object_operation_mode,
+                )
+            }
             Type::Interface(interface_id) => {
                 let interface = self.program.schema.interface(interface_id);
                 let implementing_objects =
@@ -699,6 +716,13 @@ impl<'program, 'pc> ClientEdgesTransform<'program, 'pc> {
     /// has no abstract members) — magic-fragment edges only route interface/union return
     /// types through the client-object machinery.
     fn abstract_type_members(&self, edge_to_type: Type) -> Option<(Vec<ObjectID>, StringKey)> {
+        let client_implementors = client_implementors_of(&self.program.schema, edge_to_type);
+        if !client_implementors.is_empty() {
+            return Some((
+                client_implementors,
+                self.program.schema.get_type_name(edge_to_type),
+            ));
+        }
         match edge_to_type {
             Type::Interface(interface_id) => {
                 let interface = self.program.schema.interface(interface_id);
@@ -726,6 +750,9 @@ impl<'program, 'pc> ClientEdgesTransform<'program, 'pc> {
     /// (rather than going through `abstract_type_members`, which collects/clones
     /// them) — `any` short-circuits without allocating.
     fn magic_fragment_edge_has_client_extension_implementor(&self, edge_to_type: Type) -> bool {
+        if has_client_implementors(&self.program.schema, edge_to_type) {
+            return true;
+        }
         let schema = &self.program.schema;
         let is_client_object =
             |object_id: &ObjectID| schema.is_extension_type(Type::Object(*object_id));
@@ -1135,6 +1162,13 @@ impl<'program, 'pc> ClientEdgesTransform<'program, 'pc> {
     /// implementor object ids; otherwise `None`. Used by the typegen pipeline to
     /// re-derive the per-implementor arms the operation pipeline fans out.
     fn abstract_parent_implementors(&self, field_type: &schema::Field) -> Option<Vec<ObjectID>> {
+        // The cases of a server abstract type that client types implement mint
+        // their own queries.
+        if let Some(parent_type) = field_type.parent_type
+            && has_client_implementors(&self.program.schema, parent_type)
+        {
+            return None;
+        }
         match field_type.parent_type {
             Some(Type::Interface(interface_id)) => Some(
                 self.program
@@ -1306,7 +1340,8 @@ impl<'program, 'pc> ClientEdgesTransform<'program, 'pc> {
 
         let edge_to_type = field_type.type_.inner();
 
-        let is_edge_to_client_object = schema.is_extension_type(edge_to_type);
+        let is_edge_to_client_object =
+            schema.is_extension_type(edge_to_type) || has_client_implementors(schema, edge_to_type);
 
         let new_selections = self
             .transform_selections(&field.selections)
