@@ -12,6 +12,7 @@
 
 const deepFreeze = require('../deepFreeze');
 const recycleNodesInto = require('../recycleNodesInto');
+const RelayFeatureFlags = require('../RelayFeatureFlags');
 
 describe('recycleNodesInto', () => {
   beforeEach(() => {
@@ -100,6 +101,15 @@ describe('recycleNodesInto', () => {
       expect(recycled.foo).toBe(prevData.foo);
     });
 
+    it('recycles equal leaf objects after an unequal sibling', () => {
+      const prevData = {baz: 2, foo: {bar: 1}};
+      const nextData = {baz: 200, foo: {bar: 1}};
+      const recycled = recycleNodesInto(prevData, nextData);
+
+      expect(recycled).not.toBe(prevData);
+      expect(recycled.foo).toBe(prevData.foo);
+    });
+
     it('recycles identical objects', () => {
       const prevData = {foo: {bar: 1}, baz: 2};
       // "next" data should not be modified if it is === to previous data
@@ -146,6 +156,30 @@ describe('recycleNodesInto', () => {
       const nextData = {0: 1, 1: 2};
       expect(recycleNodesInto(prevData, nextData)).not.toBe(prevData);
     });
+    it('compares Object.create() objects over own keys with the notify flag off and inherited keys too with it on', () => {
+      // A documented difference of ENABLE_PERF_NOTIFY: its for-in
+      // iteration also visits inherited enumerable keys, which data objects
+      // only have when created with Object.create() from such an object (the
+      // reader never creates them).
+      const prevFoo = {bar: 1};
+      const prevData = {foo: prevFoo, x: 1};
+      const nextData = Object.create({foo: {bar: 1}});
+      nextData.x = 1;
+      const recycled = recycleNodesInto(prevData, nextData);
+      const nextHasOwnFoo = Object.prototype.hasOwnProperty.call(
+        nextData,
+        'foo',
+      );
+
+      if (RelayFeatureFlags.ENABLE_PERF_NOTIFY) {
+        expect(recycled).toBe(prevData);
+        expect(nextHasOwnFoo).toBe(true);
+        expect(nextData.foo).toBe(prevFoo);
+      } else {
+        expect(recycled).toBe(nextData);
+        expect(nextHasOwnFoo).toBe(false);
+      }
+    });
   });
 
   describe('arrays', () => {
@@ -176,6 +210,19 @@ describe('recycleNodesInto', () => {
       const nextData = [{foo: 1}, {bar: 2}];
       Object.freeze(nextData);
       expect(recycleNodesInto(prevData, nextData)).toBe(prevData);
+    });
+
+    it('does not mutate the items of frozen arrays', () => {
+      const prevData = [1, {foo: {bar: 1}}];
+      const nextData = [2, {foo: {bar: 1}}];
+      const nextItem = nextData[1];
+      const nextFoo = nextItem.foo;
+      Object.freeze(nextData);
+      const recycled = recycleNodesInto(prevData, nextData);
+
+      expect(recycled).toBe(nextData);
+      expect(recycled[1]).toBe(nextItem);
+      expect(recycled[1].foo).toBe(nextFoo);
     });
 
     it('does not recycle different `nextData`', () => {
@@ -211,6 +258,17 @@ describe('recycleNodesInto', () => {
       expect(recycled).not.toBe(prevData);
       expect(recycled[0]).toBe(prevData[0]);
       expect(recycled[1]).not.toBe(prevData[1]);
+    });
+
+    it('recycles equal objects from an array after an unequal sibling', () => {
+      const prevData = [{foo: 1}, {bar: 2}, {baz: 3}];
+      const nextData = [{foo: 100}, {bar: 2}, {baz: 3}];
+      const recycled = recycleNodesInto(prevData, nextData);
+
+      expect(recycled).not.toBe(prevData);
+      expect(recycled[0]).not.toBe(prevData[0]);
+      expect(recycled[1]).toBe(prevData[1]);
+      expect(recycled[2]).toBe(prevData[2]);
     });
 
     it('recycles equal objects from an array with fewer siblings', () => {
