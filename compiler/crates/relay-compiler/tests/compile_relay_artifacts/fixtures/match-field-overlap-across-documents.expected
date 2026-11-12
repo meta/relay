@@ -209,6 +209,13 @@ fragment matchFieldOverlapAcrossDocuments_MarkdownUserNameRenderer_name on Markd
                         "fragmentName": "matchFieldOverlapAcrossDocuments_MarkdownUserNameRenderer_name",
                         "fragmentPropName": "MarkdownUserNameRenderer_name",
                         "kind": "ModuleImport"
+                      },
+                      {
+                        "args": null,
+                        "documentName": "matchFieldOverlapAcrossDocuments_BarNameRendererFragment",
+                        "fragmentName": "matchFieldOverlapAcrossDocuments_MarkdownUserNameRenderer_name",
+                        "fragmentPropName": "MarkdownUserNameRenderer_name",
+                        "kind": "ModuleImport"
                       }
                     ],
                     "type": "MarkdownUserNameRenderer",

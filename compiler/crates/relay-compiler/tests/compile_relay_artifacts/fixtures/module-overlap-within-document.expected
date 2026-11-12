@@ -213,6 +213,13 @@ fragment moduleOverlapWithinDocument_MarkdownUserNameRenderer_name on MarkdownUs
                         "fragmentName": "moduleOverlapWithinDocument_MarkdownUserNameRenderer_name",
                         "fragmentPropName": "MarkdownUserNameRenderer_name",
                         "kind": "ModuleImport"
+                      },
+                      {
+                        "args": null,
+                        "documentName": "moduleOverlapWithinDocument_BarNameRendererFragment",
+                        "fragmentName": "moduleOverlapWithinDocument_MarkdownUserNameRenderer_name",
+                        "fragmentPropName": "MarkdownUserNameRenderer_name",
+                        "kind": "ModuleImport"
                       }
                     ],
                     "type": "MarkdownUserNameRenderer",

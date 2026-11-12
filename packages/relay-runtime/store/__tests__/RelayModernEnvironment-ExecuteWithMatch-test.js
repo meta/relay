@@ -886,3 +886,84 @@ describe('execute() a query with @match', () => {
     });
   });
 });
+
+describe('execute() a query with @match on one field in two fragments', () => {
+  it('normalizes the @module data each fragment selects', () => {
+    const query = graphql`
+      query RelayModernEnvironmentExecuteWithMatchTestTwoDocumentsQuery {
+        me {
+          ...RelayModernEnvironmentExecuteWithMatchTestA_user
+          ...RelayModernEnvironmentExecuteWithMatchTestB_user
+        }
+      }
+    `;
+    graphql`
+      fragment RelayModernEnvironmentExecuteWithMatchTestA_user on User {
+        nameRenderer @match {
+          ...RelayModernEnvironmentExecuteWithMatchTestTwoDocuments_name
+            @module(name: "AMarkdownUserNameRenderer.react")
+        }
+      }
+    `;
+    graphql`
+      fragment RelayModernEnvironmentExecuteWithMatchTestB_user on User {
+        nameRenderer @match {
+          ...RelayModernEnvironmentExecuteWithMatchTestTwoDocuments_name
+            @module(name: "BMarkdownUserNameRenderer.react")
+        }
+      }
+    `;
+    graphql`
+      fragment RelayModernEnvironmentExecuteWithMatchTestTwoDocuments_name on MarkdownUserNameRenderer {
+        markdown
+      }
+    `;
+    const normalization = require('./__generated__/RelayModernEnvironmentExecuteWithMatchTestTwoDocuments_name$normalization.graphql');
+    const source = RelayRecordSource.create();
+    const environment = new RelayModernEnvironment({
+      network: RelayNetwork.create(() => RelayObservable.create(() => {})),
+      operationLoader: {
+        get: () => normalization,
+        load: () => Promise.resolve(normalization),
+      },
+      store: new RelayModernStore(source),
+    });
+    const error = jest.fn<ReadonlyArray<Error>, unknown>();
+    environment
+      .executeWithSource({
+        operation: createOperationDescriptor(query, {}),
+        source: RelayObservable.from({
+          data: {
+            me: {
+              id: '4',
+              nameRenderer: {
+                __module_component_RelayModernEnvironmentExecuteWithMatchTestA_user:
+                  'AMarkdownUserNameRenderer.react',
+                __module_component_RelayModernEnvironmentExecuteWithMatchTestB_user:
+                  'BMarkdownUserNameRenderer.react',
+                __module_operation_RelayModernEnvironmentExecuteWithMatchTestA_user:
+                  'RelayModernEnvironmentExecuteWithMatchTestTwoDocuments_name$normalization.graphql',
+                __module_operation_RelayModernEnvironmentExecuteWithMatchTestB_user:
+                  'RelayModernEnvironmentExecuteWithMatchTestTwoDocuments_name$normalization.graphql',
+                __typename: 'MarkdownUserNameRenderer',
+                markdown: 'markdown',
+              },
+            },
+          },
+        }),
+      })
+      .subscribe({error});
+    expect(error).not.toBeCalled();
+    const renderer = Object.keys(source.toJSON()).find(id =>
+      id.includes('nameRenderer'),
+    );
+    expect(source.get(nullthrows(renderer))).toEqual(
+      expect.objectContaining({
+        __module_component_RelayModernEnvironmentExecuteWithMatchTestA_user:
+          'AMarkdownUserNameRenderer.react',
+        __module_component_RelayModernEnvironmentExecuteWithMatchTestB_user:
+          'BMarkdownUserNameRenderer.react',
+      }),
+    );
+  });
+});

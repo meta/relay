@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<3cd4c81a915b25ed7b2b44e2cef6dbf4>>
+ * @generated SignedSource<<c962fa4b1de4ccdaf4bf458a30009755>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -63,18 +63,18 @@ v1 = [
   }
 ],
 v2 = {
-  "kind": "InlineFragment",
-  "selections": [
-    {
-      "args": null,
-      "documentName": "RelayReaderAliasedFragmentsTestModuelAliasNamespacingQuery_a_common_alias",
-      "fragmentName": "RelayReaderAliasedFragmentsTestModuleA_user",
-      "fragmentPropName": "user",
-      "kind": "ModuleImport"
-    }
-  ],
-  "type": "User",
-  "abstractKey": null
+  "args": null,
+  "documentName": "RelayReaderAliasedFragmentsTestModuelAliasNamespacingQuery_a_common_alias",
+  "fragmentName": "RelayReaderAliasedFragmentsTestModuleA_user",
+  "fragmentPropName": "user",
+  "kind": "ModuleImport"
+},
+v3 = {
+  "args": null,
+  "documentName": "RelayReaderAliasedFragmentsTestModuelAliasNamespacingQuery_a_namespace_alias_that_prevents_collisions_a_common_alias",
+  "fragmentName": "RelayReaderAliasedFragmentsTestModuleB_user",
+  "fragmentPropName": "user",
+  "kind": "ModuleImport"
 };
 return {
   "fragment": {
@@ -92,7 +92,14 @@ return {
         "plural": false,
         "selections": [
           {
-            "fragment": (v2/*:: as any*/),
+            "fragment": {
+              "kind": "InlineFragment",
+              "selections": [
+                (v2/*:: as any*/)
+              ],
+              "type": "User",
+              "abstractKey": null
+            },
             "kind": "AliasedInlineFragmentSpread",
             "name": "a_common_alias"
           },
@@ -104,13 +111,7 @@ return {
                   "fragment": {
                     "kind": "InlineFragment",
                     "selections": [
-                      {
-                        "args": null,
-                        "documentName": "RelayReaderAliasedFragmentsTestModuelAliasNamespacingQuery_a_namespace_alias_that_prevents_collisions_a_common_alias",
-                        "fragmentName": "RelayReaderAliasedFragmentsTestModuleB_user",
-                        "fragmentPropName": "user",
-                        "kind": "ModuleImport"
-                      }
+                      (v3/*:: as any*/)
                     ],
                     "type": "User",
                     "abstractKey": null
@@ -153,7 +154,15 @@ return {
             "name": "__typename",
             "storageKey": null
           },
-          (v2/*:: as any*/),
+          {
+            "kind": "InlineFragment",
+            "selections": [
+              (v2/*:: as any*/),
+              (v3/*:: as any*/)
+            ],
+            "type": "User",
+            "abstractKey": null
+          },
           {
             "kind": "TypeDiscriminator",
             "abstractKey": "__isNode"

@@ -25,6 +25,7 @@ use graphql_ir::Selection;
 use graphql_ir::TransformedValue;
 use graphql_ir::node_identifier::LocationAgnosticPartialEq;
 use graphql_ir::node_identifier::NodeIdentifier;
+use intern::string_key::StringKey;
 use parking_lot::Mutex;
 use schema::SDLSchema;
 use schema::Schema;
@@ -283,6 +284,15 @@ impl FlattenTransform {
         })
     }
 
+    /// Node identity compares `@module` inline fragments by name only, so that
+    /// ones with the same key are merged (and conflicting modules reported).
+    /// Ones with different keys write different `__module_*_<key>` fields, and
+    /// each keeps its own module import.
+    fn is_same_selection(&self, a: &Selection, b: &Selection) -> bool {
+        NodeIdentifier::<RelayLocationAgnosticBehavior>::are_equal(&self.schema, a, b)
+            && module_key(a) == module_key(b)
+    }
+
     fn flatten_selections(
         &self,
         flattened_selections: &mut Vec<Selection>,
@@ -303,14 +313,9 @@ impl FlattenTransform {
                 continue;
             }
 
-            let flattened_selection = flattened_selections.iter_mut().find(|sel| {
-                sel.ptr_eq(selection)
-                    || NodeIdentifier::<RelayLocationAgnosticBehavior>::are_equal(
-                        &self.schema,
-                        sel,
-                        selection,
-                    )
-            });
+            let flattened_selection = flattened_selections
+                .iter_mut()
+                .find(|sel| sel.ptr_eq(selection) || self.is_same_selection(sel, selection));
 
             match flattened_selection {
                 None => {
@@ -453,14 +458,9 @@ impl FlattenTransform {
                 }
             }
 
-            let flattened_selection = flattened_selections.iter_mut().find(|sel| {
-                sel.ptr_eq(selection)
-                    || NodeIdentifier::<RelayLocationAgnosticBehavior>::are_equal(
-                        &self.schema,
-                        sel,
-                        selection,
-                    )
-            });
+            let flattened_selection = flattened_selections
+                .iter_mut()
+                .find(|sel| sel.ptr_eq(selection) || self.is_same_selection(sel, selection));
             match flattened_selection {
                 None => {
                     flattened_selections.push(selection.clone());
@@ -547,6 +547,15 @@ impl FlattenTransform {
         }
 
         Ok(())
+    }
+}
+
+pub(crate) fn module_key(selection: &Selection) -> Option<StringKey> {
+    match selection {
+        Selection::InlineFragment(fragment) => {
+            ModuleMetadata::find(&fragment.directives).map(|metadata| metadata.key)
+        }
+        _ => None,
     }
 }
 

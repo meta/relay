@@ -230,6 +230,13 @@ fragment multipleModuleWithAliasedInlineFragmentFragment_propName on MarkdownUse
                         "fragmentName": "multipleModuleWithAliasedInlineFragmentFragment_propName",
                         "fragmentPropName": "propName",
                         "kind": "ModuleImport"
+                      },
+                      {
+                        "args": null,
+                        "documentName": "multipleModuleWithAliasedInlineFragmentQuery_b",
+                        "fragmentName": "multipleModuleWithAliasedInlineFragmentFragment_propName",
+                        "fragmentPropName": "propName",
+                        "kind": "ModuleImport"
                       }
                     ],
                     "type": "MarkdownUserNameRenderer",

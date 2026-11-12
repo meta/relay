@@ -247,6 +247,13 @@ fragment TODOMultipleOverlappingModulesMarkdownUserNameRenderer_name on Markdown
                         "fragmentName": "TODOMultipleOverlappingModulesPlainUserNameRenderer_name",
                         "fragmentPropName": "name",
                         "kind": "ModuleImport"
+                      },
+                      {
+                        "args": null,
+                        "documentName": "TODOMultipleOverlappingModulesInner2",
+                        "fragmentName": "TODOMultipleOverlappingModulesPlainUserNameRenderer_name",
+                        "fragmentPropName": "name",
+                        "kind": "ModuleImport"
                       }
                     ],
                     "type": "PlainUserNameRenderer",
@@ -258,6 +265,13 @@ fragment TODOMultipleOverlappingModulesMarkdownUserNameRenderer_name on Markdown
                       {
                         "args": null,
                         "documentName": "TODOMultipleOverlappingModulesInner1",
+                        "fragmentName": "TODOMultipleOverlappingModulesMarkdownUserNameRenderer_name",
+                        "fragmentPropName": "name",
+                        "kind": "ModuleImport"
+                      },
+                      {
+                        "args": null,
+                        "documentName": "TODOMultipleOverlappingModulesInner2",
                         "fragmentName": "TODOMultipleOverlappingModulesMarkdownUserNameRenderer_name",
                         "fragmentPropName": "name",
                         "kind": "ModuleImport"

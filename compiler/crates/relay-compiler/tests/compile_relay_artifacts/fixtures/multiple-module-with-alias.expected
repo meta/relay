@@ -210,6 +210,13 @@ fragment multipleModuleWithAliasFragment_propName on MarkdownUserNameRenderer {
                         "fragmentName": "multipleModuleWithAliasFragment_propName",
                         "fragmentPropName": "propName",
                         "kind": "ModuleImport"
+                      },
+                      {
+                        "args": null,
+                        "documentName": "multipleModuleWithAliasQuery_b",
+                        "fragmentName": "multipleModuleWithAliasFragment_propName",
+                        "fragmentPropName": "propName",
+                        "kind": "ModuleImport"
                       }
                     ],
                     "type": "MarkdownUserNameRenderer",

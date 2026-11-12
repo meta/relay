@@ -21,11 +21,13 @@ use graphql_ir::Selection;
 use graphql_ir::Transformed;
 use graphql_ir::TransformedValue;
 use graphql_ir::node_identifier::NodeIdentifier;
+use intern::string_key::StringKey;
 use relay_config::DeferStreamInterface;
 use schema::SDLSchema;
 
 use crate::ClientEdgeMetadataDirective;
 use crate::RelayLocationAgnosticBehavior;
+use crate::flatten::module_key;
 use crate::util::is_relay_custom_inline_fragment_directive;
 
 /**
@@ -129,13 +131,18 @@ pub fn skip_redundant_nodes(
         .replace_or_else(|| program.clone())
 }
 
-#[derive(Default, Clone, Debug)]
-struct SelectionMap(VecMap<NodeIdentifier<RelayLocationAgnosticBehavior>, Option<SelectionMap>>);
-
-type SelectionMapEntry = (
+/// A selection's identity, plus the key of an `@module` inline fragment: node
+/// identity compares those by name only, but ones with different keys each
+/// keep their own module import (see `flatten`).
+type SelectionKey = (
     NodeIdentifier<RelayLocationAgnosticBehavior>,
-    Option<SelectionMap>,
+    Option<StringKey>,
 );
+
+#[derive(Default, Clone, Debug)]
+struct SelectionMap(VecMap<SelectionKey, Option<SelectionMap>>);
+
+type SelectionMapEntry = (SelectionKey, Option<SelectionMap>);
 
 /// `SelectionMap` nests as deeply as a selection set is *wide*, not as deeply as
 /// it is nested: forking (see the inline-fragment and condition arms of
@@ -214,8 +221,10 @@ impl SkipRedundantNodesTransform {
         // If it's the same node, and selection_map is empty
         // result of transform_selection has to be the same.
         let is_empty = selection_map.0.is_empty();
-        let identifier =
-            NodeIdentifier::from_selection(&self.schema, selection, RelayLocationAgnosticBehavior);
+        let identifier = (
+            NodeIdentifier::from_selection(&self.schema, selection, RelayLocationAgnosticBehavior),
+            module_key(selection),
+        );
         match selection {
             Selection::ScalarField(_) | Selection::FragmentSpread(_) => {
                 if selection_map.0.contains_key(&identifier) {

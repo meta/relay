@@ -1,0 +1,24 @@
+//- QQuery.js
+// Two documents `@match` the same field with the same supported types, and
+// their `@module` branches select the same fields: the normalization keeps
+// both documents' module imports.
+graphql`query QQuery { me { ...A_user ...B_user } }`;
+graphql`fragment A_user on User { nameRenderer @match { ...Plain_name @module(name: "A.react") } }`;
+graphql`fragment B_user on User { nameRenderer @match { ...Plain_name @module(name: "B.react") } }`;
+graphql`fragment Plain_name on PlainUserNameRenderer { plaintext }`;
+
+//- relay.config.json
+{
+  "language": "javascript",
+  "schema": "./schema.graphql"
+}
+
+//- schema.graphql
+type Query { me: User }
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+union UserNameRenderer = PlainUserNameRenderer | MarkdownUserNameRenderer
+type PlainUserNameRenderer { plaintext: String }
+type MarkdownUserNameRenderer { markdown: String }
