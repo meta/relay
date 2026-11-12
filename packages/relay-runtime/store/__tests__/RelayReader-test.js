@@ -157,46 +157,6 @@ describe('RelayReader', () => {
     ]);
   });
 
-  it('reads wide fragment data with its fields in selection order on every read', () => {
-    // More fields than V8 keeps in fast mode when an object is built with
-    // keyed stores; later reads build their objects along a prewarmed shape.
-    const fieldNames = Array.from({length: 24}, (_, ii) => `field${ii}`);
-    const record = {__id: 'wide', __typename: 'User'};
-    fieldNames.forEach((name, ii) => {
-      record[name] = ii;
-    });
-    const wideSource = RelayRecordSource.create({wide: record});
-    const WideFragment = {
-      argumentDefinitions: [],
-      kind: 'Fragment',
-      metadata: null,
-      name: 'RelayReaderTestWideFragment',
-      selections: fieldNames.map(name => ({
-        alias: null,
-        args: null,
-        kind: 'ScalarField',
-        name,
-        storageKey: null,
-      })),
-      type: 'User',
-      abstractKey: null,
-    };
-    const request = {
-      identifier: 'RelayReaderTestWideFragment',
-      node: {operation: {}},
-      variables: {},
-      cacheConfig: null,
-    };
-    for (let ii = 0; ii < 3; ii++) {
-      const {data} = read(
-        wideSource,
-        createReaderSelector(WideFragment, 'wide', {}, request),
-      );
-      expect(Object.keys(data ?? {})).toEqual(fieldNames);
-      expect(Object.values(data ?? {})).toEqual(fieldNames.map((_, jj) => jj));
-    }
-  });
-
   it('reads fragment data', () => {
     const UserQuery = graphql`
       query RelayReaderTestReadsFragmentDataUserQuery($size: [Int]) {

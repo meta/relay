@@ -2021,53 +2021,6 @@ const NO_FRAGMENT_ARGUMENTS: Arguments = Object.freeze({});
 const NO_FRAGMENT_ARGUMENTS_WITHIN_UNMATCHED_TYPE_REFINEMENT: Arguments =
   Object.freeze({[FRAGMENT_POINTER_IS_WITHIN_UNMATCHED_TYPE_REFINEMENT]: true});
 
-// V8 turns objects built with keyed stores (`data[fieldName] = value`) into
-// slow dictionary-mode objects once they need a new property past about this
-// many, but keyed stores follow property transitions that already exist.
-const MAX_KEYED_FAST_PROPERTIES = 16;
-
-// Wider data keeps dictionary mode: with transitions, the reader's stores
-// and the loads of recycleNodesInto got slower for it, not faster.
-const MAX_PREWARMED_PROPERTIES = 64;
-
-// Per node, the object that holds its data's property transitions: kept alive
-// so that V8 doesn't clear the transitions once no data object uses them.
-const prewarmedShapes: WeakMap<ReaderNode, {...}> = new WeakMap();
-
-const NO_SHAPE: {...} = Object.freeze({});
-
-// Creates the property transitions for `data`'s keys, in order, with
-// defineProperty (which is allowed many more), once per node: later reads of
-// the node build their data objects along them and keep fast properties. Only
-// the first complete read of a node decides: data whose keys depend on
-// conditions or on the record's type gets the transitions of that read, and a
-// node whose first data has at most 16 or more than 64 keys is never
-// prewarmed (later reads stay as V8 builds them), which keeps this to one
-// Object.keys per node.
-function prewarmDataShape(node: ReaderNode, data: SelectorData): void {
-  if (prewarmedShapes.has(node)) {
-    return;
-  }
-  const keys = Object.keys(data);
-  if (
-    keys.length <= MAX_KEYED_FAST_PROPERTIES ||
-    keys.length > MAX_PREWARMED_PROPERTIES
-  ) {
-    prewarmedShapes.set(node, NO_SHAPE);
-    return;
-  }
-  const shape: {...} = {};
-  for (let ii = 0; ii < keys.length; ii++) {
-    Object.defineProperty(shape, keys[ii], {
-      configurable: true,
-      enumerable: true,
-      value: undefined,
-      writable: true,
-    });
-  }
-  prewarmedShapes.set(node, shape);
-}
-
 // Snapshots of reads without missing live resolver fields (nearly all) share
 // this array.
 const NO_MISSING_LIVE_RESOLVER_FIELDS: ReadonlyArray<DataID> = Object.freeze(
@@ -2321,14 +2274,6 @@ class RelayReaderOptimized {
       record,
       data,
     );
-    // A missing @required field stops the traversal before the other keys.
-    if (
-      hadRequiredData &&
-      prevData == null &&
-      node.selections.length > MAX_KEYED_FAST_PROPERTIES
-    ) {
-      prewarmDataShape(node, data);
-    }
     this._fieldGranularNotificationDataID = prevFieldGranularDataID;
     return hadRequiredData ? data : null;
   }
