@@ -28,6 +28,7 @@ const deepFreeze = require('../util/deepFreeze');
 const recycleNodesInto = require('../util/recycleNodesInto');
 const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const hasOverlappingIDs = require('./hasOverlappingIDs');
+const hasOverlappingIDsPerf = require('./hasOverlappingIDsPerf');
 const hasSignificantOverlappingIDs = require('./hasSignificantOverlappingIDs');
 const RelayReader = require('./RelayReader');
 
@@ -46,6 +47,11 @@ class RelayStoreSubscriptions implements StoreSubscriptions {
   // Stores `subscriptions` with stale snapshots, used for reducing the traversal
   // that has to happen on `notify`
   _staleSubscriptions: Set<Subscription>;
+  // Read once per store, so that `_updateSubscription` keeps a single call.
+  _hasOverlappingIDs: (
+    seenRecords: DataIDSet,
+    updatedRecordIDs: DataIDSet,
+  ) => boolean;
 
   constructor(
     log?: ?LogFunction,
@@ -57,6 +63,9 @@ class RelayStoreSubscriptions implements StoreSubscriptions {
     this.__log = log;
     this._resolverCache = resolverCache;
     this._resolverContext = resolverContext;
+    this._hasOverlappingIDs = RelayFeatureFlags.ENABLE_PERF_NOTIFY
+      ? hasOverlappingIDsPerf
+      : hasOverlappingIDs;
   }
 
   subscribe(
@@ -204,7 +213,7 @@ class RelayStoreSubscriptions implements StoreSubscriptions {
     const {backup, callback, snapshot, stale} = subscription;
     const hasOverlappingUpdates =
       hasUpdatedRecords &&
-      hasOverlappingIDs(snapshot.seenRecords, updatedRecordIDs);
+      this._hasOverlappingIDs(snapshot.seenRecords, updatedRecordIDs);
     if (!stale && !hasOverlappingUpdates) {
       return;
     }

@@ -124,7 +124,7 @@ export type FeatureFlags = {
   ENABLE_PERF_READER: boolean,
   // Records, mutations, normalization and publishing to the store.
   ENABLE_PERF_PUBLISH: boolean,
-  // recycleNodesInto.
+  // recycleNodesInto and the notify overlap check (hasOverlappingIDsPerf).
   ENABLE_PERF_NOTIFY: boolean,
 };
 
