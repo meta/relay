@@ -29,6 +29,7 @@ export interface FeatureFlags {
     DISALLOW_NESTED_UPDATES: boolean;
     CHECK_ALL_FRAGMENTS_FOR_MISSING_CLIENT_EDGES: boolean;
     ENABLE_READER_FRAGMENTS_LOGGING: boolean;
+    ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS: boolean;
 }
 
 export const RelayFeatureFlags: FeatureFlags;

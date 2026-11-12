@@ -6,12 +6,19 @@
  */
 
 import { PreloadedQueryRef } from './rsc_EXPERIMENTAL';
-import {GraphQLTaggedNode, OperationType} from 'relay-runtime';
+import {GraphQLTaggedNode, IEnvironment, OperationType} from 'relay-runtime';
 
 export function useQueryFromServer<T extends OperationType>(
     query: GraphQLTaggedNode,
     queryRef: PreloadedQueryRef<T['variables'], T['response']>,
     options?: { staleThresholdMs?: number },
 ): T['response'];
+
+/**
+ * Makes `useFragment` read, from `environment`, the fragment references that
+ * server components hand client components. Call it once per Environment,
+ * before a fragment is first read from it; it throws otherwise.
+ */
+export function installRelayHandoff(environment: IEnvironment): void;
 
 export { PreloadedQueryRef };

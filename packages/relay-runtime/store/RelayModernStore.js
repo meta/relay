@@ -453,6 +453,33 @@ class RelayModernStore implements Store {
     return snapshot;
   }
 
+  /**
+   * Internal to Relay: a Store of `source` that reads its records as this one
+   * does (the same resolver context, data IDs, operation loader and log). It
+   * exists so that a handed-off reference that hydrates reads what the server
+   * rendered rather than this Store's records (see `useRelayHandoff`).
+   */
+  __createSnapshotStore(source: MutableRecordSource): RelayModernStore {
+    return new RelayModernStore(source, {
+      actorIdentifier: this._actorIdentifier,
+      deferDeduplicatedFields: this._deferDeduplicatedFields,
+      getDataID: this._getDataID,
+      log: this.__log,
+      operationLoader: this._operationLoader,
+      resolverContext: this._resolverContext,
+      treatMissingFieldsAsNull: this._treatMissingFieldsAsNull,
+    });
+  }
+
+  /**
+   * Internal to Relay: ends, once each, the subscriptions of the Live Resolver
+   * values this Store read. They stay as they were read. For a Store that is
+   * read only for a moment (see `__createSnapshotStore`).
+   */
+  __unsubscribeFromLiveResolvers(): void {
+    this._resolverCache.endLiveResolverSubscriptions();
+  }
+
   // This method will return a list of updated owners from the subscriptions
   notify(
     sourceOperation?: OperationDescriptor,

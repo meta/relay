@@ -96,6 +96,7 @@ function getOperationVariables(
   operation: NormalizationOperation,
   providedVariables: ?ProvidedVariablesType,
   variables: Variables,
+  keepProvidedVariables?: ?boolean,
 ): Variables {
   const operationVariables: {[key: string]: unknown} = {};
   operation.argumentDefinitions.forEach(def => {
@@ -108,7 +109,9 @@ function getOperationVariables(
 
   if (providedVariables != null) {
     Object.keys(providedVariables).forEach((varName: string) => {
-      operationVariables[varName] = providedVariables[varName].get();
+      if (keepProvidedVariables !== true || variables[varName] === undefined) {
+        operationVariables[varName] = providedVariables[varName].get();
+      }
     });
   }
   return operationVariables;

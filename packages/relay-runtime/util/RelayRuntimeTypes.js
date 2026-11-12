@@ -84,6 +84,9 @@ export type CacheConfig = {
   ) => void,
   readonly metadata?: {readonly [key: string]: unknown, ...},
   readonly transactionId?: ?string,
+  // Provided variables take the values given in the variables, not their
+  // providers' (e.g. for queries that extend data a server handed off).
+  readonly keepProvidedVariables?: ?boolean,
 };
 
 export type FetchQueryFetchPolicy = 'store-or-network' | 'network-only';

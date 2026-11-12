@@ -20,15 +20,24 @@ import type {
   ReaderFragment,
   ReaderSelector,
   SelectorData,
+  SingularReaderSelector,
   Snapshot,
 } from 'relay-runtime';
 import type {MissingClientEdgeRequestInfo} from 'relay-runtime/store/RelayStoreTypes';
 
 const {getQueryResourceForEnvironment} = require('./QueryResource');
+const {getHandoffHydrationLookup} = require('./rsc/RelayHandoffSeam');
 const useRelayEnvironment = require('./useRelayEnvironment');
 const useRelayLoggingContext = require('./useRelayLoggingContext');
 const invariant = require('invariant');
-const {useDebugValue, useEffect, useMemo, useRef, useState} = require('react');
+const {
+  startTransition,
+  useDebugValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} = require('react');
 const {
   __internal: {fetchQuery: fetchQueryInternal, getPromiseForActiveRequest},
   RelayFeatureFlags,
@@ -373,10 +382,32 @@ function subscribeToSnapshot(
   }
 }
 
+// The epoch of a state a hydrating render read from a handed-off reference's
+// own records (see `getFragmentState`).
+const HYDRATION_EPOCH = -1;
+
+// Whether a hydrating render read `state` from a handed-off reference's own
+// records. Once subscribed, its reader shows the Store's data in a transition,
+// so React keeps what was hydrated on screen while what the newer data needs
+// (e.g. an RSC field's value) loads, as it does for the data published later.
+function isHydrationState(state: FragmentState): boolean {
+  return state.kind !== 'bailout' && state.epoch === HYDRATION_EPOCH;
+}
+
 function getFragmentState(
   environment: IEnvironment,
   fragmentSelector: ?ReaderSelector,
+  // A hydrating render of handed-off references reads their own records.
+  hydrationLookup: ?(selector: SingularReaderSelector) => ?Snapshot = null,
 ): FragmentState {
+  const lookup = (selector: SingularReaderSelector): Snapshot =>
+    hydrationLookup?.(selector) ?? environment.lookup(selector);
+  // A hydrating read is not the Store's: once subscribed, the check for
+  // missed updates reads the Store whatever its epoch.
+  const epoch =
+    hydrationLookup != null
+      ? HYDRATION_EPOCH
+      : environment.getStore().getEpoch();
   if (fragmentSelector == null) {
     return {environment, kind: 'bailout'};
   } else if (fragmentSelector.kind === 'PluralReaderSelector') {
@@ -384,18 +415,18 @@ function getFragmentState(
     // Null is returned by getSelector if fragmentRef has no non-null items.
     return {
       environment,
-      epoch: environment.getStore().getEpoch(),
+      epoch,
       kind: 'plural',
       selector: fragmentSelector,
-      snapshots: fragmentSelector.selectors.map(s => environment.lookup(s)),
+      snapshots: fragmentSelector.selectors.map(lookup),
     };
   } else {
     return {
       environment,
-      epoch: environment.getStore().getEpoch(),
+      epoch,
       kind: 'singular',
       selector: fragmentSelector,
-      snapshot: environment.lookup(fragmentSelector),
+      snapshot: lookup(fragmentSelector),
     };
   }
 }
@@ -463,7 +494,11 @@ hook useFragmentInternal_EXPERIMENTAL(
     loggerContext = useRelayLoggingContext();
   }
   const [_state, setState] = useState<FragmentState>(() =>
-    getFragmentState(environment, fragmentSelector),
+    getFragmentState(
+      environment,
+      fragmentSelector,
+      getHandoffHydrationLookup(fragmentRef),
+    ),
   );
   let state = _state;
   const previousEnvironment = state.environment;
@@ -473,7 +508,11 @@ hook useFragmentInternal_EXPERIMENTAL(
     environment !== state.environment
   ) {
     // Enqueue setState to record the new selector and state
-    const newState = getFragmentState(environment, fragmentSelector);
+    const newState = getFragmentState(
+      environment,
+      fragmentSelector,
+      getHandoffHydrationLookup(fragmentRef),
+    );
     setState(newState);
     // But render with the latest state w/o waiting for the setState. Otherwise
     // the component would render the wrong information temporarily (including
@@ -709,7 +748,11 @@ hook useFragmentInternal_EXPERIMENTAL(
       // value, and return the new (recycled) state only if there was some change. In that
       // case the code would always setState if something in the snapshot changed, in addition
       // to using the latest snapshot to subscribe.
-      if (didMissUpdates) {
+      if (didMissUpdates && isHydrationState(state)) {
+        // Subscribe now: the render with the Store's data may wait in its
+        // transition, and data published meanwhile must reach it.
+        startTransition(() => setState(updatedState));
+      } else if (didMissUpdates) {
         setState(updatedState);
         storeSubscriptionRef.current = {kind: 'missed-updates'};
         // We missed updates, we're going to render again anyway so wait until then to subscribe

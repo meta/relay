@@ -239,10 +239,13 @@ hook useLoadMoreFunction_EXPERIMENTAL<TVariables extends Variables>(
           identifierValue;
       }
 
+      const {keepProvidedVariables} = fragmentSelector.owner.cacheConfig ?? {};
       const paginationQuery = createOperationDescriptor(
         paginationRequest,
         paginationVariables,
-        {force: true},
+        keepProvidedVariables === true
+          ? {force: true, keepProvidedVariables}
+          : {force: true},
       );
       fetchQuery(environment, paginationQuery).subscribe({
         ...observer,

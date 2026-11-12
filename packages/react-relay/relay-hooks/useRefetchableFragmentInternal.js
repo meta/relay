@@ -30,6 +30,7 @@ const getFragmentInternalData = require('./getFragmentInternalData');
 const ProfilerContext = require('./ProfilerContext');
 const {getQueryResourceForEnvironment} = require('./QueryResource');
 const readFragmentInternal = require('./readFragmentInternal');
+const {getHandoffHook} = require('./rsc/RelayHandoffSeam');
 const useFragmentInternal = require('./useFragmentInternal');
 const useIsMountedRef = require('./useIsMountedRef');
 const useQueryLoader = require('./useQueryLoader');
@@ -169,12 +170,20 @@ hook useRefetchableFragmentInternal<
   parentFragmentRef: unknown,
   componentDisplayName: string,
 ): ReturnType<TQuery, TKey, InternalOptions> {
+  // A reference a server component handed off carries its own data; refetch
+  // and pagination read its owner (with the RSC client entry installed for
+  // this Environment). Any other reference is unchanged.
   const parentEnvironment = useRelayEnvironment();
+  const useHandoff = getHandoffHook(parentEnvironment);
+  const ownedParentFragmentRef = useHandoff(
+    parentEnvironment,
+    parentFragmentRef,
+  );
   const {refetchableRequest, fragmentRefPathInResponse, identifierInfo} =
     getRefetchMetadata(fragmentNode, componentDisplayName);
   const fragmentIdentifier = getFragmentIdentifier(
     fragmentNode,
-    parentFragmentRef,
+    ownedParentFragmentRef,
   );
 
   const [refetchState, dispatch] = useReducer(reducer, {
@@ -209,7 +218,7 @@ hook useRefetchableFragmentInternal<
     TQuery['rawResponse'],
   >(refetchableRequest as $FlowFixMe);
 
-  let fragmentRef = parentFragmentRef;
+  let fragmentRef = ownedParentFragmentRef;
   if (shouldReset) {
     dispatch({
       environment,
@@ -345,7 +354,7 @@ hook useRefetchableFragmentInternal<
     fragmentRefPathInResponse,
     identifierInfo,
     loadQuery,
-    parentFragmentRef,
+    ownedParentFragmentRef,
     refetchableRequest,
   );
   return {
@@ -484,12 +493,16 @@ hook useRefetchFunction<TQuery extends OperationType>(
         ] = identifierValue;
       }
 
+      const keepProvidedVariables =
+        fragmentSelector?.kind === 'SingularReaderSelector' &&
+        fragmentSelector.owner.cacheConfig?.keepProvidedVariables === true;
+      const cacheConfig = keepProvidedVariables
+        ? {force: true, keepProvidedVariables}
+        : {force: true};
       const refetchQuery = createOperationDescriptor(
         refetchableRequest,
         refetchVariables,
-        {
-          force: true,
-        },
+        cacheConfig,
       );
 
       // We call loadQuery which will start a network request if necessary
@@ -503,6 +516,7 @@ hook useRefetchFunction<TQuery extends OperationType>(
         __environment: refetchEnvironment,
         __nameForWarning: 'refetch',
         fetchPolicy,
+        networkCacheConfig: cacheConfig,
       });
 
       dispatch({

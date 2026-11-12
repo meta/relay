@@ -18,9 +18,11 @@ import type {
 } from 'relay-runtime/multi-actor-environment';
 
 const ReactRelayContext = require('./../ReactRelayContext');
+const {getHandoffHook} = require('./rsc/RelayHandoffSeam');
+const invariant = require('invariant');
 const React = require('react');
 
-const {useMemo} = React;
+const {useMemo, useState} = React;
 
 type Props<TChildren> = Readonly<{
   children: TChildren,
@@ -37,6 +39,17 @@ component RelayEnvironmentProvider<TChildren extends React.Node>(
   const context = useMemo(
     () => ({environment, getEnvironmentForActor}),
     [environment, getEnvironmentForActor],
+  );
+  // Mounted readers call their Environment's handoff hook (see
+  // `installRelayHandoff`), so the Environment may change only to one with
+  // the same hook: otherwise they would call a different number of hooks.
+  const handoffHook = getHandoffHook(environment);
+  const [initialHandoffHook] = useState(() => handoffHook);
+  invariant(
+    initialHandoffHook === handoffHook,
+    'RelayEnvironmentProvider: The Environment changed to one that reads ' +
+      'handed-off fragment references differently (`installRelayHandoff`). ' +
+      'Give RelayEnvironmentProvider a new `key` to switch between them.',
   );
   return (
     <ReactRelayContext.Provider value={context}>

@@ -273,11 +273,24 @@ class RelayModernEnvironment implements IEnvironment {
    *
    * **It is the responsibility of the caller to invoke the returned
    * continuation function before the next browser paint**.
+   *
+   * A response marked `is_normalized` carries normalized records, published
+   * as they are.
    */
   publishWithDeferredNotify(
     operation: OperationDescriptor,
     response: GraphQLResponseWithData,
   ): () => void {
+    if (response.extensions?.is_normalized === true) {
+      return this._publishQueue.publishWithDeferredNotify(operation, {
+        errors: [],
+        fieldPayloads: [],
+        followupPayloads: [],
+        incrementalPlaceholders: [],
+        isFinal: false,
+        source: new RelayRecordSource(response.data as $FlowFixMe),
+      });
+    }
     const payload = this._normalizeResponse(
       response,
       operation.root,

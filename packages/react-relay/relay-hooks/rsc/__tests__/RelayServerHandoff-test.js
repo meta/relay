@@ -22,6 +22,10 @@ const RelayServerHandoff = require('../RelayServerHandoff');
 const serverQuery = require('../serverQuery');
 const {readServerFragment} = require('../useServerFragment');
 const {
+  createActorsServer,
+  serveOverlappingActors,
+} = require('./RelayHandoffTestOverlappingQueries');
+const {
   Environment,
   Network,
   Observable,
@@ -320,12 +324,82 @@ async function start() {
 }
 
 describe('RelayServerHandoff', () => {
+  it('orders the records of every handoff and chunk of a request among its writes', async () => {
+    const server = createActorsServer(config => new Environment(config));
+    const {second, twin} = await serveOverlappingActors(server, 'truncated');
+    // The twin's handoff and its chunks, then the second query's, as the
+    // server copied them.
+    const writes = async (ref: unknown) => {
+      const handoff = getRelayHandoff(ref);
+      if (handoff == null) {
+        throw new Error('Expected a handoff.');
+      }
+      const sequences = [handoff.sequence];
+      let chunk = await handoff.next;
+      while (chunk != null) {
+        sequences.push(chunk.sequence);
+        chunk = await chunk.next;
+      }
+      return {sequences, serverStore: handoff.serverStore};
+    };
+    const twinWrites = await writes(twin);
+    const secondWrites = await writes(second);
+    expect(secondWrites.serverStore).toBe(twinWrites.serverStore);
+    // The twin's handoff, its streamed item, and the list the second query's
+    // first payload cut back; then the second query's handoff and items.
+    expect(twinWrites.sequences).toHaveLength(3);
+    expect(secondWrites.sequences).toHaveLength(3);
+    const all = [...twinWrites.sequences, ...secondWrites.sequences];
+    expect(new Set(all).size).toBe(all.length);
+    expect([...twinWrites.sequences].sort((a, b) => a - b)).toEqual(
+      twinWrites.sequences,
+    );
+    expect([...secondWrites.sequences].sort((a, b) => a - b)).toEqual(
+      secondWrites.sequences,
+    );
+    expect(twinWrites.sequences[1]).toBeLessThan(secondWrites.sequences[0]);
+    expect(secondWrites.sequences[1]).toBeGreaterThan(twinWrites.sequences[2]);
+    // Another request's writes are ordered on their own.
+    const other = await serveOverlappingActors(
+      createActorsServer(config => new Environment(config)),
+      'truncated',
+    );
+    expect((await writes(other.twin)).serverStore).not.toBe(
+      twinWrites.serverStore,
+    );
+  });
+
   it('rejects a handoff without the fields this version of Relay reads', () => {
     const handoff = {dataID: 'user', fragment: {}, id: 'h', records: {}};
     expect(() => getRelayHandoff({__handoff: handoff})).toThrow(
       'Relay: A fragment reference carries a handoff this version of Relay ' +
         'cannot read.',
     );
+  });
+
+  it('rejects a handoff without its place in the write order of its request', () => {
+    const handoff = {
+      dataID: 'user',
+      fragment: {},
+      id: 'h',
+      next: Promise.resolve(null),
+      records: {},
+      variables: {},
+    };
+    const error =
+      'Relay: A fragment reference carries a handoff this version of Relay ' +
+      'cannot read.';
+    expect(() =>
+      getRelayHandoff({__handoff: {...handoff, sequence: 1}}),
+    ).toThrow(error);
+    expect(() =>
+      getRelayHandoff({__handoff: {...handoff, serverStore: 'request'}}),
+    ).toThrow(error);
+    expect(
+      getRelayHandoff({
+        __handoff: {...handoff, sequence: 1, serverStore: 'request'},
+      }),
+    ).not.toBeNull();
   });
 
   it("hands off only a client fragment's records, with the variables it reads", async () => {

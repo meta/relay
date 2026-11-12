@@ -50,6 +50,7 @@ function createOperationDescriptor<TQuery extends OperationType>(
     operation,
     request.params.providedVariables,
     variables,
+    cacheConfig?.keepProvidedVariables,
   );
   if (RelayFeatureFlags.ENABLE_CYLE_DETECTION_IN_VARIABLES) {
     invariant(

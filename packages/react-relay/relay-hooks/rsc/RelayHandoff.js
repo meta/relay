@@ -77,7 +77,9 @@ function getRelayHandoff(fragmentRef: unknown): unknown {
     handoff.fragment == null ||
     handoff.variables == null ||
     handoff.records == null ||
-    handoff.next == null
+    handoff.next == null ||
+    typeof handoff.serverStore !== 'string' ||
+    typeof handoff.sequence !== 'number'
   ) {
     throw new Error(
       'Relay: A fragment reference carries a handoff this version of Relay ' +
@@ -133,7 +135,9 @@ function getHandoffOperation(handoff: {
   return createOperationDescriptor(
     request,
     handoff.variables,
-    null,
+    // Pagination and refetch queries extend its data with the values the
+    // server's providers gave (see `useLoadMoreFunction`).
+    {keepProvidedVariables: true},
     handoff.dataID,
   );
 }

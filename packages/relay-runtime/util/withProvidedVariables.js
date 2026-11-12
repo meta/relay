@@ -21,12 +21,19 @@ function withProvidedVariables(
   userSuppliedVariables: Variables,
   providedVariables: ?ProvidedVariablesType,
   cache: Map<() => unknown, unknown>,
+  keepProvidedVariables?: ?boolean,
 ): Variables {
   if (providedVariables != null) {
     const operationVariables: {[key: string]: unknown} = {};
     // $FlowFixMe[unsafe-object-assign]
     Object.assign(operationVariables, userSuppliedVariables);
     Object.keys(providedVariables).forEach((varName: string) => {
+      if (
+        keepProvidedVariables === true &&
+        operationVariables[varName] !== undefined
+      ) {
+        return;
+      }
       const providerFunction = providedVariables[varName].get;
 
       if (!cache.has(providerFunction)) {

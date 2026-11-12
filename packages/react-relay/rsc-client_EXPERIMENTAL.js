@@ -14,10 +14,12 @@
 
 import type {PreloadedQueryRef} from './relay-hooks/rsc/serverPreloadQuery';
 
+const installRelayHandoff = require('./relay-hooks/rsc/installRelayHandoff');
 const useQueryFromServer = require('./relay-hooks/rsc/useQueryFromServer');
 
 export type {PreloadedQueryRef};
 
 module.exports = {
+  installRelayHandoff,
   useQueryFromServer,
 };

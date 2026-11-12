@@ -897,6 +897,34 @@ class LiveResolverCache implements ResolverCache {
     return key;
   }
 
+  // Internal to Relay: ends, once each, the subscriptions of the Live Resolver
+  // values this cache read; the values stay as they were read (see
+  // `RelayModernStore.__unsubscribeFromLiveResolvers`).
+  endLiveResolverSubscriptions(): void {
+    const source = this._getRecordSource();
+    for (const dataID of source.getRecordIDs()) {
+      const record = source.get(dataID);
+      if (record == null || !isResolverRecord(record)) {
+        continue;
+      }
+      if (
+        RelayModernRecord.getValue(
+          record,
+          RELAY_RESOLVER_LIVE_STATE_SUBSCRIPTION_KEY,
+        ) != null
+      ) {
+        maybeUnsubscribeFromLiveState(record);
+        const ended = RelayModernRecord.clone(record);
+        RelayModernRecord.setValue(
+          ended,
+          RELAY_RESOLVER_LIVE_STATE_SUBSCRIPTION_KEY,
+          null,
+        );
+        source.set(dataID, ended);
+      }
+    }
+  }
+
   unsubscribeFromLiveResolverRecords(invalidatedDataIDs: Set<DataID>): void {
     return unsubscribeFromLiveResolverRecordsImpl(
       this._getRecordSource(),

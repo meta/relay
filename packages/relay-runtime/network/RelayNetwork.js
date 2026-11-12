@@ -53,6 +53,7 @@ function create(
       variables,
       request.providedVariables,
       providerValueCache,
+      cacheConfig?.keepProvidedVariables,
     );
     if (request.operationKind === 'subscription') {
       invariant(
