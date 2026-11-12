@@ -61,6 +61,7 @@ const {
   ROOT_ID,
   ROOT_TYPE,
   TYPENAME_KEY,
+  formatStorageKey,
   getArgumentValues,
   getHandleStorageKey,
   getModuleComponentKey,
@@ -141,6 +142,7 @@ class RelayResponseNormalizer {
       typeName: string,
     },
   >;
+  _isPerfStorageKeysEnabled: boolean;
 
   constructor(
     recordSource: MutableRecordSource,
@@ -163,6 +165,7 @@ class RelayResponseNormalizer {
     this._variables = variables;
     this._log = options.log;
     this._s2cExecutions = new Map();
+    this._isPerfStorageKeysEnabled = RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS;
   }
 
   normalizeResponse(
@@ -303,7 +306,11 @@ class RelayResponseNormalizer {
           const args = selection.args
             ? getArgumentValues(selection.args, this._variables)
             : {};
-          const fieldKey = getStorageKey(selection, this._variables);
+          // As in `_normalizeField`: `args` holds the values `getStorageKey`
+          // would format.
+          const fieldKey = this._isPerfStorageKeysEnabled
+            ? formatStorageKey(selection.name, args)
+            : getStorageKey(selection, this._variables);
           const handleKey = getHandleStorageKey(selection, this._variables);
           this._handleFieldPayloads.push({
             args,
@@ -617,7 +624,24 @@ class RelayResponseNormalizer {
       selection.name,
     );
     const responseKey = selection.alias || selection.name;
-    const storageKey = getStorageKey(selection, this._variables);
+    // A field without arguments is stored under its name: the compiler emits a
+    // static `storageKey` only for fields with arguments. With the flag on,
+    // fields and handles skip `getStorageKey` so that its hot caller, the
+    // reader, trains it: V8 checks shapes in the order a property access first
+    // saw them.
+    let storageKey;
+    if (!this._isPerfStorageKeysEnabled) {
+      storageKey = getStorageKey(selection, this._variables);
+    } else if (selection.args == null) {
+      storageKey = selection.name;
+    } else {
+      storageKey =
+        selection.storageKey ||
+        formatStorageKey(
+          selection.name,
+          getArgumentValues(selection.args, this._variables),
+        );
+    }
     const fieldValue = data[responseKey];
     const isNoncompliantlyNullish =
       RelayFeatureFlags.ENABLE_NONCOMPLIANT_ERROR_HANDLING_ON_LISTS &&
