@@ -24,15 +24,18 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
  * The `lib/*` entry makes the source tree look like the published package:
  * npm flattens everything under `lib/`, so code written against the real
  * package imports `relay-runtime/lib/network/RelayObservable`, which in source
- * is `relay-runtime/network/RelayObservable`. tsc prefers the more specific
- * pattern, so the bare `*` entry only catches paths that are already flat.
+ * is `relay-runtime/network/RelayObservable`. A declaration the source tree
+ * keeps under `lib/`, next to where the compiled module is published (e.g.
+ * react-relay's `lib/relay-hooks/rsc/installRelayHandoff.d.ts`), is found
+ * first. tsc prefers the more specific pattern, so the bare `*` entry only
+ * catches paths that are already flat.
  */
 function relayPackagePaths(): {[string]: Array<string>} {
   const paths: {[string]: Array<string>} = {};
   for (const name of ['relay-runtime', 'react-relay']) {
     const root = resolveRelayPackage(name);
     paths[name] = [path.join(root, 'index.d.ts')];
-    paths[`${name}/lib/*`] = [path.join(root, '*')];
+    paths[`${name}/lib/*`] = [path.join(root, 'lib', '*'), path.join(root, '*')];
     paths[`${name}/*`] = [path.join(root, '*')];
   }
   return paths;

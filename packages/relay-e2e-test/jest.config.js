@@ -48,9 +48,12 @@ const config = {
       '<rootDir>/node_modules/react-server-dom-webpack/client.browser.js',
     // Point to Relay source files directly
     // resolveRelayPackage checks packages/ (GitHub) then oss/ (internal)
+    // (the published packages compile them into `lib/`).
     '^relay-runtime$': relayRuntimePath,
+    '^relay-runtime/lib/(.*)$': relayRuntimePath + '/$1',
     '^relay-runtime/(.*)$': relayRuntimePath + '/$1',
     '^react-relay$': reactRelayPath,
+    '^react-relay/lib/(.*)$': reactRelayPath + '/$1',
     '^react-relay/(.*)$': reactRelayPath + '/$1',
   },
   // Resolve modules from both e2e node_modules (react@19, graphql@16)

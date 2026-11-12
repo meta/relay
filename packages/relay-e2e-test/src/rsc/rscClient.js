@@ -141,7 +141,7 @@ function installBrowserGlobals() {
 
 function createRscSession({fixtureDir, host, flushOnShell}) {
   // What the session installs, undone when it ends, or right away if it
-  // fails to start, so other fixtures run without it.
+  // fails to start, so other fixtures run without it (plain Relay included).
   const restores = [];
   const restore = () => restores.splice(0).reverse().forEach(undo => undo());
   let rsc;
@@ -229,6 +229,11 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
     ),
     store: new Store(new RecordSource()),
   });
+  // Client components read the fragment references server components hand
+  // them: the app's opt-in, where it creates the Environment.
+  require('react-relay/rsc-client_EXPERIMENTAL').installRelayHandoff(
+    environment,
+  );
 
   // Where streamed boundary HTML lands until the inline runtime moves it.
   const streamedHtml = document.createElement('div');

@@ -230,11 +230,17 @@ async function startSsrServer({fixtureDir, flushOnShell, rscOrigin}) {
           error => sink.error(error),
         );
       });
-    return new Environment({
+    const environment = new Environment({
       isServer: true,
       network: Network.create(fetchFn),
       store: new Store(new RecordSource()),
     });
+    // Client components read the fragment references server components hand
+    // them: the app's opt-in, where it creates the Environment.
+    require('react-relay/rsc-client_EXPERIMENTAL').installRelayHandoff(
+      environment,
+    );
+    return environment;
   }
 
   return listen((req, res, url) => {
