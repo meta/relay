@@ -2594,12 +2594,14 @@ impl<'a> Parser<'a> {
             TokenKind::FloatLiteral => {
                 let value = source.parse::<f64>();
                 match value {
-                    Ok(value) => Ok(ConstantValue::Float(FloatNode {
+                    // Out-of-range literals such as `1e400` parse to infinity
+                    // rather than an error, but GraphQL floats must be finite.
+                    Ok(value) if value.is_finite() => Ok(ConstantValue::Float(FloatNode {
                         token,
                         value: FloatValue::new(value),
                         source_value: source.intern(),
                     })),
-                    Err(_) => {
+                    _ => {
                         let error = Diagnostic::error(
                             SyntaxError::InvalidFloat,
                             Location::new(self.source_location, token.span),

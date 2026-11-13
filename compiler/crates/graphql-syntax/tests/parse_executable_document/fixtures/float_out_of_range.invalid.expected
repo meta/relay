@@ -1,0 +1,21 @@
+==================================== INPUT ====================================
+# expected-to-throw
+query LargestFiniteFloat {
+    node(id: 1.7976931348623157e308) {
+        id
+    }
+}
+
+query FloatOutOfRange {
+    node(id: 1e400) {
+        id
+    }
+}
+==================================== ERROR ====================================
+✖︎ Invalid floating point value
+
+  float_out_of_range.invalid.graphql:9:14
+    8 │ query FloatOutOfRange {
+    9 │     node(id: 1e400) {
+      │              ^^^^^
+   10 │         id
