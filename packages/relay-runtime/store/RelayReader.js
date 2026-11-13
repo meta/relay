@@ -3281,13 +3281,16 @@ class RelayReaderOptimized {
     data: SelectorData,
   ): ?unknown {
     const fieldName = field.alias ?? field.name;
-    // A field without arguments is stored under its name, and one whose
-    // arguments are all literals under the static `storageKey` the compiler
-    // emits for it.
+    // A scalar field without arguments is stored under its name. A resolver
+    // field may not be (getStorageKey adds its root fragment's arguments), and
+    // every field with arguments calls getStorageKey too, also when they are
+    // all literals (it returns the static `storageKey` first): if only rarer
+    // fields made the call, V8 could optimize this method before the call had
+    // run, and the first such field would then deoptimize the reader.
     const storageKey =
-      (field.kind === 'ScalarField' &&
-        (field.args == null ? field.name : field.storageKey)) ||
-      getStorageKey(field, this._variables);
+      field.args == null && field.kind === 'ScalarField'
+        ? field.name
+        : getStorageKey(field, this._variables);
     if (this._fieldGranularNotificationDataID != null) {
       this._seenRecords.add(
         getFieldNotificationKey(
