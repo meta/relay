@@ -1,0 +1,53 @@
+# validate-extracted-schema
+# An interface reachable only through `implements` on retained types is dropped, along with those `implements` clauses.
+
+//- src/FooQuery.js
+graphql`
+  query FooQuery {
+    me {
+      name
+    }
+    animal {
+      ... on Dog {
+        breed
+      }
+    }
+  }
+`;
+
+//- relay.config.json
+{
+   "language": "typescript",
+   "schema": "./schema.graphql",
+   "src": "./src"
+}
+
+//- schema.graphql
+type Query { _: ID }
+
+//- full_schema.graphql
+type Query {
+  me: User
+  animal: Animal
+}
+
+interface Entity {
+  url: String
+}
+
+interface Animal {
+  name: String
+}
+
+type User implements Entity {
+  id: ID!
+  name: String
+  url: String
+}
+
+type Dog implements Animal & Entity {
+  id: ID!
+  breed: String
+  name: String
+  url: String
+}
