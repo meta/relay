@@ -638,7 +638,7 @@ describe('RelayReader @catch', () => {
     expect(fieldErrors).toEqual([
       {
         error: {message: 'There was an error!', path: ['me', 'lastName']},
-        fieldPath: 'me.lastName',
+        fieldPath: 'me.myAlias.lastName',
         handled: true,
         kind: 'relay_field_payload.error',
         owner:
@@ -689,7 +689,7 @@ describe('RelayReader @catch', () => {
     expect(fieldErrors).toEqual([
       {
         error: {message: 'There was an error!', path: ['me', 'lastName']},
-        fieldPath: 'me.lastName',
+        fieldPath: 'me.myAlias.lastName',
         handled: true,
         kind: 'relay_field_payload.error',
         owner:

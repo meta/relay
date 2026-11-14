@@ -12,12 +12,17 @@
 
 const {graphql} = require('../../query/GraphQLTag');
 const RelayFeatureFlags = require('../../util/RelayFeatureFlags');
+const defaultGetDataID = require('../defaultGetDataID');
 const {
   createOperationDescriptor,
 } = require('../RelayModernOperationDescriptor');
+const RelayModernRecord = require('../RelayModernRecord');
+const {createNormalizationSelector} = require('../RelayModernSelector');
 const RelayModernStore = require('../RelayModernStore');
 const {read} = require('../RelayReader');
 const RelayRecordSource = require('../RelayRecordSource');
+const {normalize} = require('../RelayResponseNormalizer');
+const {ROOT_ID, ROOT_TYPE} = require('../RelayStoreUtils');
 
 describe('RelayReader error fields', () => {
   it('adds the errors to fieldErrors', () => {
@@ -61,6 +66,38 @@ describe('RelayReader error fields', () => {
           message: 'There was an error!',
           path: ['me', 'lastName'],
         },
+        kind: 'relay_field_payload.error',
+        shouldThrow: false,
+        handled: false,
+      },
+    ]);
+  });
+
+  it('reports the field path of a server error stored by the normalizer', () => {
+    // The normalizer drops `path` when it attaches an error to a record, so
+    // the reader has to work out the path itself.
+    const FooQuery = require('./__generated__/RelayReaderRelayErrorHandlingTest1Query.graphql');
+    const source = new RelayRecordSource();
+    source.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+    normalize(
+      source,
+      createNormalizationSelector(FooQuery.operation, ROOT_ID, {}),
+      {me: {__typename: 'User', id: '1', lastName: null}},
+      {
+        getDataID: defaultGetDataID,
+        treatMissingFieldsAsNull: false,
+        deferDeduplicatedFields: false,
+        log: null,
+      },
+      [{message: 'There was an error!', path: ['me', 'lastName']}],
+    );
+    const operation = createOperationDescriptor(FooQuery, {});
+    const {fieldErrors} = read(source, operation.fragment, null);
+    expect(fieldErrors).toEqual([
+      {
+        owner: 'RelayReaderRelayErrorHandlingTest1Query',
+        fieldPath: 'me.lastName',
+        error: {message: 'There was an error!'},
         kind: 'relay_field_payload.error',
         shouldThrow: false,
         handled: false,
@@ -166,7 +203,7 @@ describe('RelayReader error fields', () => {
     expect(fieldErrors).toEqual([
       {
         owner: 'RelayReaderRelayErrorHandlingTestMissingPluralQuery',
-        fieldPath: 'me.lastName',
+        fieldPath: 'nodes.0.lastName',
         kind: 'relay_field_payload.error',
         error: {
           message: 'There was an error!',
@@ -294,7 +331,7 @@ describe('RelayReader error fields', () => {
     expect(fieldErrors).toEqual([
       {
         error: {message: 'There was an error!', path: ['me', 'lastName']},
-        fieldPath: 'me.lastName',
+        fieldPath: 'lastName',
         // handled is true because we handled the error by making
         // last_name_throw_on_field_error null
         handled: true,
@@ -342,7 +379,7 @@ describe('RelayReader error fields', () => {
     expect(fieldErrors).toEqual([
       {
         error: {message: 'There was an error!', path: ['me', 'lastName']},
-        fieldPath: 'me.lastName',
+        fieldPath: 'lastName',
         // handled is false because we want this to throw
         // last_name_throw_on_field_error null
         handled: false,
@@ -918,7 +955,7 @@ describe('RelayReader error fields', () => {
 
         expect(fieldErrors).toEqual([
           {
-            fieldPath: '',
+            fieldPath: 'node.friends.edges',
             handled: false,
             error: {message: 'There was an error!'},
             kind: 'relay_field_payload.error',
@@ -968,7 +1005,7 @@ describe('RelayReader error fields', () => {
 
         expect(fieldErrors).toEqual([
           {
-            fieldPath: '',
+            fieldPath: 'node.emailAddresses',
             handled: false,
             error: {message: 'There was an error!'},
             kind: 'relay_field_payload.error',
@@ -1033,7 +1070,7 @@ describe('RelayReader error fields', () => {
         expect(data.node.friends.edges).toEqual([]);
         expect(fieldErrors).toEqual([
           {
-            fieldPath: '',
+            fieldPath: 'node.friends.edges',
             handled: false,
             error: {message: 'There was an error!'},
             kind: 'relay_field_payload.error',
@@ -1082,7 +1119,7 @@ describe('RelayReader error fields', () => {
         expect(data.node.emailAddresses).toEqual([]);
         expect(fieldErrors).toEqual([
           {
-            fieldPath: '',
+            fieldPath: 'node.emailAddresses',
             handled: false,
             error: {message: 'There was an error!'},
             kind: 'relay_field_payload.error',

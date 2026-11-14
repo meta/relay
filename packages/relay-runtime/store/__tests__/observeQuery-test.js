@@ -222,7 +222,7 @@ test('Field error with @throwOnFieldError', async () => {
     expect(results).toEqual([
       {
         error: new Error(
-          "Relay: Received a field error in the server response for field '' in 'observeQueryTestThrowOnFieldErrorQuery'. Message: error",
+          "Relay: Received a field error in the server response for field 'me.name' in 'observeQueryTestThrowOnFieldErrorQuery'. Message: error",
         ),
         state: 'error',
       },

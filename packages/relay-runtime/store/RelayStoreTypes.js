@@ -1529,7 +1529,7 @@ export type RelayResolverErrorEvent = {
 export type RelayFieldPayloadErrorEvent = {
   readonly kind: 'relay_field_payload.error',
   readonly owner: string,
-  readonly fieldPath: string,
+  fieldPath: string, // Purposefully mutable to allow lazy construction in RelayReader
   readonly error: TRelayFieldError,
   readonly shouldThrow: boolean,
   readonly handled: boolean,

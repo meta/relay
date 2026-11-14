@@ -227,7 +227,7 @@ test('Field error with @throwOnFieldError', async () => {
     expect(results).toEqual([
       {
         error: new Error(
-          "Relay: Received a field error in the server response for field '' in 'observeFragmentTestThrowOnFieldErrorFragment'. Message: error",
+          "Relay: Received a field error in the server response for field 'name' in 'observeFragmentTestThrowOnFieldErrorFragment'. Message: error",
         ),
         state: 'error',
       },
@@ -510,7 +510,7 @@ test('Field error with @relay(plural: true) @throwOnFieldError', async () => {
     expect(results).toEqual([
       {
         error: new Error(
-          "Relay: Received a field error in the server response for field '' in 'observeFragmentTestPluralThrowOnFieldErrorFragment'. Message: error",
+          "Relay: Received a field error in the server response for field 'name' in 'observeFragmentTestPluralThrowOnFieldErrorFragment'. Message: error",
         ),
         state: 'error',
       },
