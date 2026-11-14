@@ -276,18 +276,6 @@ graphql@17.0.2:
   resolved "https://registry.facebook.net/graphql/-/graphql-17.0.2.tgz#05ff6f18e0801e8d040d46957eba712c1459d5d7"
   integrity sha512-FRWbddMxfkjiB7z+aQDWIR+E34xo9I8c9mtK2RPv8PmMzKRvrdsreHL/Ui/TmwHJfhHChEtsFPyMHKI+xuarQQ==
 
-hermes-estree@0.28.1:
-  version "0.28.1"
-  resolved "https://registry.yarnpkg.com/hermes-estree/-/hermes-estree-0.28.1.tgz#631e6db146b06e62fc1c630939acf4a3c77d1b24"
-  integrity sha512-w3nxl/RGM7LBae0v8LH2o36+8VqwOZGv9rX1wyoWT6YaKZLqpJZ0YQ5P0LVr3tuRpf7vCx0iIG4i/VmBJejxTQ==
-
-hermes-parser@0.28.1:
-  version "0.28.1"
-  resolved "https://registry.yarnpkg.com/hermes-parser/-/hermes-parser-0.28.1.tgz#17b9e6377f334b6870a1f6da2e123fdcd0b605ac"
-  integrity sha512-nf8o+hE8g7UJWParnccljHumE9Vlq8F7MqIdeahl+4x0tvCUJYRrT0L7h0MMg/X9YJmkNwsfbaNNrzPtFXOscg==
-  dependencies:
-    hermes-estree "0.28.1"
-
 is-arrayish@^0.2.1:
   version "0.2.1"
   resolved "https://registry.yarnpkg.com/is-arrayish/-/is-arrayish-0.2.1.tgz#77c99840527aa8ecb1a8ba697b80645a7a926a9d"
@@ -304,9 +292,9 @@ js-tokens@^4.0.0:
   integrity sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==
 
 js-yaml@^3.9.0:
-  version "3.14.0"
-  resolved "https://registry.yarnpkg.com/js-yaml/-/js-yaml-3.14.0.tgz#a7a34170f26a21bb162424d8adacb4113a69e482"
-  integrity sha512-/4IbIeHcD9VMHFqDR/gQ7EdZdLimOvW2DdcxFjdyyZ9NsbS+ccrXqVWDtab/lRl5AlUqmpBx8EhPaWR+OtY17A==
+  version "3.15.0"
+  resolved "https://registry.yarnpkg.com/js-yaml/-/js-yaml-3.15.0.tgz#586e5214eafe3e893756a41e979b50d89d3e4a67"
+  integrity sha512-ttBQIIQPDeLjpPOohtUdXuXUVoA2uIB6fEH9HyJ7234s5mBJ5wTx20njxplLZQgLaOfpmPQA7X2t5AX6tIPbog==
   dependencies:
     argparse "^1.0.7"
     esprima "^4.0.0"
@@ -366,10 +354,10 @@ picocolors@^1.1.1:
   resolved "https://registry.yarnpkg.com/picocolors/-/picocolors-1.1.1.tgz#3d321af3eab939b083c8f929a1d12cda81c26b6b"
   integrity sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==
 
-prettier@2.8.8:
-  version "2.8.8"
-  resolved "https://registry.yarnpkg.com/prettier/-/prettier-2.8.8.tgz#e8c5d7e98a4305ffe3de2e1fc4aca1a71c28b1da"
-  integrity sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==
+prettier@3.9.4:
+  version "3.9.4"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.9.4.tgz#a9c477cf1614376bd1f6bbc593d8c0d414bcec87"
+  integrity sha512-yWG/o/4oJfo036EKAfK6ACAoDOfHeRHx4tuxkfBZiauURiaSmYwlpOr5LQqKtIkRD2z1PLteme2WoxEnj4tHTg==
 
 resolve@^1.8.1:
   version "1.8.1"
