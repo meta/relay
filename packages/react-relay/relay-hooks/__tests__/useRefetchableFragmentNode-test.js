@@ -45,6 +45,7 @@ import type {
 } from 'relay-runtime';
 import type {Query} from 'relay-runtime/util/RelayRuntimeTypes';
 
+const {MockPayloadGenerator} = require('relay-test-utils');
 const RelayEnvironmentProvider = require('../RelayEnvironmentProvider');
 const useRefetchableFragmentInternal = require('../useRefetchableFragmentInternal');
 const invariant = require('invariant');
@@ -820,6 +821,60 @@ describe('useRefetchableFragmentInternal (%s)', () => {
       });
 
       // Assert fragment is rendered with new data
+      const refetchedUser = {
+        id: '1',
+        name: 'Alice',
+        profile_picture: {
+          uri: 'scale32',
+        },
+        ...createFragmentRef('1', refetchQuery),
+      };
+      expectFragmentResults([{data: refetchedUser}]);
+      expect(isOperationRetained(refetchQuery)).toBe(true);
+    });
+
+    it('refetches new variables correctly when refetching same id and queued resolver', () => {
+      const renderer = renderFragment();
+      const initialUser = {
+        id: '1',
+        name: 'Alice',
+        profile_picture: null,
+        ...createFragmentRef('1', query),
+      };
+      expectFragmentResults([{data: initialUser}]);
+
+      // Mock network response upfront using queueOperationResolver
+      // With the pending match fix, this will resolve synchronously when
+      // refetch() is called, without needing queuePendingOperation
+      environment.mock.queueOperationResolver(operation =>
+        MockPayloadGenerator.generate(operation, {
+          User: () => ({
+            id: '1',
+            name: 'Alice',
+            profile_picture: {
+              uri: 'scale32',
+            },
+            username: 'useralice',
+          }),
+        }),
+      );
+
+      const refetchVariables = {
+        id: '1',
+        scale: 32,
+      };
+      refetchQuery = createOperationDescriptor(
+        gqlRefetchQuery,
+        refetchVariables,
+        {force: true},
+      );
+
+      TestRenderer.act(() => {
+        refetch({scale: 32});
+      });
+
+      // With the pending match fix, the resolver executes synchronously
+      // so the component renders with the refetched data without suspending
       const refetchedUser = {
         id: '1',
         name: 'Alice',
