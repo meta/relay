@@ -11,6 +11,7 @@
 
 'use strict';
 
+import type {QueryResult} from './QueryResource';
 import type {
   FetchPolicy,
   GraphQLResponse,
@@ -115,6 +116,7 @@ hook useLazyLoadQueryNode<
     };
   }, []);
 
+  const retainedQueryResultRef = useRef<?QueryResult>(null);
   useEffect(() => {
     if (maybeHiddenOrFastRefresh.current === true) {
       // This block only runs if the component has previously "unmounted"
@@ -125,15 +127,24 @@ hook useLazyLoadQueryNode<
       // retain a cached query resource that was disposed, we need to force
       // a re-render so that the cache entry for this query is re-intiliazed and
       // and re-evaluated (and potentially cause a refetch).
+      // A render while hidden may have already prepared a new cache entry;
+      // that entry can be retained instead.
       maybeHiddenOrFastRefresh.current = false;
-      forceUpdate(n => n + 1);
-      return;
+      if (
+        preparedQueryResult == null ||
+        preparedQueryResult === retainedQueryResultRef.current ||
+        !QueryResource.isCached(preparedQueryResult)
+      ) {
+        forceUpdate(n => n + 1);
+        return;
+      }
     }
 
     if (preparedQueryResult == null) {
       return;
     }
 
+    retainedQueryResultRef.current = preparedQueryResult;
     const disposable = QueryResource.retain(
       preparedQueryResult,
       profilerContext,
