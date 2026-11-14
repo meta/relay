@@ -46,7 +46,7 @@ To convert files to the new syntax, run codemode: `flow-runner codemod relay/mig
 
 ## Compiler
 
-You must enable the `"enable_relay_resolver_transform"` feature flag in your Relay compiler config:
+For Relay versions below 18.1.0, you must enable the `"enable_relay_resolver_transform"` feature flag in your Relay compiler config:
 
 
 ```json title="relay.config.json"
