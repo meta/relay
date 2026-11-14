@@ -11,14 +11,16 @@ keywords:
 import DocsRating from '@site/src/core/DocsRating';
 import {FbInternalOnly, OssOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbUseRefetchableFragmentApiReferenceCodeExample} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbUseRefetchableFragmentReturnValue} from '../../FbFakeContent.mdx'; // @oss-only
 
 ## `useRefetchableFragment`
 
 You can use `useRefetchableFragment` when you want to fetch and re-render a fragment with different data:
 
 <FbInternalOnly>
-  // @fb-only
+  <FbUseRefetchableFragmentApiReferenceCodeExample />
 </FbInternalOnly>
 
 <OssOnly>
@@ -77,7 +79,7 @@ module.exports = CommentBody;
 ### Return Value
 
 <FbInternalOnly>
-  // @fb-only
+  <FbUseRefetchableFragmentReturnValue />
 </FbInternalOnly>
 
 <OssOnly>

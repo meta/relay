@@ -10,6 +10,7 @@ keywords:
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbClientOnlyDataDir} from '../../FbFakeContent.mdx'; // @oss-only
 
 ## Client-Only Data (Client Schema Extensions)
 
@@ -41,7 +42,7 @@ extend type Comment {
 
 <FbInternalOnly>
 
-  // @fb-only
+  <FbClientOnlyDataDir />
 
 </FbInternalOnly>
 

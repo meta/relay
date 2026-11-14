@@ -10,8 +10,8 @@ keywords:
 
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
-
 // @fb-only
+import {default as FbMissingFieldHandlers} from '../../FbFakeContent.mdx'; // @oss-only
 
 In the previous section we covered how to reuse data that is fully or partially cached, however there are cases in which Relay can't automatically tell that it can reuse some of the data it already has from other queries in order to fulfill a specific query. Specifically, Relay knows how to reuse data that is cached for a query that has been fetched before; that is, if you fetch the exact same query twice, Relay will know that it has the data cached for that query the second time it tries to evaluate it.
 
@@ -44,7 +44,7 @@ These two queries are different, but reference the exact same data. Ideally, if 
 
 To do so, we can provide `missingFieldHandlers` to the `RelayEnvironment` which specifies this knowledge.
 
-// @fb-only
+<FbMissingFieldHandlers />
 
 ```js
 const {ROOT_TYPE, Environment} = require('relay-runtime');
