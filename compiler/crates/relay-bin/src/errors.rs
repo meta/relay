@@ -18,6 +18,11 @@ pub enum Error {
     #[error("{0}")]
     ConfigError(relay_compiler::errors::Error),
 
+    #[error(
+        "{source}\n\nHint: You can dump the config JSON schema with:\n  relay-compiler config-json-schema\n\nFor documentation, see:\n  https://relay.dev/docs/getting-started/compiler-config/"
+    )]
+    ConfigErrorWithHint { source: Box<Error> },
+
     #[error("Unable to run relay compiler. Error details: \n{details}")]
     CompilerError { details: String },
 
