@@ -27,6 +27,11 @@ export interface UseMutationConfig<TMutation extends MutationParameters> {
     configs?: DeclarativeMutationConfig[] | undefined;
     onError?: ((error: Error) => void | null) | undefined;
     onCompleted?: ((response: TMutation['response'], errors: PayloadError[] | null) => void | null) | undefined;
+    onSettled?: ((
+        response: TMutation['response'] | null,
+        errors: PayloadError[] | null | undefined,
+        error: Error | null | undefined,
+    ) => void | null) | undefined;
     onUnsubscribe?: (() => void | null) | undefined;
 }
 

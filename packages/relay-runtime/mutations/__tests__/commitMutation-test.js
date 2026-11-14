@@ -1523,6 +1523,128 @@ describe('commitMutation()', () => {
     expect(onError).toBeCalledTimes(1);
     expect(onError.mock.calls[0][0]).toBe(error);
   });
+
+  it('calls onSettled after onCompleted on success', () => {
+    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
+     * enabling Flow LTI mode */
+    const onSettled = jest.fn<_, void>();
+    commitMutation(environment, {
+      mutation,
+      onCompleted,
+      onError,
+      onSettled,
+      variables,
+    });
+    dataSource.next({
+      data: {
+        commentCreate: {
+          comment: {
+            body: {
+              text: 'Gave Relay',
+            },
+            id: '1',
+          },
+        },
+      },
+    });
+    dataSource.complete();
+
+    expect(onCompleted).toBeCalledTimes(1);
+    expect(onSettled).toBeCalledTimes(1);
+    expect(onSettled.mock.calls[0][0]).toEqual(onCompleted.mock.calls[0][0]);
+    expect(onSettled.mock.calls[0][1]).toBe(null);
+    expect(onSettled.mock.calls[0][2]).toBe(null);
+    expect(onError).toBeCalledTimes(0);
+  });
+
+  it('calls onSettled with payload errors on success with errors', () => {
+    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
+     * enabling Flow LTI mode */
+    const onSettled = jest.fn<_, void>();
+    commitMutation(environment, {
+      mutation,
+      onCompleted,
+      onError,
+      onSettled,
+      variables,
+    });
+    dataSource.next({
+      data: {
+        commentCreate: {
+          comment: {
+            body: {
+              text: 'Gave Relay',
+            },
+            id: '1',
+          },
+        },
+      },
+      errors: [
+        {
+          locations: [],
+          message: 'wtf',
+          severity: 'ERROR',
+        },
+      ],
+    } as GraphQLResponseWithoutData);
+    dataSource.complete();
+
+    expect(onCompleted).toBeCalledTimes(1);
+    expect(onSettled).toBeCalledTimes(1);
+    expect(onSettled.mock.calls[0][0]).toEqual(onCompleted.mock.calls[0][0]);
+    expect(onSettled.mock.calls[0][1]).toEqual(onCompleted.mock.calls[0][1]);
+    expect(onSettled.mock.calls[0][2]).toBe(null);
+    expect(onError).toBeCalledTimes(0);
+  });
+
+  it('calls onSettled after onError on network error', () => {
+    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
+     * enabling Flow LTI mode */
+    const onSettled = jest.fn<_, void>();
+    const error = new Error('network failure');
+    commitMutation(environment, {
+      mutation,
+      onCompleted,
+      onError,
+      onSettled,
+      variables,
+    });
+    dataSource.error(error);
+
+    expect(onError).toBeCalledTimes(1);
+    expect(onSettled).toBeCalledTimes(1);
+    expect(onSettled.mock.calls[0][0]).toBe(null);
+    expect(onSettled.mock.calls[0][1]).toBe(null);
+    expect(onSettled.mock.calls[0][2]).toBe(error);
+    expect(onCompleted).toBeCalledTimes(0);
+  });
+
+  it('calls onSettled even without onCompleted or onError', () => {
+    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
+     * enabling Flow LTI mode */
+    const onSettled = jest.fn<_, void>();
+    commitMutation(environment, {
+      mutation,
+      onSettled,
+      variables,
+    });
+    dataSource.next({
+      data: {
+        commentCreate: {
+          comment: {
+            body: {
+              text: 'Gave Relay',
+            },
+            id: '1',
+          },
+        },
+      },
+    });
+    dataSource.complete();
+
+    expect(onSettled).toBeCalledTimes(1);
+    expect(onSettled.mock.calls[0][2]).toBe(null);
+  });
 });
 
 describe('commitMutation() cacheConfig', () => {

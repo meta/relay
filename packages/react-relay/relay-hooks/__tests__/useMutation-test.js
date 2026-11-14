@@ -434,6 +434,96 @@ it('calls onComplete when mutation successfully resolved', async () => {
   expect(isInFlightFn).toBeCalledWith(false);
 });
 
+it('calls onSettled after onCompleted on success', async () => {
+  const onError = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const onCompleted = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const onSettled = jest.fn<ReadonlyArray<unknown>, unknown>();
+  await render(environment, CommentCreateMutation);
+  await commit({onCompleted, onError, onSettled, variables});
+
+  isInFlightFn.mockClear();
+  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+  const operation = environment.executeMutation.mock.calls[0][0].operation;
+  await ReactTestingLibrary.act(() =>
+    environment.mock.resolve(operation, data),
+  );
+  expect(onCompleted).toBeCalledTimes(1);
+  expect(onSettled).toBeCalledTimes(1);
+  expect(onSettled).toBeCalledWith(
+    onCompleted.mock.calls[0][0],
+    null,
+    null,
+  );
+  expect(onError).toBeCalledTimes(0);
+  expect(isInFlightFn).toBeCalledWith(false);
+});
+
+it('calls onSettled with payload errors on success with errors', async () => {
+  const onError = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const onCompleted = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const onSettled = jest.fn<ReadonlyArray<unknown>, unknown>();
+  await render(environment, CommentCreateMutation);
+  await commit({onCompleted, onError, onSettled, variables});
+
+  isInFlightFn.mockClear();
+  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+  const operation = environment.executeMutation.mock.calls[0][0].operation;
+  await ReactTestingLibrary.act(() =>
+    environment.mock.resolve(operation, {
+      data: data.data as PayloadData,
+      errors: [{message: '<error0>'}] as Array<PayloadError>,
+    }),
+  );
+  expect(onCompleted).toBeCalledTimes(1);
+  expect(onSettled).toBeCalledTimes(1);
+  expect(onSettled).toBeCalledWith(
+    onCompleted.mock.calls[0][0],
+    [{message: '<error0>'}],
+    null,
+  );
+  expect(onError).toBeCalledTimes(0);
+  expect(isInFlightFn).toBeCalledWith(false);
+});
+
+it('calls onSettled after onError on error', async () => {
+  const onError = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const onCompleted = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const onSettled = jest.fn<ReadonlyArray<unknown>, unknown>();
+  const throwingUpdater = () => {
+    throw new Error('<error0>');
+  };
+  await render(environment, CommentCreateMutation);
+  await commit({onCompleted, onError, onSettled, updater: throwingUpdater, variables});
+
+  isInFlightFn.mockClear();
+  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+  const operation = environment.executeMutation.mock.calls[0][0].operation;
+  await ReactTestingLibrary.act(() =>
+    environment.mock.resolve(operation, data),
+  );
+  expect(onError).toBeCalledTimes(1);
+  expect(onSettled).toBeCalledTimes(1);
+  expect(onSettled).toBeCalledWith(null, null, new Error('<error0>'));
+  expect(onCompleted).toBeCalledTimes(0);
+  expect(isInFlightFn).toBeCalledWith(false);
+});
+
+it('calls onSettled even without onCompleted or onError', async () => {
+  const onSettled = jest.fn<ReadonlyArray<unknown>, unknown>();
+  await render(environment, CommentCreateMutation);
+  await commit({onSettled, variables});
+
+  isInFlightFn.mockClear();
+  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
+  const operation = environment.executeMutation.mock.calls[0][0].operation;
+  await ReactTestingLibrary.act(() =>
+    environment.mock.resolve(operation, data),
+  );
+  expect(onSettled).toBeCalledTimes(1);
+  expect(onSettled.mock.calls[0][2]).toBe(null);
+  expect(isInFlightFn).toBeCalledWith(false);
+});
+
 describe('change useMutation input', () => {
   let newEnv;
   let CommentCreateMutation2;
