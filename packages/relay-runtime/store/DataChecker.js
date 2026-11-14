@@ -12,6 +12,7 @@
 'use strict';
 
 import type {ActorIdentifier} from '../multi-actor-environment/ActorIdentifier';
+import type RelayRecordSourceProxy from '../mutations/RelayRecordSourceProxy';
 import type {
   NormalizationClientEdgeToClientObject,
   NormalizationClientEdgeToServerObject,
@@ -35,7 +36,9 @@ import type {
 } from './RelayStoreTypes';
 
 const RelayRecordSourceMutator = require('../mutations/RelayRecordSourceMutator');
-const RelayRecordSourceProxy = require('../mutations/RelayRecordSourceProxy');
+const {
+  createRelayRecordSourceProxy,
+} = require('../mutations/RelayRecordSourceProxyOptimized');
 const getOperation = require('../util/getOperation');
 const {isClientID} = require('./ClientID');
 const cloneRelayHandleSourceField = require('./cloneRelayHandleSourceField');
@@ -173,7 +176,7 @@ class DataChecker {
         this._getSourceForActor(actorIdentifier),
         target,
       );
-      const recordSourceProxy = new RelayRecordSourceProxy(
+      const recordSourceProxy = createRelayRecordSourceProxy(
         mutator,
         this._getDataID,
         undefined,

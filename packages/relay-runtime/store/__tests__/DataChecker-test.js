@@ -12,8 +12,12 @@
 'use strict';
 import type {NormalizationLinkedField} from '../../util/NormalizationNode';
 import type {ReaderLinkedField} from '../../util/ReaderNode';
-import type {Variables} from '../../util/RelayRuntimeTypes';
-import type {ReadOnlyRecordProxy, RecordSourceJSON} from '../RelayStoreTypes';
+import type {DataID, Variables} from '../../util/RelayRuntimeTypes';
+import type {
+  ReadOnlyRecordProxy,
+  ReadOnlyRecordSourceProxy,
+  RecordSourceJSON,
+} from '../RelayStoreTypes';
 import type {
   DataCheckerTest6Query$data,
   DataCheckerTest6Query$variables,
@@ -31,8 +35,13 @@ import type {Query as $IMPORTED_TYPE$_Query} from 'relay-runtime/util/RelayRunti
 const {
   INTERNAL_ACTOR_IDENTIFIER_DO_NOT_USE,
 } = require('../../multi-actor-environment/ActorIdentifier');
+const RelayRecordSourceProxy = require('../../mutations/RelayRecordSourceProxy');
+const {
+  RelayRecordSourceProxyOptimized,
+} = require('../../mutations/RelayRecordSourceProxyOptimized');
 const {getRequest, graphql} = require('../../query/GraphQLTag');
 const getRelayHandleKey = require('../../util/getRelayHandleKey');
+const RelayFeatureFlags = require('../../util/RelayFeatureFlags');
 const {check} = require('../DataChecker');
 const defaultGetDataID = require('../defaultGetDataID');
 const {createNormalizationSelector} = require('../RelayModernSelector');
@@ -41,6 +50,21 @@ const RelayRecordSource = require('../RelayRecordSource');
 const {ROOT_ID} = require('../RelayStoreUtils');
 const {TYPE_SCHEMA_TYPE, generateTypeID} = require('../TypeID');
 const {createMockEnvironment} = require('relay-test-utils-internal');
+
+// A `fetch__Type(id:)`-style missing field handler: it resolves a root field
+// to the stored record of its `id` argument, which it gets from the store.
+function handleNodeFromStore(
+  field: NormalizationLinkedField | ReaderLinkedField,
+  record: ?ReadOnlyRecordProxy,
+  argValues: Variables,
+  store: ReadOnlyRecordSourceProxy,
+): ?DataID {
+  const id = argValues.id;
+  if (field.name !== 'node' || typeof id !== 'string') {
+    return undefined;
+  }
+  return store.get(id)?.getDataID();
+}
 
 // TODO:
 // You may see some of the "__FlowFixMe__" in the calls to `createNormalizationSelector`.
@@ -2280,6 +2304,65 @@ describe('check()', () => {
       });
       expect(target.size()).toBe(0);
     });
+  });
+
+  describe('record source proxy', () => {
+    let previousPublishFlag;
+    beforeEach(() => {
+      previousPublishFlag = RelayFeatureFlags.ENABLE_PERF_PUBLISH;
+    });
+    afterEach(() => {
+      RelayFeatureFlags.ENABLE_PERF_PUBLISH = previousPublishFlag;
+    });
+
+    it.each([
+      [false, 'RelayRecordSourceProxy', RelayRecordSourceProxy],
+      [
+        true,
+        'RelayRecordSourceProxyOptimized',
+        RelayRecordSourceProxyOptimized,
+      ],
+    ])(
+      'with ENABLE_PERF_PUBLISH %s, gives missing field handlers a %s',
+      (publishFlag, _className, ExpectedProxyClass) => {
+        RelayFeatureFlags.ENABLE_PERF_PUBLISH = publishFlag;
+        // The root record without its `node(id: "1")` link: the handler
+        // supplies it from the store.
+        const source = RelayRecordSource.create({
+          ...sampleData,
+          'client:root': {__id: 'client:root', __typename: '__Root'},
+        });
+        const target = RelayRecordSource.create();
+        const handle = jest.fn(handleNodeFromStore);
+        const status = check(
+          () => source,
+          () => target,
+          INTERNAL_ACTOR_IDENTIFIER_DO_NOT_USE,
+          createNormalizationSelector(getRequest(Query).operation, ROOT_ID, {
+            id: '1',
+            size: 32,
+          }),
+          [{handle, kind: 'linked'}],
+          null,
+          defaultGetDataID,
+        );
+        expect(status).toEqual({
+          mostRecentlyInvalidatedAt: null,
+          status: 'available',
+        });
+        expect(target.toJSON()).toEqual({
+          'client:root': {
+            __id: 'client:root',
+            __typename: '__Root',
+            'node(id:"1")': {__ref: '1'},
+          },
+        });
+        expect(handle).toHaveBeenCalledTimes(1);
+        expect(Object.getPrototypeOf(handle.mock.calls[0][3])).toBe(
+          ExpectedProxyClass.prototype,
+        );
+      },
+    );
   });
 
   describe('when individual records have been invalidated', () => {
