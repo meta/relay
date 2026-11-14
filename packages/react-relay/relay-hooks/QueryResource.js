@@ -444,13 +444,17 @@ class QueryResourceImpl {
       }
     }
 
+    // Keep callbacks attached to the entry owned by this fetch. Looking up an
+    // entry by key after disposal can recreate it or update a newer entry.
+    let cacheEntry: ?QueryResourceCacheEntry = null;
+
     // NOTE: If this value is false, we will cache a promise for this
     // query, which means we will suspend here at this query root.
     // If it's true, we will cache the query resource and allow rendering to
     // continue.
     if (shouldAllowRender) {
       const queryResult = getQueryResult(operation, cacheIdentifier);
-      const cacheEntry = createCacheEntry(
+      cacheEntry = createCacheEntry(
         cacheIdentifier,
         operation,
         queryAvailability,
@@ -467,7 +471,6 @@ class QueryResourceImpl {
       fetchObservable.subscribe({
         start: subscription => {
           networkSubscription = subscription;
-          const cacheEntry = this._cache.get(cacheIdentifier);
           if (cacheEntry) {
             cacheEntry.setNetworkSubscription(networkSubscription);
           }
@@ -486,13 +489,15 @@ class QueryResourceImpl {
           }
         },
         next: () => {
-          const cacheEntry = this._getOrCreateCacheEntry(
-            cacheIdentifier,
-            operation,
-            queryAvailability,
-            queryResult,
-            networkSubscription,
-          );
+          if (cacheEntry == null) {
+            cacheEntry = this._getOrCreateCacheEntry(
+              cacheIdentifier,
+              operation,
+              queryAvailability,
+              queryResult,
+              networkSubscription,
+            );
+          }
           cacheEntry.processedPayloadsCount += 1;
           cacheEntry.setValue(queryResult);
           resolveNetworkPromise();
@@ -504,21 +509,25 @@ class QueryResourceImpl {
           }
         },
         error: error => {
-          const cacheEntry = this._getOrCreateCacheEntry(
-            cacheIdentifier,
-            operation,
-            queryAvailability,
-            error,
-            networkSubscription,
-          );
+          if (cacheEntry == null) {
+            cacheEntry = this._getOrCreateCacheEntry(
+              cacheIdentifier,
+              operation,
+              queryAvailability,
+              error,
+              networkSubscription,
+            );
+          }
+
+          const currentCacheEntry = cacheEntry;
 
           // If, this is the first thing we receive for the query,
           // before any other payload handled is error, we will cache and
           // re-throw that error later.
 
           // We will ignore errors for any incremental payloads we receive.
-          if (cacheEntry.processedPayloadsCount === 0) {
-            cacheEntry.setValue(error);
+          if (currentCacheEntry.processedPayloadsCount === 0) {
+            currentCacheEntry.setValue(error);
           } else {
             // TODO:T92030819 Remove this warning and actually throw the network error
             // To complete this task we need to have a way of precisely tracking suspendable points
@@ -532,7 +541,7 @@ class QueryResourceImpl {
           resolveNetworkPromise();
 
           networkSubscription = null;
-          cacheEntry.setNetworkSubscription(null);
+          currentCacheEntry.setNetworkSubscription(null);
           const observerError = observer?.error;
           observerError && observerError(error);
         },
@@ -540,7 +549,6 @@ class QueryResourceImpl {
           resolveNetworkPromise();
 
           networkSubscription = null;
-          const cacheEntry = this._cache.get(cacheIdentifier);
           if (cacheEntry) {
             cacheEntry.setNetworkSubscription(null);
           }
@@ -550,7 +558,6 @@ class QueryResourceImpl {
         unsubscribe: observer?.unsubscribe,
       });
 
-      let cacheEntry = this._cache.get(cacheIdentifier);
       if (!cacheEntry) {
         const networkPromise = new Promise<void>(resolve => {
           resolveNetworkPromise = resolve;
@@ -574,15 +581,15 @@ class QueryResourceImpl {
       const observerComplete = observer?.complete;
       observerComplete && observerComplete();
     }
-    const cacheEntry = this._cache.get(cacheIdentifier);
+    const resultCacheEntry = cacheEntry;
     invariant(
-      cacheEntry != null,
+      resultCacheEntry != null,
       'Relay: Expected to have cached a result when attempting to fetch query.' +
         "If you're seeing this, this is likely a bug in Relay.",
     );
     environment.__log({
       name: 'queryresource.fetch',
-      resourceID: cacheEntry.id,
+      resourceID: resultCacheEntry.id,
       operation,
       profilerContext,
       fetchPolicy,
@@ -590,7 +597,7 @@ class QueryResourceImpl {
       queryAvailability,
       shouldFetch,
     });
-    return cacheEntry;
+    return resultCacheEntry;
   }
 }
 
