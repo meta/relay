@@ -1274,6 +1274,7 @@ export type NormalizeResponseFunction = (
   typeName: string,
   options: NormalizationOptions,
   useExecTimeResolvers: boolean,
+  existingRootRecord?: ?Record,
 ) => RelayResponsePayload;
 
 /**
