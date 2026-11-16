@@ -15,18 +15,23 @@ import type {
   Disposable,
   GraphQLSubscriptionConfig,
   IEnvironment,
+  Variables,
 } from 'relay-runtime';
 
 const useRelayEnvironment = require('./useRelayEnvironment');
 const {useEffect} = require('react');
 const {requestSubscription} = require('relay-runtime');
 
-type RequestSubscriptionFn<TVariables, TData, TRawResponse> = (
+type RequestSubscriptionFn<
+  TVariables extends Variables,
+  TData,
+  TRawResponse,
+> = (
   environment: IEnvironment,
   config: GraphQLSubscriptionConfig<TVariables, TData, TRawResponse>,
 ) => Disposable;
 
-hook useSubscription<TVariables, TData, TRawResponse>(
+hook useSubscription<TVariables extends Variables, TData, TRawResponse>(
   config: GraphQLSubscriptionConfig<TVariables, TData, TRawResponse>,
   requestSubscriptionFn?: RequestSubscriptionFn<
     TVariables,

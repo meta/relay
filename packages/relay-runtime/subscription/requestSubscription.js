@@ -41,17 +41,20 @@ export type SubscriptionParameters = {
  * Updated Flow type that makes use of typed graphql tagged literals with
  * type information.
  */
-export type GraphQLSubscriptionConfig<TVariables, TData, TRawResponse> =
-  Readonly<{
-    configs?: Array<DeclarativeMutationConfig>,
-    cacheConfig?: CacheConfig,
-    subscription: GraphQLSubscription<TVariables, TData, TRawResponse>,
-    variables: NoInfer<TVariables>,
-    onCompleted?: ?() => void,
-    onError?: ?(error: Error) => void,
-    onNext?: ?(response: ?TData) => void,
-    updater?: ?SelectorStoreUpdater<TData>,
-  }>;
+export type GraphQLSubscriptionConfig<
+  TVariables extends Variables,
+  TData,
+  TRawResponse,
+> = Readonly<{
+  configs?: Array<DeclarativeMutationConfig>,
+  cacheConfig?: CacheConfig,
+  subscription: GraphQLSubscription<TVariables, TData, TRawResponse>,
+  variables: NoInfer<TVariables>,
+  onCompleted?: ?() => void,
+  onError?: ?(error: Error) => void,
+  onNext?: ?(response: ?TData) => void,
+  updater?: ?SelectorStoreUpdater<TData>,
+}>;
 
 function requestSubscription<TVariables extends Variables, TData, TRawResponse>(
   environment: IEnvironment,
