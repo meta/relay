@@ -1960,6 +1960,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn saved_state_round_trips_in_both_formats() {
         let dir = tempfile::tempdir().unwrap();
         for independent_frames in [true, false] {
@@ -1981,6 +1982,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn only_frames_that_record_their_size_take_the_parallel_path() {
         let dir = tempfile::tempdir().unwrap();
         let bytes = vec![7u8; 1000];
@@ -3321,6 +3323,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn a_base_stays_pending_through_a_saved_state_until_all_its_consumers_are_built() {
         let base = project("base");
         let a = project("a");
