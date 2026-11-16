@@ -76,7 +76,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "nullthrows": "^1.1.1",
-    "prettier": "3.9.4",
+    "prettier": "3.10.0",
     "promise-polyfill": "6.1.0",
     "react": "0.0.0-experimental-7670501b-20241124",
     "react-dom": "0.0.0-experimental-7670501b-20241124",

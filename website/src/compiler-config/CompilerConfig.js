@@ -391,7 +391,8 @@ function InlineObject({prop, indirections}) {
               <div className="description">{' // ' + property.description}</div>
             )}
             <span>{name}</span>
-            : <T prop={property} indirections={indirections} />
+            {': '}
+            <T prop={property} indirections={indirections} />
             <Default prop={property} />
           </div>
         );
