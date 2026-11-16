@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<c35905969dc32b40b01d6364bd4a7615>>
+ * @generated SignedSource<<e9a1a0deb9326a691f69224b412b2cfc>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -24,6 +24,9 @@ export type RelayReaderStorageKeysTestQuery$variables = {
 };
 export type RelayReaderStorageKeysTestQuery$data = {
   readonly me: ?{
+    readonly allPhones: ?ReadonlyArray<?{
+      readonly isVerified: ?boolean,
+    }>,
     readonly firstName: ?string,
     readonly id: string,
     readonly picture: ?{
@@ -90,6 +93,24 @@ v5 = {
   "plural": false,
   "selections": [
     (v3/*:: as any*/),
+    {
+      "alias": null,
+      "args": null,
+      "concreteType": "Phone",
+      "kind": "LinkedField",
+      "name": "allPhones",
+      "plural": true,
+      "selections": [
+        {
+          "alias": null,
+          "args": null,
+          "kind": "ScalarField",
+          "name": "isVerified",
+          "storageKey": null
+        }
+      ],
+      "storageKey": null
+    },
     {
       "alias": null,
       "args": null,
@@ -270,18 +291,18 @@ return {
     ]
   },
   "params": {
-    "cacheID": "9a1b930264e6ab8ba2263d87002de963",
+    "cacheID": "ea52fd17fc31f7cd262e97e264e8c302",
     "id": null,
     "metadata": {},
     "name": "RelayReaderStorageKeysTestQuery",
     "operationKind": "query",
-    "text": "query RelayReaderStorageKeysTestQuery(\n  $site: String\n  $size: [Int]\n  $ids: [ID!]\n) {\n  me {\n    id\n    firstName\n    shortName: firstName(if: true)\n    url(relative: true)\n    siteUrl: url(site: $site)\n    smallPicture: profilePicture(size: 32) {\n      uri\n    }\n    picture: profilePicture(size: $size) {\n      uri\n    }\n  }\n  nodes(ids: [\"2\"]) {\n    __typename\n    id\n  }\n  variableNodes: nodes(ids: $ids) {\n    __typename\n    id\n  }\n}\n"
+    "text": "query RelayReaderStorageKeysTestQuery(\n  $site: String\n  $size: [Int]\n  $ids: [ID!]\n) {\n  me {\n    id\n    allPhones {\n      isVerified\n    }\n    firstName\n    shortName: firstName(if: true)\n    url(relative: true)\n    siteUrl: url(site: $site)\n    smallPicture: profilePicture(size: 32) {\n      uri\n    }\n    picture: profilePicture(size: $size) {\n      uri\n    }\n  }\n  nodes(ids: [\"2\"]) {\n    __typename\n    id\n  }\n  variableNodes: nodes(ids: $ids) {\n    __typename\n    id\n  }\n}\n"
   }
 };
 })();
 
 if (__DEV__) {
-  (node/*:: as any*/).hash = "fcdbdbd7cf3a74c0ca82feaecca6b750";
+  (node/*:: as any*/).hash = "d88d084da31b1fc6dc2c281c6037f15a";
 }
 
 module.exports = ((node/*:: as any*/)/*:: as Query<

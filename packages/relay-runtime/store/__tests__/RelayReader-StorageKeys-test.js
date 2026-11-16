@@ -91,6 +91,9 @@ describe('RelayReaderOptimized storage keys', () => {
       ) {
         me {
           id
+          allPhones {
+            isVerified
+          }
           firstName
           shortName: firstName(if: true)
           url(relative: true)
@@ -122,6 +125,7 @@ describe('RelayReaderOptimized storage keys', () => {
         __id: '1',
         __typename: 'User',
         id: '1',
+        allPhones: {__refs: ['client:1:allPhones:0']},
         firstName: 'Alice',
         'firstName(if:true)': 'Al',
         url: 'https://example.com/no-arguments',
@@ -132,6 +136,11 @@ describe('RelayReaderOptimized storage keys', () => {
         'profilePicture(size:[64])': {
           __ref: 'client:1:profilePicture(size:[64])',
         },
+      },
+      'client:1:allPhones:0': {
+        __id: 'client:1:allPhones:0',
+        __typename: 'Phone',
+        isVerified: true,
       },
       'client:1:profilePicture': {
         __id: 'client:1:profilePicture',
@@ -159,6 +168,7 @@ describe('RelayReaderOptimized storage keys', () => {
     expect(optimized.snapshot.data).toEqual({
       me: {
         id: '1',
+        allPhones: [{isVerified: true}],
         firstName: 'Alice',
         shortName: 'Al',
         url: '/alice',
@@ -172,8 +182,8 @@ describe('RelayReaderOptimized storage keys', () => {
     expect(optimized.snapshot.isMissingData).toBe(false);
     expect(resultOf(optimized.snapshot)).toEqual(resultOf(master.snapshot));
     // Every field with arguments goes through getStorageKey, the literal ones
-    // too; the fields without arguments (`me`, `id`, `firstName`, `uri`)
-    // don't.
+    // too; the fields without arguments (`me`, `id`, `allPhones`,
+    // `isVerified`, `firstName`, `uri`) don't.
     expect(optimized.storageKeyFieldNames).toEqual([
       'firstName',
       'url',
