@@ -41,6 +41,35 @@ describe('RelayResponseNormalizer', () => {
     log: null,
   };
 
+  it('normalizes nested lists with abstract leaf types (#5056)', () => {
+    const Query = graphql`
+      query RelayResponseNormalizerTestNestedAbstractListsQuery {
+        actorMatrix {
+          __typename
+          id
+          name
+        }
+      }
+    `;
+    const first = {__typename: 'User', id: '1', name: 'Alice'};
+    const second = {__typename: 'Page', id: '2', name: 'Relay'};
+    const recordSource = new RelayRecordSource();
+    recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+    // The schema declares [[Actor]], so the inner arrays are valid payload data.
+    // Normalization should visit their leaves even though the generated linked
+    // field only carries plural: true, without a list depth.
+    normalize(
+      recordSource,
+      createNormalizationSelector(Query.operation, ROOT_ID, {}),
+      {actorMatrix: [[first, null], null, [], [second]]},
+      defaultOptions,
+    );
+
+    expect(recordSource.get('1')).toEqual({__id: '1', ...first});
+    expect(recordSource.get('2')).toEqual({__id: '2', ...second});
+  });
+
   it('normalizes queries', () => {
     const FooQuery = graphql`
       query RelayResponseNormalizerTest1Query($id: ID, $size: [Int]) {
