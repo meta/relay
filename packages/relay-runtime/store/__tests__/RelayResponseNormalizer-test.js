@@ -41,7 +41,7 @@ describe('RelayResponseNormalizer', () => {
     log: null,
   };
 
-  it('normalizes nested lists with abstract leaf types (#5056)', () => {
+  it('normalizes nested lists with abstract leaf types', () => {
     const Query = graphql`
       query RelayResponseNormalizerTestNestedAbstractListsQuery {
         actorMatrix {
@@ -56,9 +56,6 @@ describe('RelayResponseNormalizer', () => {
     const recordSource = new RelayRecordSource();
     recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
 
-    // The schema declares [[Actor]], so the inner arrays are valid payload data.
-    // Normalization should visit their leaves even though the generated linked
-    // field only carries plural: true, without a list depth.
     normalize(
       recordSource,
       createNormalizationSelector(Query.operation, ROOT_ID, {}),
@@ -70,7 +67,7 @@ describe('RelayResponseNormalizer', () => {
     expect(recordSource.get('2')).toEqual({__id: '2', ...second});
   });
 
-  it('normalizes nested lists with concrete leaf types (#5056)', () => {
+  it('normalizes nested lists with concrete leaf types', () => {
     const Query = graphql`
       query RelayResponseNormalizerTestNestedConcreteListsQuery {
         userMatrix {
@@ -79,7 +76,6 @@ describe('RelayResponseNormalizer', () => {
         }
       }
     `;
-    // Concrete leaves do not need __typename in the payload.
     const first = {id: '1', name: 'Alice'};
     const second = {id: '2', name: 'Bob'};
     const recordSource = new RelayRecordSource();
