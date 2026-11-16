@@ -70,6 +70,40 @@ describe('RelayResponseNormalizer', () => {
     expect(recordSource.get('2')).toEqual({__id: '2', ...second});
   });
 
+  it('normalizes nested lists with concrete leaf types (#5056)', () => {
+    const Query = graphql`
+      query RelayResponseNormalizerTestNestedConcreteListsQuery {
+        userMatrix {
+          id
+          name
+        }
+      }
+    `;
+    // Concrete leaves do not need __typename in the payload.
+    const first = {id: '1', name: 'Alice'};
+    const second = {id: '2', name: 'Bob'};
+    const recordSource = new RelayRecordSource();
+    recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+    normalize(
+      recordSource,
+      createNormalizationSelector(Query.operation, ROOT_ID, {}),
+      {userMatrix: [[first, null], null, [], [second]]},
+      defaultOptions,
+    );
+
+    expect(recordSource.get('1')).toEqual({
+      __id: '1',
+      __typename: 'User',
+      ...first,
+    });
+    expect(recordSource.get('2')).toEqual({
+      __id: '2',
+      __typename: 'User',
+      ...second,
+    });
+  });
+
   it('normalizes queries', () => {
     const FooQuery = graphql`
       query RelayResponseNormalizerTest1Query($id: ID, $size: [Int]) {
