@@ -90,10 +90,5 @@ fixture-tests = { path = "../fixture-tests" }
 futures-util = { version = "0.3.34", features = ["compat"] }
 graphql-test-helpers = { path = "../graphql-test-helpers" }
 relay-test-schema = { path = "../relay-test-schema" }
+tempfile = "3.27.0"
 url = "2.5.8"
-
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-tempfile = "3.27.0"
-
-[target.'cfg(target_os = "macos")'.dev-dependencies]
-tempfile = "3.27.0"

@@ -79,7 +79,7 @@ impl FileSystem for StdFileSystem {
     }
 }
 
-#[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
+#[cfg(test)]
 mod tests {
     use super::*;
 

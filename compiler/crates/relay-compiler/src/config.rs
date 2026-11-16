@@ -1357,7 +1357,6 @@ mod test {
     }
 
     #[tokio::test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     async fn test_restart_signals_detects_config_change() {
         let tmp = tempfile::NamedTempFile::new().expect("create tempfile");
         std::fs::write(tmp.path(), b"original config").expect("write tempfile");
@@ -1399,7 +1398,6 @@ mod test {
     /// path; this one specifically exercises the "mtime changed but
     /// content didn't" case the pre-filter is designed to handle.
     #[tokio::test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     async fn test_restart_signals_mtime_bump_without_content_change() {
         let tmp = tempfile::NamedTempFile::new().expect("create tempfile");
         std::fs::write(tmp.path(), b"stable content").expect("write tempfile");
@@ -1419,7 +1417,6 @@ mod test {
     }
 
     #[tokio::test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     async fn test_restart_signals_detects_binary_change() {
         let config = tempfile::NamedTempFile::new().expect("create config tempfile");
         std::fs::write(config.path(), b"config").expect("write config");
@@ -1455,7 +1452,6 @@ mod test {
     }
 
     #[tokio::test]
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     async fn test_check_restart_if_daemon_gating() {
         // SingleProjectConfigFile → Config gives us a Config with
         // `daemon_build_status = None` and `restart_signals = None` (the
@@ -1497,7 +1493,6 @@ mod test {
 
     /// Force `path`'s mtime forward so tests aren't sensitive to the host
     /// filesystem's mtime resolution (some FSes round to 1s).
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn set_mtime_in_future(path: &Path) {
         use std::time::Duration;
         let f = std::fs::OpenOptions::new()
