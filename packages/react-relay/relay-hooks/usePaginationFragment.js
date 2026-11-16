@@ -49,12 +49,17 @@ type RefetchFnBase<TVars, TOptions> = (
   options?: TOptions,
 ) => Disposable;
 
-export type RefetchFn<TVariables, TKey, TOptions = Options> = RefetchFnBase<
-  RefetchVariables<TVariables, TKey>,
-  TOptions,
->;
+export type RefetchFn<
+  TVariables,
+  TKey extends ?{readonly $fragmentSpreads: unknown, ...},
+  TOptions = Options,
+> = RefetchFnBase<RefetchVariables<TVariables, TKey>, TOptions>;
 
-export type ReturnType<TVariables, TData, TKey> = {
+export type ReturnType<
+  TVariables extends Variables,
+  TData,
+  TKey extends ?{readonly $fragmentSpreads: unknown, ...},
+> = {
   // NOTE: This type ensures that the type of the returned data is either:
   //   - nullable if the provided ref type is nullable
   //   - non-nullable if the provided ref type is non-nullable

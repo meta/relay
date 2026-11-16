@@ -47,7 +47,7 @@ type RefetchFn<TVariables, TKey, TOptions = Options> = RefetchFnBase<
   TOptions,
 >;
 
-type ReturnType<TVariables, TData, TKey> = {
+type ReturnType<TVariables extends Variables, TData, TKey> = {
   // NOTE: This rtpw ensures that the type of the returned data is either:
   //   - nullable if the provided ref type is nullable
   //   - non-nullable if the provided ref type is non-nullable

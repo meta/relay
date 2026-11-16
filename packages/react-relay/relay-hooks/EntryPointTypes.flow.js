@@ -28,7 +28,7 @@ import type {
 
 export type {PreloadableConcreteRequest};
 
-export type VariablesOf<T> = _VariablesOf<T>;
+export type VariablesOf<T extends OperationType> = _VariablesOf<T>;
 
 export type PreloadFetchPolicy =
   'store-or-network' | 'store-and-network' | 'network-only';
@@ -193,7 +193,9 @@ export type PreloadProps<
 }>;
 
 // Return type of `loadEntryPoint(...)`
-export type PreloadedEntryPoint<TEntryPointComponent> = Readonly<{
+export type PreloadedEntryPoint<
+  TEntryPointComponent extends component(...empty),
+> = Readonly<{
   dispose: () => void,
   entryPoints: ComponentProps<TEntryPointComponent>['entryPoints'],
   extraProps: ComponentProps<TEntryPointComponent>['extraProps'],
@@ -213,7 +215,12 @@ export type EntryPointElementConfig<
 > =
   TEntryPoint extends EntryPoint<
     infer _EntryPointParams,
-    infer EntryPointComponent,
+    infer EntryPointComponent extends EntryPointComponent<
+      empty,
+      empty,
+      empty,
+      empty,
+    >,
   >
     ? ComponentProps<EntryPointComponent>['props']
     : empty;
@@ -236,7 +243,9 @@ export type ThinQueryParams<
  */
 declare export opaque type ThinNestedEntryPointParams;
 
-export type ExtractQueryTypeHelper<TEnvironmentProviderOptions> = <TQuery>(
+export type ExtractQueryTypeHelper<TEnvironmentProviderOptions> = <
+  TQuery extends OperationType,
+>(
   v: PreloadedQuery<TQuery>,
 ) => ThinQueryParams<TQuery, TEnvironmentProviderOptions>;
 
@@ -280,7 +289,12 @@ export type RootComponentRenders<out C extends component(...any)> =
   // $FlowFixMe[unclear-type]: we don't care about the props
   C extends component(...any) renders infer R extends React.Node ? R : empty;
 
-export type PreloadParamsOf<T> = Parameters<T['getPreloadProps']>[0];
+export type PreloadParamsOf<
+  T extends {
+    readonly getPreloadProps: (...args: ReadonlyArray<empty>) => unknown,
+    ...
+  },
+> = Parameters<T['getPreloadProps']>[0];
 
 export type IEnvironmentProvider<TOptions> = Readonly<{
   getEnvironment: (options: ?TOptions) => IEnvironment,

@@ -59,7 +59,11 @@ export type MutationConfig<TMutation extends MutationParameters> = Readonly<{
   variables: TMutation['variables'],
 }>;
 
-export type CommitMutationConfig<TVariables, TData, TRawResponse> = Readonly<{
+export type CommitMutationConfig<
+  TVariables extends Variables,
+  TData,
+  TRawResponse,
+> = Readonly<{
   cacheConfig?: CacheConfig,
   configs?: Array<DeclarativeMutationConfig>,
   mutation: Mutation<TVariables, TData, TRawResponse>,

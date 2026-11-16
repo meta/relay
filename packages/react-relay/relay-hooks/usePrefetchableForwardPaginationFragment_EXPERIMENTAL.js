@@ -51,7 +51,12 @@ type LoadMoreFn<TVariables extends Variables> = (
   },
 ) => void;
 
-export type ReturnType<TVariables, TData, TEdgeData, TKey> = {
+export type ReturnType<
+  TVariables extends Variables,
+  TData,
+  TEdgeData,
+  TKey extends ?{readonly $fragmentSpreads: unknown, ...},
+> = {
   // NOTE: This type ensures that the type of the returned data is either:
   //   - nullable if the provided ref type is nullable
   //   - non-nullable if the provided ref type is non-nullable

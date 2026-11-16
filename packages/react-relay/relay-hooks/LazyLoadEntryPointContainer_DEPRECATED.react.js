@@ -26,13 +26,14 @@ const React = require('react');
 const {useContext, useEffect, useMemo} = require('react');
 const {stableCopy} = require('relay-runtime');
 
-type PreloadedEntryPoint<TEntryPointComponent> = Readonly<{
-  entryPoints: React.ComponentProps<TEntryPointComponent>['entryPoints'],
-  extraProps: React.ComponentProps<TEntryPointComponent>['extraProps'],
-  getComponent: () => TEntryPointComponent,
-  queries: React.ComponentProps<TEntryPointComponent>['queries'],
-  rootModuleID: string,
-}>;
+type PreloadedEntryPoint<TEntryPointComponent extends component(...empty)> =
+  Readonly<{
+    entryPoints: React.ComponentProps<TEntryPointComponent>['entryPoints'],
+    extraProps: React.ComponentProps<TEntryPointComponent>['extraProps'],
+    getComponent: () => TEntryPointComponent,
+    queries: React.ComponentProps<TEntryPointComponent>['queries'],
+    rootModuleID: string,
+  }>;
 
 type EntryPointContainerProps<
   TEntryPointParams,

@@ -32,6 +32,7 @@ import type {
   Query,
   RequestIdentifier,
   RequestParameters,
+  Variables,
 } from 'relay-runtime';
 
 const {isExecTimeResolversEnabled} = require('./execTimeResolvers');
@@ -66,13 +67,15 @@ function getDefaultFetchPolicy(request: ConcreteRequest): FetchPolicy {
 let fetchKey = 100001;
 
 export type QueryType<T> =
-  T extends Query<infer V, infer D, infer RR>
+  T extends Query<infer V extends Variables, infer D, infer RR extends ?{...}>
     ? {
         variables: V,
         response: D,
         rawResponse?: NonNullable<RR>,
       }
-    : [readonly t: T] extends [readonly t: PreloadableConcreteRequest<infer V>]
+    : [readonly t: T] extends [
+          readonly t: PreloadableConcreteRequest<infer V extends OperationType>,
+        ]
       ? V
       : empty;
 

@@ -31,7 +31,7 @@ const warning = require('warning');
 type PreloadedQuery<
   TVariables extends Variables,
   TData,
-  TRawResponse,
+  TRawResponse extends {...},
   TEnvironmentProviderOptions = EnvironmentProviderOptions,
 > =
   | PreloadedQueryInner_DEPRECATED<

@@ -42,10 +42,11 @@ type RefetchFnBase<TVars, TOptions> = (
   options?: TOptions,
 ) => Disposable;
 
-export type RefetchFn<TVariables, TKey, TOptions = Options> = RefetchFnBase<
-  RefetchVariables<TVariables, TKey>,
-  TOptions,
->;
+export type RefetchFn<
+  TVariables,
+  TKey extends ?{readonly $fragmentSpreads: unknown, ...},
+  TOptions = Options,
+> = RefetchFnBase<RefetchVariables<TVariables, TKey>, TOptions>;
 
 export type ReturnType<
   TVariables,
