@@ -126,6 +126,8 @@ export type FeatureFlags = {
   ENABLE_PERF_PUBLISH: boolean,
   // recycleNodesInto and the notify overlap check (hasOverlappingIDsPerf).
   ENABLE_PERF_NOTIFY: boolean,
+  // RelayObservable's subscriptions.
+  ENABLE_PERF_QUERY: boolean,
 };
 
 const RelayFeatureFlags: FeatureFlags = {
@@ -161,6 +163,7 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_PERF_READER: false,
   ENABLE_PERF_PUBLISH: false,
   ENABLE_PERF_NOTIFY: false,
+  ENABLE_PERF_QUERY: false,
 };
 
 module.exports = RelayFeatureFlags;
