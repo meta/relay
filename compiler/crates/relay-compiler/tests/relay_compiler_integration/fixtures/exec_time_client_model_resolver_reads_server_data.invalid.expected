@@ -1,0 +1,87 @@
+==================================== INPUT ====================================
+// Test: an `@exec_time_resolvers` operation rejects a resolver on a CLIENT MODEL
+// whose `@rootFragment` reaches a client edge to a server object (`@waterfall`).
+//
+// The executor evaluates a client model resolver's root fragment in a scope the
+// store builds, which has no C2S coordinator, so it cannot fetch that edge. Read
+// time can, so only exec-time operations reject the shape.
+
+//- ConsumerQuery.js
+graphql`query ConsumerQuery @exec_time_resolvers {
+  client_thing {
+    needs_server_data
+  }
+}`
+
+//- ClientThingResolvers.js
+/**
+ * @relayType ClientThing
+ */
+export function ClientThing() {}
+
+/**
+ * @relayField Query.client_thing: ClientThing
+ */
+export function client_thing() {}
+
+/**
+ * @relayField ClientThing.server_biz: ServerBiz
+ */
+export function server_biz() {}
+
+/**
+ * @relayField ClientThing.needs_server_data: String
+ * @rootFragment ClientThingNeedsServerDataFragment
+ */
+graphql`fragment ClientThingNeedsServerDataFragment on ClientThing {
+  server_biz @waterfall {
+    name
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "typescript",
+  "schema": "schema.graphql",
+  "resolversSchemaModule": {
+    "path": "__generated__/ResolversSchemaModule.js"
+  },
+  "featureFlags": {
+    "enable_exec_time_resolvers_directive": true
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+type ServerBiz implements Node {
+  id: ID!
+  name: String
+}
+
+type User {
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Resolver `ClientThing.needs_server_data` is selected in an @exec_time_resolvers operation, but its @rootFragment `ClientThingNeedsServerDataFragment` reaches the client-to-server edge `ClientThing.server_biz` (`@waterfall`). At exec time the executor evaluates this root fragment where it cannot send network requests, so it cannot fetch the edge. Select `ClientThing.server_biz` with `@waterfall` in the query or fragment that reads `needs_server_data`, and use its server data there or in a resolver on its server type; or read `needs_server_data` in an operation without @exec_time_resolvers.
+
+  ConsumerQuery.js:3:5
+    2 │   client_thing {
+    3 │     needs_server_data
+      │     ^^^^^^^^^^^^^^^^^
+    4 │   }
+
+  ℹ︎ The `@waterfall` edge
+
+  ClientThingResolvers.js:21:3
+   20 │ fragment ClientThingNeedsServerDataFragment on ClientThing {
+   21 │   server_biz @waterfall {
+      │   ^^^^^^^^^^
+   22 │     name

@@ -1,0 +1,47 @@
+==================================== INPUT ====================================
+#expected-to-throw
+# A client edge's backing resolver runs its @rootFragment the same way.
+query TestQuery @exec_time_resolvers {
+  client_me {
+    business_owner {
+      id
+    }
+  }
+}
+
+fragment BusinessOwnerResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientOnlyType implements Node {
+  id: ID!
+}
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_owner: ClientOnlyType @relay_resolver(fragment_name: "BusinessOwnerResolverFragment", import_path: "BusinessOwnerResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}
+==================================== ERROR ====================================
+✖︎ Resolver `ClientUser.business_owner` is selected in an @exec_time_resolvers operation, but its @rootFragment `BusinessOwnerResolverFragment` reaches the client-to-server edge `ClientUser.business` (`@waterfall`). At exec time the executor evaluates this root fragment where it cannot send network requests, so it cannot fetch the edge. Select `ClientUser.business` with `@waterfall` in the query or fragment that reads `business_owner`, and use its server data there or in a resolver on its server type; or read `business_owner` in an operation without @exec_time_resolvers.
+
+  client-edge-resolver-root-fragment-waterfall-exec-time.invalid.graphql:5:5
+    4 │   client_me {
+    5 │     business_owner {
+      │     ^^^^^^^^^^^^^^
+    6 │       id
+
+  ℹ︎ The `@waterfall` edge
+
+  client-edge-resolver-root-fragment-waterfall-exec-time.invalid.graphql:12:3
+   11 │ fragment BusinessOwnerResolverFragment on ClientUser {
+   12 │   business @waterfall {
+      │   ^^^^^^^^
+   13 │     name

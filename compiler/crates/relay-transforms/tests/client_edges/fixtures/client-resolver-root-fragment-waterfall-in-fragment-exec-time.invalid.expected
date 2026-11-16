@@ -1,0 +1,56 @@
+==================================== INPUT ====================================
+#expected-to-throw
+# A fragment that an exec-time operation spreads is checked, `enabledProvider`
+# included; a fragment that only other operations spread is not.
+query ExecTimeQuery @exec_time_resolvers(enabledProvider: "ExecTimeProvider") {
+  client_me {
+    ...ExecTimeFragment
+  }
+}
+
+query ReadTimeQuery {
+  client_me {
+    ...ReadTimeFragment
+  }
+}
+
+fragment ExecTimeFragment on ClientUser {
+  business_name
+}
+
+fragment ReadTimeFragment on ClientUser {
+  business_name
+}
+
+fragment BusinessNameResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_name: String @relay_resolver(fragment_name: "BusinessNameResolverFragment", import_path: "BusinessNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}
+==================================== ERROR ====================================
+✖︎ Resolver `ClientUser.business_name` is selected in an @exec_time_resolvers operation, but its @rootFragment `BusinessNameResolverFragment` reaches the client-to-server edge `ClientUser.business` (`@waterfall`). At exec time the executor evaluates this root fragment where it cannot send network requests, so it cannot fetch the edge. Select `ClientUser.business` with `@waterfall` in the query or fragment that reads `business_name`, and use its server data there or in a resolver on its server type; or read `business_name` in an operation without @exec_time_resolvers.
+
+  client-resolver-root-fragment-waterfall-in-fragment-exec-time.invalid.graphql:17:3
+   16 │ fragment ExecTimeFragment on ClientUser {
+   17 │   business_name
+      │   ^^^^^^^^^^^^^
+   18 │ }
+
+  ℹ︎ The `@waterfall` edge
+
+  client-resolver-root-fragment-waterfall-in-fragment-exec-time.invalid.graphql:25:3
+   24 │ fragment BusinessNameResolverFragment on ClientUser {
+   25 │   business @waterfall {
+      │   ^^^^^^^^
+   26 │     name

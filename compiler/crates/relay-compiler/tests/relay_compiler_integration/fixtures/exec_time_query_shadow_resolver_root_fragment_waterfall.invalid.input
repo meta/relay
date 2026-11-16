@@ -1,0 +1,78 @@
+// Test: a Query-rooted SHADOW resolver is checked like any other resolver on
+// `Query`. Its root fragment reaches a client edge to a server object through a
+// client link, which the executor cannot fetch at exec time.
+//- QueryShadowPage.js
+/**
+ * @relayField Query.shadow_page: IPage
+ * @rootFragment QueryShadowPageResolverFragment
+ * @returnFragment QueryShadowPageReturnFragment
+ */
+graphql`fragment QueryShadowPageResolverFragment on Query {
+  page {
+    ...QueryShadowPageReturnFragment
+  }
+  client_thing {
+    server_page @waterfall {
+      title
+    }
+  }
+}`
+
+//- ClientThingResolvers.js
+/**
+ * @relayType ClientThing
+ */
+export function ClientThing() {}
+
+/**
+ * @relayField Query.client_thing: ClientThing
+ */
+export function client_thing() {}
+
+/**
+ * @relayField ClientThing.server_page: Page
+ */
+export function server_page() {}
+
+//- Consumer.js
+graphql`query ConsumerQuery @exec_time_resolvers {
+  shadow_page {
+    title
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["schema-extensions"],
+  "featureFlags": {
+    "enable_shadow_resolvers": {"kind": "enabled"},
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": {"kind": "enabled"}
+  }
+}
+
+//- schema.graphql
+type Query {
+  page: Page
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+type Page implements Node {
+  id: ID!
+  title: String
+}
+
+//- schema-extensions/extension.graphql
+interface IPage implements Node {
+  id: ID!
+  title: String
+}
+
+extend type Page implements IPage

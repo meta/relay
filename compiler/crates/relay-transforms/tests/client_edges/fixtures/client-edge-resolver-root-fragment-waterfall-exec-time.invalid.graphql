@@ -1,0 +1,30 @@
+#expected-to-throw
+# A client edge's backing resolver runs its @rootFragment the same way.
+query TestQuery @exec_time_resolvers {
+  client_me {
+    business_owner {
+      id
+    }
+  }
+}
+
+fragment BusinessOwnerResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientOnlyType implements Node {
+  id: ID!
+}
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_owner: ClientOnlyType @relay_resolver(fragment_name: "BusinessOwnerResolverFragment", import_path: "BusinessOwnerResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}

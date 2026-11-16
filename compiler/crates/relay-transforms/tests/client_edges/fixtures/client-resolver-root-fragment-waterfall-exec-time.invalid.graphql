@@ -1,0 +1,25 @@
+#expected-to-throw
+# The executor runs a client resolver's @rootFragment where it cannot send the
+# request for a `@waterfall` edge.
+query TestQuery @exec_time_resolvers {
+  client_me {
+    business_name
+  }
+}
+
+fragment BusinessNameResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_name: String @relay_resolver(fragment_name: "BusinessNameResolverFragment", import_path: "BusinessNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}

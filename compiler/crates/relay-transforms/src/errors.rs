@@ -157,6 +157,16 @@ pub enum ValidationMessage {
     },
 
     #[error(
+        "Resolver `{parent_type}.{field_name}` is selected in an @exec_time_resolvers operation, but its @rootFragment `{fragment_name}` reaches the client-to-server edge `{edge_name}` (`@waterfall`). At exec time the executor evaluates this root fragment where it cannot send network requests, so it cannot fetch the edge. Select `{edge_name}` with `@waterfall` in the query or fragment that reads `{field_name}`, and use its server data there or in a resolver on its server type; or read `{field_name}` in an operation without @exec_time_resolvers."
+    )]
+    ExecTimeRootFragmentReachesWaterfall {
+        parent_type: StringKey,
+        field_name: StringKey,
+        fragment_name: FragmentDefinitionName,
+        edge_name: StringKey,
+    },
+
+    #[error(
         "`@UNSTABLE_key` cannot grant `{field_name}` on `{type_name}`: it is a CLIENT field. The grant exists so an exec-time server-to-client @rootFragment can read a field out of the normalized server response, and a client field is never in that response — it is resolved by composition instead. Remove it from the field set; if the resolver needs it, read it as an ordinary client field."
     )]
     KeyDirectiveClientField {

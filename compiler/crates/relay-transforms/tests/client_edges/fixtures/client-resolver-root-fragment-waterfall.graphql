@@ -1,0 +1,23 @@
+# Read time fetches a `@waterfall` edge in a client resolver's @rootFragment.
+query TestQuery {
+  client_me {
+    business_name
+  }
+}
+
+fragment BusinessNameResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_name: String @relay_resolver(fragment_name: "BusinessNameResolverFragment", import_path: "BusinessNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}

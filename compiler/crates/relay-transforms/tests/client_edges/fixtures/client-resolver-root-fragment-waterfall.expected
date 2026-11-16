@@ -1,0 +1,129 @@
+==================================== INPUT ====================================
+# Read time fetches a `@waterfall` edge in a client resolver's @rootFragment.
+query TestQuery {
+  client_me {
+    business_name
+  }
+}
+
+fragment BusinessNameResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_name: String @relay_resolver(fragment_name: "BusinessNameResolverFragment", import_path: "BusinessNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}
+==================================== OUTPUT ===================================
+fragment BusinessNameResolverFragment on ClientUser {
+  ... @__ClientEdgeMetadataDirective
+  # ServerObject {
+  #     query_name: OperationDefinitionName(
+  #         "ClientEdgeQuery_BusinessNameResolverFragment_business",
+  #     ),
+  #     unique_id: 0,
+  # }
+   {
+    __id @__RelayResolverMetadata
+    # RelayResolverMetadata {
+    #     field_id: FieldID(532),
+    #     import_path: "BusinessResolver",
+    #     import_name: None,
+    #     field_alias: None,
+    #     field_path: "business",
+    #     field_arguments: [],
+    #     fragment_arguments: [],
+    #     live: false,
+    #     output_type_info: EdgeTo,
+    #     fragment_data_injection_mode: None,
+    #     type_confirmed: false,
+    #     resolver_type: ResolverModule,
+    #     return_fragment: None,
+    # }
+     @waterfall
+    business @waterfall {
+      name
+    }
+  }
+}
+
+fragment RefetchableClientEdgeQuery_BusinessNameResolverFragment_business on Page @__ClientEdgeGeneratedQueryMetadataDirective
+# ClientEdgeGeneratedQueryMetadataDirective {
+#     source_name: WithLocation {
+#         location: client-resolver-root-fragment-waterfall.graphql:144:172,
+#         item: FragmentDefinitionName(
+#             FragmentDefinitionName(
+#                 "BusinessNameResolverFragment",
+#             ),
+#         ),
+#     },
+# }
+ @__RefetchableMetadata
+# RefetchableMetadata {
+#     operation_name: OperationDefinitionName(
+#         "ClientEdgeQuery_BusinessNameResolverFragment_business",
+#     ),
+#     path: [
+#         "node",
+#     ],
+#     identifier_info: Some(
+#         RefetchableIdentifierInfo {
+#             identifier_field: "id",
+#             identifier_query_variable_name: "id",
+#         },
+#     ),
+#     is_prefetchable_pagination: false,
+# }
+ {
+  name
+  id
+}
+
+query ClientEdgeQuery_BusinessNameResolverFragment_business(
+  $id: ID!
+) @__ClientEdgeGeneratedQueryMetadataDirective
+# ClientEdgeGeneratedQueryMetadataDirective {
+#     source_name: WithLocation {
+#         location: client-resolver-root-fragment-waterfall.graphql:144:172,
+#         item: FragmentDefinitionName(
+#             FragmentDefinitionName(
+#                 "BusinessNameResolverFragment",
+#             ),
+#         ),
+#     },
+# }
+ {
+  node(id: $id) {
+    ...RefetchableClientEdgeQuery_BusinessNameResolverFragment_business
+  }
+}
+
+query TestQuery {
+  client_me {
+    ...BusinessNameResolverFragment @__RelayResolverMetadata
+    # RelayResolverMetadata {
+    #     field_id: FieldID(533),
+    #     import_path: "BusinessNameResolver",
+    #     import_name: None,
+    #     field_alias: None,
+    #     field_path: "client_me.business_name",
+    #     field_arguments: [],
+    #     fragment_arguments: [],
+    #     live: false,
+    #     output_type_info: Legacy,
+    #     fragment_data_injection_mode: None,
+    #     type_confirmed: false,
+    #     resolver_type: ResolverModule,
+    #     return_fragment: None,
+    # }
+    
+  }
+}

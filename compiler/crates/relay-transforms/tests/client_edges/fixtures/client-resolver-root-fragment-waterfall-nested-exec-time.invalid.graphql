@@ -1,0 +1,34 @@
+#expected-to-throw
+# The `@waterfall` edge is reached through a spread and another resolver's
+# @rootFragment.
+query TestQuery @exec_time_resolvers {
+  client_me {
+    business_summary
+  }
+}
+
+fragment BusinessSummaryResolverFragment on ClientUser {
+  ...BusinessSummaryParts
+}
+
+fragment BusinessSummaryParts on ClientUser {
+  business_name
+}
+
+fragment BusinessNameResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_name: String @relay_resolver(fragment_name: "BusinessNameResolverFragment", import_path: "BusinessNameResolver")
+  business_summary: String @relay_resolver(fragment_name: "BusinessSummaryResolverFragment", import_path: "BusinessSummaryResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}

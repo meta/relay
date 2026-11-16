@@ -1,0 +1,95 @@
+==================================== INPUT ====================================
+// Test: a Query-rooted SHADOW resolver is checked like any other resolver on
+// `Query`. Its root fragment reaches a client edge to a server object through a
+// client link, which the executor cannot fetch at exec time.
+//- QueryShadowPage.js
+/**
+ * @relayField Query.shadow_page: IPage
+ * @rootFragment QueryShadowPageResolverFragment
+ * @returnFragment QueryShadowPageReturnFragment
+ */
+graphql`fragment QueryShadowPageResolverFragment on Query {
+  page {
+    ...QueryShadowPageReturnFragment
+  }
+  client_thing {
+    server_page @waterfall {
+      title
+    }
+  }
+}`
+
+//- ClientThingResolvers.js
+/**
+ * @relayType ClientThing
+ */
+export function ClientThing() {}
+
+/**
+ * @relayField Query.client_thing: ClientThing
+ */
+export function client_thing() {}
+
+/**
+ * @relayField ClientThing.server_page: Page
+ */
+export function server_page() {}
+
+//- Consumer.js
+graphql`query ConsumerQuery @exec_time_resolvers {
+  shadow_page {
+    title
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "schemaExtensions": ["schema-extensions"],
+  "featureFlags": {
+    "enable_shadow_resolvers": {"kind": "enabled"},
+    "enable_exec_time_resolvers_directive": true,
+    "relay_resolver_enable_interface_output_type": {"kind": "enabled"}
+  }
+}
+
+//- schema.graphql
+type Query {
+  page: Page
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+type Page implements Node {
+  id: ID!
+  title: String
+}
+
+//- schema-extensions/extension.graphql
+interface IPage implements Node {
+  id: ID!
+  title: String
+}
+
+extend type Page implements IPage
+==================================== OUTPUT ===================================
+✖︎ Resolver `Query.shadow_page` is selected in an @exec_time_resolvers operation, but its @rootFragment `QueryShadowPageResolverFragment` reaches the client-to-server edge `ClientThing.server_page` (`@waterfall`). At exec time the executor evaluates this root fragment where it cannot send network requests, so it cannot fetch the edge. Select `ClientThing.server_page` with `@waterfall` in the query or fragment that reads `shadow_page`, and use its server data there or in a resolver on its server type; or read `shadow_page` in an operation without @exec_time_resolvers.
+
+  Consumer.js:2:3
+    1 │ query ConsumerQuery @exec_time_resolvers {
+    2 │   shadow_page {
+      │   ^^^^^^^^^^^
+    3 │     title
+
+  ℹ︎ The `@waterfall` edge
+
+  QueryShadowPage.js:11:5
+   10 │   client_thing {
+   11 │     server_page @waterfall {
+      │     ^^^^^^^^^^^
+   12 │       title

@@ -1,0 +1,192 @@
+==================================== INPUT ====================================
+# relay-resolver-enable-interface-output-type
+# A `@waterfall` edge to a mixed abstract type is not a client edge to a server
+# object: the executor links its server arm to the Relay store instead of
+# fetching it, so a root fragment may reach it.
+query TestQuery @exec_time_resolvers {
+  client_me {
+    friend_name
+  }
+}
+
+fragment FriendNameResolverFragment on ClientUser {
+  best_friend @waterfall {
+    id
+  }
+}
+
+fragment BestFriendResolverFragment_name on ClientUser {
+  __typename
+}
+
+# %extensions%
+
+interface ClientOnlyInterface implements Node {
+  id: ID!
+}
+
+type BestFriend implements ClientOnlyInterface @__RelayResolverModel {
+  id: ID!
+  __relay_model_instance: RelayResolverValue @relay_resolver(import_path: "BestFriendResolver" fragment_name: "BestFriend__id", generated_fragment: true, inject_fragment_data: "id", import_name: "BestFriend")
+}
+
+extend type Bicycle implements ClientOnlyInterface
+
+type ClientUser {
+  best_friend: ClientOnlyInterface @relay_resolver(fragment_name: "BestFriendResolverFragment_name", import_path: "BestFriendResolver")
+  friend_name: String @relay_resolver(fragment_name: "FriendNameResolverFragment", import_path: "FriendNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}
+==================================== OUTPUT ===================================
+fragment BestFriendResolverFragment_name on ClientUser {
+  __typename
+}
+
+fragment FriendNameResolverFragment on ClientUser {
+  ... @__ClientEdgeMetadataDirective
+  # ClientObject {
+  #     type_name: None,
+  #     unique_id: 0,
+  #     model_resolvers: [
+  #         ClientEdgeModelResolver {
+  #             model_field_id: FieldID(534),
+  #             type_name: WithLocation {
+  #                 location: <generated>:68:78,
+  #                 item: ObjectName(
+  #                     "BestFriend",
+  #                 ),
+  #             },
+  #             resolver_info: ResolverInfo {
+  #                 fragment_name: Some(
+  #                     FragmentDefinitionName(
+  #                         "BestFriend__id",
+  #                     ),
+  #                 ),
+  #                 fragment_data_injection_mode: Some(
+  #                     Field {
+  #                         name: "id",
+  #                         is_required: true,
+  #                     },
+  #                 ),
+  #                 import_path: "BestFriendResolver",
+  #                 import_name: Some(
+  #                     "BestFriend",
+  #                 ),
+  #                 live: false,
+  #                 has_output_type: false,
+  #                 type_confirmed: false,
+  #                 resolver_type: ResolverModule,
+  #                 return_fragment: None,
+  #                 may_waterfall: false,
+  #             },
+  #         },
+  #     ],
+  #     server_object_operations: [
+  #         ClientEdgeServerObjectOperation {
+  #             type_name: ObjectName(
+  #                 "Bicycle",
+  #             ),
+  #             query_name: OperationDefinitionName(
+  #                 "ClientEdgeQuery_FriendNameResolverFragment_best_friend",
+  #             ),
+  #         },
+  #     ],
+  # }
+   {
+    ...BestFriendResolverFragment_name @__RelayResolverMetadata
+    # RelayResolverMetadata {
+    #     field_id: FieldID(535),
+    #     import_path: "BestFriendResolver",
+    #     import_name: None,
+    #     field_alias: None,
+    #     field_path: "best_friend",
+    #     field_arguments: [],
+    #     fragment_arguments: [],
+    #     live: false,
+    #     output_type_info: EdgeTo,
+    #     fragment_data_injection_mode: None,
+    #     type_confirmed: false,
+    #     resolver_type: ResolverModule,
+    #     return_fragment: None,
+    # }
+     @waterfall
+    best_friend @waterfall {
+      id
+    }
+  }
+}
+
+fragment RefetchableClientEdgeQuery_FriendNameResolverFragment_best_friend on Bicycle @__ClientEdgeGeneratedQueryMetadataDirective
+# ClientEdgeGeneratedQueryMetadataDirective {
+#     source_name: WithLocation {
+#         location: client-resolver-root-fragment-mixed-waterfall-exec-time.graphql:333:359,
+#         item: FragmentDefinitionName(
+#             FragmentDefinitionName(
+#                 "FriendNameResolverFragment",
+#             ),
+#         ),
+#     },
+# }
+ @__RefetchableMetadata
+# RefetchableMetadata {
+#     operation_name: OperationDefinitionName(
+#         "ClientEdgeQuery_FriendNameResolverFragment_best_friend",
+#     ),
+#     path: [
+#         "node",
+#     ],
+#     identifier_info: Some(
+#         RefetchableIdentifierInfo {
+#             identifier_field: "id",
+#             identifier_query_variable_name: "id",
+#         },
+#     ),
+#     is_prefetchable_pagination: false,
+# }
+ {
+  id
+}
+
+query ClientEdgeQuery_FriendNameResolverFragment_best_friend(
+  $id: ID!
+) @__ClientEdgeGeneratedQueryMetadataDirective
+# ClientEdgeGeneratedQueryMetadataDirective {
+#     source_name: WithLocation {
+#         location: client-resolver-root-fragment-mixed-waterfall-exec-time.graphql:333:359,
+#         item: FragmentDefinitionName(
+#             FragmentDefinitionName(
+#                 "FriendNameResolverFragment",
+#             ),
+#         ),
+#     },
+# }
+ {
+  node(id: $id) {
+    ...RefetchableClientEdgeQuery_FriendNameResolverFragment_best_friend
+  }
+}
+
+query TestQuery @exec_time_resolvers {
+  client_me {
+    ...FriendNameResolverFragment @__RelayResolverMetadata
+    # RelayResolverMetadata {
+    #     field_id: FieldID(536),
+    #     import_path: "FriendNameResolver",
+    #     import_name: None,
+    #     field_alias: None,
+    #     field_path: "client_me.friend_name",
+    #     field_arguments: [],
+    #     fragment_arguments: [],
+    #     live: false,
+    #     output_type_info: Legacy,
+    #     fragment_data_injection_mode: None,
+    #     type_confirmed: false,
+    #     resolver_type: ResolverModule,
+    #     return_fragment: None,
+    # }
+    
+  }
+}

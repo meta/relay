@@ -1,0 +1,24 @@
+#expected-to-throw
+# A resolver on Query runs its @rootFragment the same way.
+query TestQuery @exec_time_resolvers {
+  business_label
+}
+
+fragment BusinessLabelResolverFragment on Query {
+  client_me {
+    business @waterfall {
+      name
+    }
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+  business_label: String @relay_resolver(fragment_name: "BusinessLabelResolverFragment", import_path: "BusinessLabelResolver")
+}

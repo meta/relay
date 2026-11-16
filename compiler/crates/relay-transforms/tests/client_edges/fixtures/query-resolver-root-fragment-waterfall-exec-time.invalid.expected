@@ -1,0 +1,41 @@
+==================================== INPUT ====================================
+#expected-to-throw
+# A resolver on Query runs its @rootFragment the same way.
+query TestQuery @exec_time_resolvers {
+  business_label
+}
+
+fragment BusinessLabelResolverFragment on Query {
+  client_me {
+    business @waterfall {
+      name
+    }
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+  business_label: String @relay_resolver(fragment_name: "BusinessLabelResolverFragment", import_path: "BusinessLabelResolver")
+}
+==================================== ERROR ====================================
+✖︎ Resolver `Query.business_label` is selected in an @exec_time_resolvers operation, but its @rootFragment `BusinessLabelResolverFragment` reaches the client-to-server edge `ClientUser.business` (`@waterfall`). At exec time the executor evaluates this root fragment where it cannot send network requests, so it cannot fetch the edge. Select `ClientUser.business` with `@waterfall` in the query or fragment that reads `business_label`, and use its server data there or in a resolver on its server type; or read `business_label` in an operation without @exec_time_resolvers.
+
+  query-resolver-root-fragment-waterfall-exec-time.invalid.graphql:4:3
+    3 │ query TestQuery @exec_time_resolvers {
+    4 │   business_label
+      │   ^^^^^^^^^^^^^^
+    5 │ }
+
+  ℹ︎ The `@waterfall` edge
+
+  query-resolver-root-fragment-waterfall-exec-time.invalid.graphql:9:5
+    8 │   client_me {
+    9 │     business @waterfall {
+      │     ^^^^^^^^
+   10 │       name

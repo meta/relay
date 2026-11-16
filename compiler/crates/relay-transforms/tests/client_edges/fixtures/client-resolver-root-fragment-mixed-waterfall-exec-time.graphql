@@ -1,0 +1,41 @@
+# relay-resolver-enable-interface-output-type
+# A `@waterfall` edge to a mixed abstract type is not a client edge to a server
+# object: the executor links its server arm to the Relay store instead of
+# fetching it, so a root fragment may reach it.
+query TestQuery @exec_time_resolvers {
+  client_me {
+    friend_name
+  }
+}
+
+fragment FriendNameResolverFragment on ClientUser {
+  best_friend @waterfall {
+    id
+  }
+}
+
+fragment BestFriendResolverFragment_name on ClientUser {
+  __typename
+}
+
+# %extensions%
+
+interface ClientOnlyInterface implements Node {
+  id: ID!
+}
+
+type BestFriend implements ClientOnlyInterface @__RelayResolverModel {
+  id: ID!
+  __relay_model_instance: RelayResolverValue @relay_resolver(import_path: "BestFriendResolver" fragment_name: "BestFriend__id", generated_fragment: true, inject_fragment_data: "id", import_name: "BestFriend")
+}
+
+extend type Bicycle implements ClientOnlyInterface
+
+type ClientUser {
+  best_friend: ClientOnlyInterface @relay_resolver(fragment_name: "BestFriendResolverFragment_name", import_path: "BestFriendResolver")
+  friend_name: String @relay_resolver(fragment_name: "FriendNameResolverFragment", import_path: "FriendNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}

@@ -1,0 +1,39 @@
+#expected-to-throw
+# A fragment that an exec-time operation spreads is checked, `enabledProvider`
+# included; a fragment that only other operations spread is not.
+query ExecTimeQuery @exec_time_resolvers(enabledProvider: "ExecTimeProvider") {
+  client_me {
+    ...ExecTimeFragment
+  }
+}
+
+query ReadTimeQuery {
+  client_me {
+    ...ReadTimeFragment
+  }
+}
+
+fragment ExecTimeFragment on ClientUser {
+  business_name
+}
+
+fragment ReadTimeFragment on ClientUser {
+  business_name
+}
+
+fragment BusinessNameResolverFragment on ClientUser {
+  business @waterfall {
+    name
+  }
+}
+
+# %extensions%
+
+type ClientUser {
+  business: Page @relay_resolver(import_path: "BusinessResolver")
+  business_name: String @relay_resolver(fragment_name: "BusinessNameResolverFragment", import_path: "BusinessNameResolver")
+}
+
+extend type Query {
+  client_me: ClientUser
+}

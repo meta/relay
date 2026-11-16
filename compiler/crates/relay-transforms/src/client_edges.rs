@@ -69,6 +69,7 @@ use crate::refetchable_fragment::REFETCHABLE_NAME;
 use crate::refetchable_fragment::RefetchableFragment;
 use crate::relay_resolvers::ResolverInfo;
 use crate::relay_resolvers::get_bool_argument_is_true;
+use crate::relay_resolvers::get_resolver_fragment_dependency_name;
 use crate::relay_resolvers::get_resolver_info;
 use crate::relay_resolvers::get_resolver_return_fragment_name;
 use crate::relay_resolvers::selections_contain_shadow_return_marker;
@@ -1686,6 +1687,7 @@ impl Transformer<'_> for ClientEdgesTransform<'_, '_> {
     fn transform_linked_field(&mut self, field: &LinkedField) -> Transformed<Selection> {
         self.path
             .push(field.alias_or_name(&self.program.schema).lookup());
+        self.validate_client_root_fragment_for_exec_time(field);
 
         let new_linked_field = self.transform_linked_field_impl(field);
 
@@ -1704,6 +1706,7 @@ impl Transformer<'_> for ClientEdgesTransform<'_, '_> {
         {
             self.push_unexpected_waterfall(directive.location);
         }
+        self.validate_client_root_fragment_for_exec_time(field);
         // Validate S2C @rootFragment identity-only constraint
         self.validate_s2c_root_fragment_for_exec_time(field);
         self.default_transform_scalar_field(field)
@@ -1808,6 +1811,131 @@ impl ClientEdgesTransform<'_, '_> {
             )
             .annotate("Resolver defined here", field_type.name.location),
         );
+    }
+
+    /// A resolver on a client type, or on `Query`, cannot reach a client edge to
+    /// a server object (`@waterfall`) from its @rootFragment when it runs at exec
+    /// time. The executor evaluates such a root fragment in a scope the store
+    /// builds, or projects it from the response, and neither has a C2S
+    /// coordinator to send the edge's `ClientEdgeQuery`. Read time fetches the
+    /// edge, so only exec-time operations are checked.
+    ///
+    /// The walk follows spreads, and the root fragments of the resolvers it
+    /// selects, which the executor evaluates the same way.
+    fn validate_client_root_fragment_for_exec_time<T: graphql_ir::Field>(&mut self, field: &T) {
+        if !self.has_exec_time_resolvers {
+            return;
+        }
+        let schema = &self.program.schema;
+        let field_type = schema.field(field.definition().item);
+        let Some(parent_type) = field_type.parent_type else {
+            return;
+        };
+        if !schema.is_extension_type(parent_type) && Some(parent_type) != schema.query_type() {
+            return;
+        }
+        let Some(fragment_name) = get_resolver_fragment_dependency_name(field_type) else {
+            return;
+        };
+        let mut visited = FragmentDefinitionNameSet::default();
+        let Some((edge_name, edge_location)) =
+            self.find_waterfall_edge_in_fragment(fragment_name, &mut visited)
+        else {
+            return;
+        };
+        self.errors.push(
+            Diagnostic::error(
+                ValidationMessage::ExecTimeRootFragmentReachesWaterfall {
+                    parent_type: schema.get_type_name(parent_type),
+                    field_name: field_type.name.item,
+                    fragment_name,
+                    edge_name,
+                },
+                field.alias_or_name_location(),
+            )
+            .annotate("The `@waterfall` edge", edge_location),
+        );
+    }
+
+    /// The first client edge to a server object that `fragment_name` reaches, or
+    /// `None` when it reaches none or this walk has already visited it.
+    fn find_waterfall_edge_in_fragment(
+        &self,
+        fragment_name: FragmentDefinitionName,
+        visited: &mut FragmentDefinitionNameSet,
+    ) -> Option<(StringKey, Location)> {
+        if !visited.insert(fragment_name) {
+            return None;
+        }
+        let fragment = self.program.fragment(fragment_name)?;
+        self.find_waterfall_edge(&fragment.selections, visited)
+    }
+
+    fn find_waterfall_edge(
+        &self,
+        selections: &[Selection],
+        visited: &mut FragmentDefinitionNameSet,
+    ) -> Option<(StringKey, Location)> {
+        let schema = &self.program.schema;
+        for selection in selections {
+            let edge = match selection {
+                Selection::LinkedField(linked_field) => {
+                    if linked_field
+                        .directives
+                        .named(*CLIENT_EDGE_WATERFALL_DIRECTIVE_NAME)
+                        .is_some()
+                        && is_client_edge_to_server_object(schema, linked_field.definition.item)
+                    {
+                        let edge_field = schema.field(linked_field.definition.item);
+                        let edge_name = match edge_field.parent_type {
+                            Some(edge_parent_type) => format!(
+                                "{}.{}",
+                                schema.get_type_name(edge_parent_type),
+                                edge_field.name.item
+                            )
+                            .intern(),
+                            None => edge_field.name.item,
+                        };
+                        return Some((edge_name, linked_field.alias_or_name_location()));
+                    }
+                    match self
+                        .find_waterfall_edge_in_resolver(linked_field.definition.item, visited)
+                    {
+                        Some(edge) => Some(edge),
+                        None => self.find_waterfall_edge(&linked_field.selections, visited),
+                    }
+                }
+                Selection::ScalarField(scalar_field) => {
+                    self.find_waterfall_edge_in_resolver(scalar_field.definition.item, visited)
+                }
+                Selection::FragmentSpread(fragment_spread) => {
+                    self.find_waterfall_edge_in_fragment(fragment_spread.fragment.item, visited)
+                }
+                Selection::InlineFragment(inline_fragment) => {
+                    self.find_waterfall_edge(&inline_fragment.selections, visited)
+                }
+                Selection::Condition(condition) => {
+                    self.find_waterfall_edge(&condition.selections, visited)
+                }
+            };
+            if edge.is_some() {
+                return edge;
+            }
+        }
+        None
+    }
+
+    /// The first client edge to a server object that the root fragment of the
+    /// resolver backing `field_id` reaches; `None` for a field that is not such a
+    /// resolver.
+    fn find_waterfall_edge_in_resolver(
+        &self,
+        field_id: FieldID,
+        visited: &mut FragmentDefinitionNameSet,
+    ) -> Option<(StringKey, Location)> {
+        let fragment_name =
+            get_resolver_fragment_dependency_name(self.program.schema.field(field_id))?;
+        self.find_waterfall_edge_in_fragment(fragment_name, visited)
     }
 }
 
@@ -2178,6 +2306,18 @@ fn is_client_edge_field(field: &schema::Field) -> bool {
             .directives
             .named(*RELAY_RESOLVER_DIRECTIVE_NAME)
             .is_some()
+}
+
+/// Whether a selection of `field_id` compiles to a client edge to a server object
+/// (`ClientEdgeToServerObject`), as `transform_linked_field_impl` decides: an edge
+/// to a server type with no client implementors that is not a magic fragment.
+fn is_client_edge_to_server_object(schema: &SDLSchema, field_id: FieldID) -> bool {
+    let field = schema.field(field_id);
+    if !is_client_edge_field(field) || get_resolver_return_fragment_name(field).is_some() {
+        return false;
+    }
+    let edge_to_type = field.type_.inner();
+    !schema.is_extension_type(edge_to_type) && !has_client_implementors(schema, edge_to_type)
 }
 
 /// Whether `client_edges` can compile a selection of this field differently
