@@ -31,6 +31,7 @@ import type {
 } from '../util/NormalizationNode';
 import type {DataID, Variables} from '../util/RelayRuntimeTypes';
 import type {RelayErrorTrie} from './RelayErrorTrie';
+import type {LinkedRecordListShape} from './RelayModernRecord';
 import type {
   FollowupPayload,
   HandleFieldPayload,
@@ -894,6 +895,10 @@ class RelayResponseNormalizer {
         'of objects.',
       storageKey,
     );
+    if (fieldValue.some(Array.isArray)) {
+      this._normalizeNestedPluralLink(field, record, storageKey, fieldValue);
+      return;
+    }
     const prevIDs = RelayModernRecord.getLinkedRecordIDs(record, storageKey);
     const nextIDs: Array<?DataID> = [];
     fieldValue.forEach((item, nextIndex) => {
@@ -957,6 +962,94 @@ class RelayResponseNormalizer {
       this._path.pop();
     });
     RelayModernRecord.setLinkedRecordIDs(record, storageKey, nextIDs);
+  }
+
+  _normalizeNestedPluralLink(
+    field: NormalizationLinkedField,
+    record: Record,
+    storageKey: string,
+    fieldValue: ReadonlyArray<unknown>,
+  ): void {
+    const prevIDs = RelayModernRecord.getLinkedRecordIDs(record, storageKey);
+    const prevShape = RelayModernRecord.getLinkedRecordListShape(
+      record,
+      storageKey,
+    );
+    const nextIDs: Array<?DataID> = [];
+    const clientID = generateClientID(
+      RelayModernRecord.getDataID(record),
+      storageKey,
+    );
+    const normalizeList = (
+      items: ReadonlyArray<unknown>,
+      previous: ?LinkedRecordListShape,
+      path: ReadonlyArray<number>,
+    ): LinkedRecordListShape =>
+      items.map((item, index) => {
+        if (item == null) {
+          nextIDs.push(item);
+          return item;
+        }
+        const previousItem = previous?.[index];
+        const itemPath = [...path, index];
+        this._path.push(String(index));
+        const oldErrorTrie = this._errorTrie;
+        this._errorTrie =
+          oldErrorTrie == null
+            ? null
+            : getNestedErrorTrieByKey(oldErrorTrie, index);
+        if (Array.isArray(item)) {
+          const shape = normalizeList(
+            item,
+            Array.isArray(previousItem) ? previousItem : null,
+            itemPath,
+          );
+          this._errorTrie = oldErrorTrie;
+          this._path.pop();
+          return shape;
+        }
+        invariant(
+          typeof item === 'object',
+          'RelayResponseNormalizer: Expected elements for field `%s` to be objects.',
+          storageKey,
+        );
+        const previousID =
+          typeof previousItem === 'number'
+            ? prevIDs?.[previousItem]
+            : undefined;
+        const typeName = field.concreteType ?? this._getRecordType(item);
+        const nextID =
+          this._getDataId(item, typeName) ||
+          previousID ||
+          `${clientID}:${itemPath.join(':')}`;
+        invariant(
+          typeof nextID === 'string',
+          'RelayResponseNormalizer: Expected id of elements of field `%s` to be strings.',
+          storageKey,
+        );
+        const position = nextIDs.length;
+        nextIDs.push(nextID);
+        let nextRecord = this._recordSource.get(nextID);
+        if (nextRecord == null) {
+          nextRecord = RelayModernRecord.create(nextID, typeName);
+          this._recordSource.set(nextID, nextRecord);
+        } else {
+          this._validateRecordType(nextRecord, field, item);
+        }
+        if (previousID != null) {
+          this._validateConflictingLinkedFieldsWithIdenticalId(
+            previousID,
+            nextID,
+            storageKey,
+          );
+        }
+        this._traverseSelections(field, nextRecord, item);
+        this._errorTrie = oldErrorTrie;
+        this._path.pop();
+        return position;
+      });
+    const shape = normalizeList(fieldValue, prevShape, []);
+    RelayModernRecord.setLinkedRecordIDs(record, storageKey, nextIDs, shape);
   }
 
   /**

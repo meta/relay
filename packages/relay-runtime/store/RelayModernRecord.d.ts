@@ -13,6 +13,10 @@ type RelayFieldErrors = {
   [storageKey: string]: ReadonlyArray<TRelayFieldError>;
 };
 
+export type LinkedRecordListShape = Array<
+  number | LinkedRecordListShape | null | undefined
+>;
+
 export type RecordJSON = {
   __errors?: RelayFieldErrors;
   [storageKey: string]: unknown;
@@ -101,6 +105,11 @@ export function getLinkedRecordIDs(
   storageKey: string,
 ): Array<DataID | null | undefined> | null | undefined;
 
+export function getLinkedRecordListShape(
+  record: Record,
+  storageKey: string,
+): LinkedRecordListShape | null | undefined;
+
 /**
  * Checks if a field have references to other records.
  */
@@ -167,6 +176,7 @@ export function setLinkedRecordIDs(
   record: Record,
   storageKey: string,
   linkedIDs: Array<DataID | null | undefined>,
+  listShape?: LinkedRecordListShape,
 ): void;
 
 /**
