@@ -31,6 +31,7 @@ import type {
   ReaderScalarField,
   ReaderSelection,
 } from '../util/ReaderNode';
+import type {ConcreteRequest} from '../util/RelayConcreteNode';
 import type {DataID, Variables} from '../util/RelayRuntimeTypes';
 import type {
   ClientEdgeTraversalInfo,
@@ -55,7 +56,10 @@ const {
   isSuspenseSentinel,
 } = require('./live-resolvers/LiveResolverSuspenseSentinel');
 const RelayConcreteVariables = require('./RelayConcreteVariables');
+const {createRequestDescriptor} = require('./RelayModernOperationDescriptor');
 const RelayModernRecord = require('./RelayModernRecord');
+const {createReaderSelector} = require('./RelayModernSelector');
+const RelayRecordSource = require('./RelayRecordSource');
 const {
   FIELD_GRANULAR_NOTIFICATIONS_KEY,
   FRAGMENT_OWNER_KEY,
@@ -3890,4 +3894,64 @@ function readPerf(
   return reader.read();
 }
 
-module.exports = {read, readPerf};
+// ----------------------------------------------------------------------
+// ENABLE_PERF_READER_MAP_ANCHOR: a RelayReaderOptimized that never reads, so
+// that a full garbage collection between two reads finds its hidden class
+// alive. It holds no record, variables or request of a read. The store creates
+// it only when ENABLE_PERF_READER and ENABLE_PERF_STORAGE_KEYS are on too
+// (every read then uses this class); it lives as long as this module.
+
+let readerMapAnchor: ?RelayReaderOptimized = null;
+
+function keepReaderMapsAlive(): void {
+  if (readerMapAnchor != null) {
+    return;
+  }
+  const fragment: ReaderFragment = {
+    argumentDefinitions: [],
+    kind: 'Fragment',
+    metadata: null,
+    name: 'RelayReaderMapAnchor',
+    selections: [],
+    type: 'RelayReaderMapAnchor',
+    abstractKey: null,
+  };
+  const request: ConcreteRequest = {
+    fragment,
+    kind: 'Request',
+    operation: {
+      argumentDefinitions: [],
+      kind: 'Operation',
+      name: 'RelayReaderMapAnchor',
+      selections: [],
+    },
+    params: {
+      cacheID: 'RelayReaderMapAnchor',
+      id: null,
+      metadata: {},
+      name: 'RelayReaderMapAnchor',
+      operationKind: 'query',
+      text: null,
+    },
+  };
+  const variables: Variables = {};
+  readerMapAnchor = new RelayReaderOptimized(
+    RelayRecordSource.create(),
+    createReaderSelector(
+      fragment,
+      ROOT_ID,
+      variables,
+      createRequestDescriptor(request, variables),
+    ),
+    null,
+    new NoopResolverCache(),
+    null,
+  );
+}
+
+// For tests.
+function getReaderMapAnchor(): ?RelayReaderOptimized {
+  return readerMapAnchor;
+}
+
+module.exports = {getReaderMapAnchor, keepReaderMapsAlive, read, readPerf};

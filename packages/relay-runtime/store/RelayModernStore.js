@@ -213,6 +213,13 @@ class RelayModernStore implements Store {
     this._batch = null;
 
     initializeRecordSource(this._recordSource);
+    if (
+      RelayFeatureFlags.ENABLE_PERF_READER_MAP_ANCHOR &&
+      RelayFeatureFlags.ENABLE_PERF_READER &&
+      RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS
+    ) {
+      RelayReader.keepReaderMapsAlive();
+    }
   }
 
   getSource(): RecordSource {

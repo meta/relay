@@ -122,6 +122,10 @@ export type FeatureFlags = {
   ENABLE_PERF_STORAGE_KEYS: boolean,
   // RelayReader.
   ENABLE_PERF_READER: boolean,
+  // With ENABLE_PERF_READER and ENABLE_PERF_STORAGE_KEYS also on, keeps one
+  // RelayReaderOptimized alive, so that a garbage collection between two reads
+  // doesn't discard the reader's optimized code.
+  ENABLE_PERF_READER_MAP_ANCHOR: boolean,
   // Records, mutations, normalization and publishing to the store.
   ENABLE_PERF_PUBLISH: boolean,
   // The garbage collector's reference marking (RelayReferenceMarker).
@@ -163,6 +167,7 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX: false,
   ENABLE_PERF_STORAGE_KEYS: false,
   ENABLE_PERF_READER: false,
+  ENABLE_PERF_READER_MAP_ANCHOR: false,
   ENABLE_PERF_PUBLISH: false,
   ENABLE_PERF_CHECK_GC: false,
   ENABLE_PERF_NOTIFY: false,
