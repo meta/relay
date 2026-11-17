@@ -1,0 +1,67 @@
+==================================== INPUT ====================================
+# validate-extracted-schema
+# An abstract-to-abstract spread whose types share no type in the extracted
+# subschema gets one shared object back, the first by name.
+
+//- src/AbstractSpreadQuery.js
+graphql`
+  query AbstractSpreadQuery {
+    widget {
+      ... on SpecialWidget {
+        specialField
+      }
+    }
+  }
+`;
+
+//- relay.config.json
+{
+   "language": "typescript",
+   "schema": "./schema.graphql",
+   "src": "./src"
+}
+
+//- schema.graphql
+type Query { _: ID }
+
+//- full_schema.graphql
+type Query {
+  widget: Widget
+}
+
+interface Widget {
+  id: ID
+}
+
+interface SpecialWidget implements Widget {
+  id: ID
+  specialField: String
+}
+
+type BSpecialWidget implements SpecialWidget & Widget {
+  id: ID
+  specialField: String
+}
+
+type ASpecialWidget implements SpecialWidget & Widget {
+  id: ID
+  specialField: String
+}
+==================================== OUTPUT ===================================
+type ASpecialWidget implements SpecialWidget & Widget {
+  id: ID
+  specialField: String
+}
+
+type Query {
+  widget: Widget
+}
+
+interface SpecialWidget implements Widget {
+  id: ID
+  specialField: String
+}
+
+interface Widget {
+  id: ID
+}

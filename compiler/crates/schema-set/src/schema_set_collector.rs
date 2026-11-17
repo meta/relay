@@ -987,7 +987,7 @@ fn stringkey_output_type_ref_from_schema_type_with_semantic_nonnull(
 /// This probably should live in the Relay graphql_schema.rs methods
 /// It is veeeery similar to are_overlapping_types, but it's a *bit* more expensive
 /// due to allocating new vectors.
-fn overlapping_types(schema: &SDLSchema, a: Type, b: Type) -> Vec<Type> {
+pub fn overlapping_types(schema: &SDLSchema, a: Type, b: Type) -> Vec<Type> {
     fn overlapping_objects(a: &[ObjectID], b: &[ObjectID]) -> Vec<Type> {
         a.iter()
             .filter(|item| b.contains(item))

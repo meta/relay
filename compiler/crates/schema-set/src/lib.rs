@@ -77,6 +77,7 @@ pub use crate::schema_set::SetType;
 pub use crate::schema_set::SetUnion;
 pub use crate::schema_set::StringKeyNamed;
 pub use crate::schema_set_collection_options::UsedSchemaCollectionOptions;
+pub use crate::schema_set_collector::overlapping_types;
 pub use crate::set_type_reference::OutputNonNull;
 pub use crate::set_type_reference::OutputTypeReference;
 pub use crate::transform::Transformer;

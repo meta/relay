@@ -1,0 +1,70 @@
+==================================== INPUT ====================================
+# validate-extracted-schema
+# The document already selects a type shared by both sides of the spread, so
+# no other shared type is added.
+
+//- src/AbstractSpreadQuery.js
+graphql`
+  query AbstractSpreadQuery {
+    widget {
+      ... on SpecialWidget {
+        specialField
+        ... on BSpecialWidget {
+          id
+        }
+      }
+    }
+  }
+`;
+
+//- relay.config.json
+{
+   "language": "typescript",
+   "schema": "./schema.graphql",
+   "src": "./src"
+}
+
+//- schema.graphql
+type Query { _: ID }
+
+//- full_schema.graphql
+type Query {
+  widget: Widget
+}
+
+interface Widget {
+  id: ID
+}
+
+interface SpecialWidget implements Widget {
+  id: ID
+  specialField: String
+}
+
+type BSpecialWidget implements SpecialWidget & Widget {
+  id: ID
+  specialField: String
+}
+
+type ASpecialWidget implements SpecialWidget & Widget {
+  id: ID
+  specialField: String
+}
+==================================== OUTPUT ===================================
+type BSpecialWidget implements SpecialWidget & Widget {
+  id: ID
+  specialField: String
+}
+
+type Query {
+  widget: Widget
+}
+
+interface SpecialWidget implements Widget {
+  id: ID
+  specialField: String
+}
+
+interface Widget {
+  id: ID
+}

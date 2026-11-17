@@ -14,6 +14,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use common::ConsoleLogger;
+use graphql_ir::FragmentDefinition;
+use graphql_ir::FragmentSpread;
+use graphql_ir::InlineFragment;
+use graphql_ir::LinkedField;
+use graphql_ir::OperationDefinition;
+use graphql_ir::Visitor;
 use intern::Lookup;
 use intern::string_key::StringKey;
 use program_with_dependencies::ProgramWithDependencies;
@@ -25,6 +31,7 @@ use schema::Type;
 use schema_set::SchemaSet;
 use schema_set::SetType;
 use schema_set::UsedSchemaCollectionOptions;
+use schema_set::overlapping_types;
 use thiserror::Error;
 
 use crate::SchemaLocation;
@@ -203,7 +210,7 @@ pub(crate) fn extract_subschema(
     // abstract fields (for example `Entity` to `Node` for the generated `id`
     // selection), and retaining their full intersection can pull most of a
     // large schema into an otherwise small subschema.
-    let mut operation_options = UsedSchemaCollectionOptions {
+    let operation_options = UsedSchemaCollectionOptions {
         include_implementations_when_typename_requested: None,
         include_all_overlapping_concrete_types: false,
         include_directives_on_schema_definitions: true,
@@ -214,26 +221,37 @@ pub(crate) fn extract_subschema(
     let mut used_schema = SchemaSet::from_ir(&program_with_deps, operation_options.clone())
         .map_err(|diagnostics| SubschemaError::CompilationFailed(format!("{:?}", diagnostics)))?;
 
-    // Retain intersections only for abstract spreads the product authored in
-    // the source program. Those concrete types keep the spread valid after
-    // pruning, while compiler-generated normalization spreads do not expand the
-    // extracted schema.
-    let source_program_with_deps =
-        ProgramWithDependencies::from_full_program(&programs.source.schema, &programs.source);
-    let source_without_overlaps =
-        SchemaSet::from_ir(&source_program_with_deps, operation_options.clone()).map_err(
-            |diagnostics| SubschemaError::CompilationFailed(format!("{:?}", diagnostics)),
-        )?;
-    operation_options.include_all_overlapping_concrete_types = true;
-    let source_with_overlaps =
-        SchemaSet::from_ir(&source_program_with_deps, operation_options.clone()).map_err(
-            |diagnostics| SubschemaError::CompilationFailed(format!("{:?}", diagnostics)),
-        )?;
-    for name in source_with_overlaps.types.keys() {
-        if !source_without_overlaps.types.contains_key(name)
-            && let Some(type_) = programs.source.schema.get_type(*name)
+    // The project compiles its documents against this subschema, which
+    // rejects an abstract spread whose two types share no type, and only adds
+    // the generated `... on Node { id }` refinement under an abstract type that
+    // shares a type with `Node`. For each spread written in source or generated
+    // by the compiler, keep the first shared type by name when none is left.
+    let schema = &programs.source.schema;
+    let mut collector = SpreadCollector {
+        schema,
+        parent_type: None,
+        spreads: Vec::new(),
+    };
+    collector.visit_program(&programs.source);
+    collector.visit_program(&programs.operation_text);
+    let mut spreads = collector.spreads;
+    spreads.sort_by_key(|(parent, condition)| {
+        (
+            schema.get_type_name(*parent).lookup(),
+            schema.get_type_name(*condition).lookup(),
+        )
+    });
+    for (parent, condition) in spreads {
+        let shared = overlapping_types(schema, parent, condition);
+        if !shared.iter().any(|type_| {
+            used_schema
+                .types
+                .contains_key(&schema.get_type_name(*type_))
+        }) && let Some(type_) = shared
+            .into_iter()
+            .min_by_key(|type_| schema.get_type_name(*type_).lookup())
         {
-            used_schema.touch_output_type(&programs.source.schema, &type_, &operation_options);
+            used_schema.touch_output_type(schema, &type_, &operation_options);
         }
     }
 
@@ -271,6 +289,63 @@ pub(crate) fn extract_subschema(
     output.push('\n');
 
     Ok(output)
+}
+
+/// Collects the `(parent type, type condition)` pair of every spread between two
+/// different types.
+struct SpreadCollector<'s> {
+    schema: &'s SDLSchema,
+    parent_type: Option<Type>,
+    spreads: Vec<(Type, Type)>,
+}
+
+impl SpreadCollector<'_> {
+    fn record(&mut self, condition: Type) {
+        if let Some(parent) = self.parent_type
+            && parent != condition
+        {
+            self.spreads.push((parent, condition));
+        }
+    }
+}
+
+impl Visitor for SpreadCollector<'_> {
+    const NAME: &'static str = "SpreadCollector";
+    const VISIT_ARGUMENTS: bool = false;
+    const VISIT_DIRECTIVES: bool = false;
+
+    fn visit_operation(&mut self, operation: &OperationDefinition) {
+        self.parent_type = Some(operation.type_);
+        self.default_visit_operation(operation);
+    }
+
+    fn visit_fragment(&mut self, fragment: &FragmentDefinition) {
+        self.parent_type = Some(fragment.type_condition);
+        self.default_visit_fragment(fragment);
+    }
+
+    fn visit_linked_field(&mut self, field: &LinkedField) {
+        let parent_type = self.parent_type;
+        self.parent_type = Some(self.schema.field(field.definition.item).type_.inner());
+        self.default_visit_linked_field(field);
+        self.parent_type = parent_type;
+    }
+
+    fn visit_inline_fragment(&mut self, fragment: &InlineFragment) {
+        let parent_type = self.parent_type;
+        if let Some(condition) = fragment.type_condition {
+            self.record(condition);
+            self.parent_type = Some(condition);
+        }
+        self.default_visit_inline_fragment(fragment);
+        self.parent_type = parent_type;
+    }
+
+    fn visit_fragment_spread(&mut self, spread: &FragmentSpread) {
+        if let Some(signature) = &spread.signature {
+            self.record(signature.type_condition);
+        }
+    }
 }
 
 /// Keep pruned output types valid without adding selections to the operation.
