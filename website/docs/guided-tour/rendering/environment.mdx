@@ -12,7 +12,9 @@ keywords:
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbActorsAndEnvironments} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbEnvironmentSetup} from '../../FbFakeContent.mdx'; // @oss-only
 
 ## Relay Environment Provider
 
@@ -35,7 +37,7 @@ function Root() {
 
 * The `RelayEnvironmentProvider` takes an environment, which it will make available to all descendant Relay components, and which is necessary for Relay to function.
 
-// @fb-only
+<FbEnvironmentSetup />
 
 ## Accessing the Relay Environment
 
@@ -52,7 +54,7 @@ function UserComponent(props: Props) {
 ```
 
 
-// @fb-only
+<FbActorsAndEnvironments />
 
 
 

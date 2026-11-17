@@ -10,6 +10,7 @@ keywords:
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbGarbageCollection} from '../../FbFakeContent.mdx'; // @oss-only
 
 
 An important thing to keep in mind when attempting to reuse data that is cached in the Relay store is to understand the lifetime of that data; that is, if it is present in the store, and for how long it will be.
@@ -29,7 +30,7 @@ However, this can be at odds with reusing cached data; if the data is deleted to
 NOTE: Usually, you shouldn't need to worry about configuring garbage collection and data retention, as this should be configured by the app infrastructure at the RelayEnvironment level; however, we will cover it here for reference.
 :::
 
-// @fb-only
+<FbGarbageCollection />
 
 
 

@@ -13,8 +13,8 @@ keywords:
 
 import DocsRating from '@site/src/core/DocsRating';
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
-
 // @fb-only
+import {default as FbEntrypointsExtraInfo} from '../../FbFakeContent.mdx'; // @oss-only
 
 A [GraphQL Query](https://graphql.org/learn/queries/) is a description of data you want to query from a GraphQL server. It consists of a set of fields (and potentially [fragments](../fragments/)) that we want to request from the GraphQL server. What we can query for will depend on the [GraphQL Schema](https://graphql.org/learn/schema/) exposed on the server, which describes the data that is available for querying.
 
@@ -215,7 +215,7 @@ The examples above illustrate how to separate fetching the data from rendering i
 
 This is the preferred pattern for fetching data with Relay, and it applies in several circumstances, such as the initial load of an application, during subsequent navigations, or generally when using UI elements which are initially hidden and later revealed upon an interaction (such as menus, popovers, dialogs, etc), and which also require fetching additional data.
 
-// @fb-only
+<FbEntrypointsExtraInfo />
 
 
 ## Lazily Fetching Queries during Render

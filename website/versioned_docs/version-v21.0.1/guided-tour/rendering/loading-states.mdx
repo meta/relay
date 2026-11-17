@@ -13,18 +13,24 @@ keywords:
 
 import DocsRating from '@site/src/core/DocsRating';
 // @fb-only
+import {default as FbSuspensePlaceholder} from '../../FbFakeContent.mdx'; // @oss-only
 import {OssOnly, FbInternalOnly} from 'docusaurus-plugin-internaldocs-fb/internal';
 // @fb-only
+import {default as FbSuspenseDefinition} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbSuspenseMoreInfo} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbSuspenseTransitionsAndUpdatesThatSuspend} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbSuspenseInRelayTransitions} from '../../FbFakeContent.mdx'; // @oss-only
 // @fb-only
+import {default as FbSuspenseInRelayFragments} from '../../FbFakeContent.mdx'; // @oss-only
 
 
 As you may have noticed, we mentioned that using `usePreloadedQuery` and `useLazyLoadQuery` will render data from a query that was being fetched from the server, but we didn't elaborate on how to render a loading UI (such as a glimmer) while that data is still being fetched. We will cover that in this section.
 
 <FbInternalOnly>
-  // @fb-only
+  <FbSuspenseDefinition />
 </FbInternalOnly>
 
 <OssOnly>
@@ -37,7 +43,7 @@ This capability is useful for components to express asynchronous dependencies li
 
 
 <FbInternalOnly>
-  // @fb-only
+  <FbSuspenseMoreInfo />
 </FbInternalOnly>
 
 ## Loading fallbacks with Suspense Boundaries
@@ -82,7 +88,7 @@ function App() {
 ```
 
 <FbInternalOnly>
-  // @fb-only
+  <FbSuspensePlaceholder />
 </FbInternalOnly>
 
 Let's distill what's going on here:
@@ -111,7 +117,7 @@ function App() {
 }
 ```
 
-// @fb-only
+<FbSuspensePlaceholder />
 
 * In this case, both `MainContent` and `SecondaryContent` may suspend while they load their asynchronous resources; by wrapping both in a `Suspense`, we can show a single loading state up until they are *all* ready, and then render the entire content in a single paint, after everything has successfully loaded.
 * In fact, `MainContent` and `SecondaryContent` may suspend for different reasons other than fetching data, but the same `Suspense` component can be used to render a fallback up until *all* components in the subtree are ready to be rendered. Note that this also transitively includes descendants of `MainContent` or `SecondaryContent`, which might also suspend.
@@ -145,7 +151,7 @@ function App() {
 }
 ```
 
-// @fb-only
+<FbSuspensePlaceholder />
 
 * In this case, we're showing 2 separate loading UIs:
     * One to be shown until the `LeftColumn` becomes ready
@@ -156,7 +162,7 @@ function App() {
 ## Transitions and Updates that Suspend
 
 <FbInternalOnly>
-  // @fb-only
+  <FbSuspenseTransitionsAndUpdatesThatSuspend />
 </FbInternalOnly>
 
 <OssOnly>
@@ -214,7 +220,7 @@ function App() {
 }
 ```
 
-// @fb-only
+<FbSuspensePlaceholder />
 
 Let's distill what's going on here:
 
@@ -225,7 +231,7 @@ Let's distill what's going on here:
 ### Fragments
 
 <FbInternalOnly>
-  // @fb-only
+  <FbSuspenseInRelayFragments />
 </FbInternalOnly>
 
 <OssOnly>
@@ -237,7 +243,7 @@ Fragments are also integrated with Suspense in order to support rendering of dat
 ### Transitions
 
 <FbInternalOnly>
-  // @fb-only
+  <FbSuspenseInRelayTransitions />
 </FbInternalOnly>
 
 Additionally, our APIs for fetching, [refreshing](../refetching/refreshing-queries.mdx) and [refetching](../refetching/refetching-queries-with-different-data.mdx) and for [rendering connections](../list-data/connections.mdx) are also integrated with Suspense; for these use cases, these APIs will also suspend.
