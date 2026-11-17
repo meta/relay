@@ -38,4 +38,4 @@ export function myIp(): LiveState<string> {
 ```
 
 :::note
-If a query or fragment will suspend if it reads any resolver field that is in a suspended state, even if it reads that resolver field indirectly via another resolvers `@rootFragment`.
+A query or fragment will suspend if it reads any resolver field that is in a suspended state, even if it reads that resolver field indirectly via another resolvers `@rootFragment`.
