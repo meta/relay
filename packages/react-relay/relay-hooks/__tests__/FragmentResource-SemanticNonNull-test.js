@@ -91,7 +91,7 @@ test('Throws if a field has error with explicit error handling enabled', () => {
       componentDisplayName,
     );
   }).toThrowError(
-    "Relay: Received a field error in the server response for field 'me.name' in 'FragmentResourceSemanticNonNullTestFragment1'. Message: There was an error!",
+    "Relay: Received a field error in the server response for field 'name' in 'FragmentResourceSemanticNonNullTestFragment1'. Message: There was an error!",
   );
 });
 

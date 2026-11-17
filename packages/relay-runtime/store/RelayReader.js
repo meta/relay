@@ -246,7 +246,11 @@ class RelayReader {
     };
   }
 
-  _maybeAddFieldErrors(record: Record, storageKey: string): void {
+  _maybeAddFieldErrors(
+    record: Record,
+    storageKey: string,
+    fieldName: string,
+  ): void {
     const errors = RelayModernRecord.getErrors(record, storageKey);
 
     if (errors == null) {
@@ -261,7 +265,11 @@ class RelayReader {
       const error = errors[i];
       this._fieldErrors.push({
         error,
-        fieldPath: (error.path ?? []).join('.'),
+        // Like the other field error kinds, start from this field's name and
+        // let _prependPreviousErrors add the parent fields on the way out.
+        // The stored error has no usable `path`: the normalizer strips it when
+        // attaching the error to the record.
+        fieldPath: fieldName,
         handled: false,
         kind: 'relay_field_payload.error',
         owner,
@@ -1348,7 +1356,7 @@ class RelayReader {
         Array.isArray(value) &&
         value.length === 0)
     ) {
-      this._maybeAddFieldErrors(record, storageKey);
+      this._maybeAddFieldErrors(record, storageKey, fieldName);
     } else if (value === undefined) {
       this._markDataAsMissing(fieldName);
     }
@@ -1375,7 +1383,7 @@ class RelayReader {
     if (linkedID == null) {
       data[fieldName] = linkedID;
       if (linkedID === null) {
-        this._maybeAddFieldErrors(record, storageKey);
+        this._maybeAddFieldErrors(record, storageKey, fieldName);
       } else if (linkedID === undefined) {
         this._markDataAsMissing(fieldName);
       }
@@ -1430,9 +1438,9 @@ class RelayReader {
    * Similarly, when creating field errors, we simply initialize the `fieldPath`
    * as the direct field name.
    *
-   * Today we only use this apporach for `missing_expected_data` and
-   * `missing_required_field` errors, but we intend to broaden it to handle all
-   * field error paths.
+   * Today we use this apporach for `missing_expected_data`,
+   * `missing_required_field` and `relay_field_payload` errors, but we intend
+   * to broaden it to handle all field error paths.
    */
   _prependPreviousErrors(
     prevErrors: ?Array<FieldError>,
@@ -1443,7 +1451,8 @@ class RelayReader {
         const event = this._fieldErrors[i];
         if (
           event.owner === this._fragmentName &&
-          (event.kind === 'missing_expected_data.throw' ||
+          (event.kind === 'relay_field_payload.error' ||
+            event.kind === 'missing_expected_data.throw' ||
             event.kind === 'missing_expected_data.log' ||
             event.kind === 'missing_required_field.throw' ||
             event.kind === 'missing_required_field.log')
@@ -1479,7 +1488,7 @@ class RelayReader {
       if (externalRef === undefined) {
         this._markDataAsMissing(fieldName);
       } else if (externalRef === null) {
-        this._maybeAddFieldErrors(record, storageKey);
+        this._maybeAddFieldErrors(record, storageKey, fieldName);
       }
       return data[fieldName];
     }
@@ -1505,6 +1514,7 @@ class RelayReader {
     record: Record,
     data: SelectorData,
   ): ?unknown {
+    const fieldName = field.alias ?? field.name;
     const storageKey = getStorageKey(field, this._variables);
     if (this._fieldGranularNotificationDataID != null) {
       this._seenRecords.add(
@@ -1521,7 +1531,7 @@ class RelayReader {
         Array.isArray(linkedIDs) &&
         linkedIDs.length === 0)
     ) {
-      this._maybeAddFieldErrors(record, storageKey);
+      this._maybeAddFieldErrors(record, storageKey, fieldName);
     }
     return this._readLinkedIds(field, linkedIDs, record, data);
   }
