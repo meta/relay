@@ -40,4 +40,4 @@ const fragment = require('__generated__/User_fragment.graphql');
 - `jsModuleFormat` Formatting style for generated files. `commonjs` or `haste`.
   Default is `commonjs`. [string]
 
-[Configuration Instructions](https://relay.dev/docs/getting-started/installation-and-setup/#set-up-babel-plugin-relay)
+[Configuration Instructions](https://relay.dev/docs/getting-started/babel-plugin/)
