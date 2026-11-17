@@ -395,11 +395,23 @@ async fn main() {
 }
 
 fn get_config(config_path: Option<PathBuf>) -> Result<Config, Error> {
-    match config_path {
-        Some(config_path) => Config::load(config_path).map_err(Error::ConfigError),
-        None => Config::search(&current_dir().expect("Unable to get current working directory."))
-            .map_err(Error::ConfigError),
-    }
+    let result = match config_path {
+        Some(config_path) => Config::load(config_path),
+        None => Config::search(&current_dir().expect("Unable to get current working directory.")),
+    };
+    result.map_err(|err| {
+        let is_config_error = matches!(
+            err,
+            CompilerError::ConfigError { .. } | CompilerError::ConfigFileValidation { .. }
+        );
+        let mut err = Error::ConfigError(err);
+        if is_config_error {
+            err = Error::ConfigErrorWithHint {
+                source: Box::new(err),
+            };
+        }
+        err
+    })
 }
 
 /// Wire up the OSS CLI's default config extensions: the standard operation
