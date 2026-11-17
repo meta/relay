@@ -1523,6 +1523,50 @@ mod test {
             &[PathBuf::from("Foo"), PathBuf::from("Foo2"),]
         );
     }
+
+    #[test]
+    fn single_project_creates_missing_artifact_directory() {
+        let root = tempfile::tempdir().expect("create tempdir");
+        let src = root.path().join("src");
+        std::fs::create_dir(&src).expect("create src");
+        let schema = root.path().join("schema.graphql");
+        std::fs::write(&schema, "type Query { id: ID }").expect("write schema");
+        let artifact_directory = src.join("generated").join("relay");
+
+        let config = Config::from_string_for_test(
+            &serde_json::json!({
+                "src": src,
+                "schema": schema,
+                "artifactDirectory": artifact_directory,
+                "language": "flow",
+            })
+            .to_string(),
+        )
+        .expect("should create the missing artifact directory");
+
+        assert!(artifact_directory.is_dir());
+        let project = config.projects.values().next().unwrap();
+        assert_eq!(project.output, Some(PathBuf::from("src/generated/relay")));
+    }
+
+    #[test]
+    fn single_project_invalid_config_does_not_create_artifact_directory() {
+        let root = tempfile::tempdir().expect("create tempdir");
+        let src = root.path().join("src");
+
+        let result = Config::from_string_for_test(
+            &serde_json::json!({
+                "src": src,
+                "schema": root.path().join("schema.graphql"),
+                "artifactDirectory": src.join("generated"),
+                "language": "flow",
+            })
+            .to_string(),
+        );
+
+        assert!(result.is_err());
+        assert!(!src.exists());
+    }
 }
 
 fn normalize_relative_path(root_dir: &Path, path: &PathBuf) -> PathBuf {
@@ -1787,15 +1831,6 @@ impl SingleProjectConfigFile {
         root_dir: PathBuf,
     ) -> std::result::Result<PathBuf, ConfigValidationError> {
         let mut paths = vec![];
-        if let Some(artifact_directory_path) = self.artifact_directory.clone() {
-            paths.push(
-                canonicalize(root_dir.join(artifact_directory_path.clone())).map_err(|_| {
-                    ConfigValidationError::ArtifactDirectoryNotExistent {
-                        path: artifact_directory_path,
-                    }
-                })?,
-            );
-        }
         paths.push(canonicalize(root_dir.join(self.src.clone())).map_err(|_| {
             ConfigValidationError::SourceNotExistent {
                 source_dir: self.src.clone(),
@@ -1817,6 +1852,19 @@ impl SingleProjectConfigFile {
                         extension_path: extension_path.clone(),
                     }
                 })?,
+            );
+        }
+        // Created after the other paths are validated, so that an invalid
+        // config doesn't leave an empty directory behind.
+        if let Some(artifact_directory_path) = self.artifact_directory.clone() {
+            let artifact_directory = root_dir.join(&artifact_directory_path);
+            paths.push(
+                std::fs::create_dir_all(&artifact_directory)
+                    .and_then(|_| canonicalize(artifact_directory))
+                    .map_err(|error| ConfigValidationError::ArtifactDirectoryNotCreated {
+                        path: artifact_directory_path,
+                        error,
+                    })?,
             );
         }
         common_path::common_path_all(paths.iter().map(|path| path.as_path()))
