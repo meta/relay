@@ -33,7 +33,6 @@ const RelayEnvironmentProvider = require('../../RelayEnvironmentProvider');
 const useFragment = require('../../useFragment');
 const useLazyLoadQuery = require('../../useLazyLoadQuery');
 const usePaginationFragment = require('../../usePaginationFragment');
-const {getRelayHandoff} = require('../RelayHandoff');
 const serverQuery = require('../serverQuery');
 const {
   ADA,
@@ -427,23 +426,6 @@ describe('useFragment with a handed-off reference', () => {
     // The fragment's owner carries exactly the variables it reads.
     const owner = client.environment.getStore().getSource().get('4');
     expect(owner).not.toBe(null);
-  });
-
-  it('keeps each record under its own ID when a record carries another `__id`', async () => {
-    const {me} = await serve();
-    const handoff = getRelayHandoff(me.card);
-    if (handoff == null) {
-      throw new Error('Expected a handed-off reference.');
-    }
-    // The record's key carries its ID; a server could still send `__id`.
-    const records: $FlowFixMe = handoff.records;
-    records['4'] = {...records['4'], __id: 'other'};
-    const client = createClient();
-    const renderer = render(client.environment, <Card user={me.card} />);
-    expect(renderer.toJSON()).toBe('Zuckerberg 4.jpg');
-    expect(client.source.get('4')).toEqual(
-      expect.objectContaining({__id: '4'}),
-    );
   });
 
   it('names installRelayHandoff(environment) when an Environment without it reads a handed-off reference', async () => {
@@ -895,28 +877,6 @@ describe('useFragment with a handed-off reference', () => {
     expect(client.source.has('client:4:profilePicture(size:[32])')).toBe(false);
   });
 
-  it('releases its retains when a Store subscriber throws as its records notify', async () => {
-    const {me, sink} = await serve();
-    sink.complete();
-    await TestRenderer.act(() => flush());
-    const client = createClient();
-    const lastName = createOperationDescriptor(LastNameQuery, {});
-    client.environment.commitPayload(lastName, {
-      node: {__typename: 'User', id: '4', lastName: 'Older'},
-    });
-    client.environment.subscribe(
-      client.environment.lookup(lastName.fragment),
-      () => {
-        throw new Error('subscriber failed');
-      },
-    );
-    const renderer = render(client.environment, <Card user={me.card} />);
-    await TestRenderer.act(() => flush());
-    expect(renderer.toJSON()).toBe('error: subscriber failed');
-    client.store.__gc();
-    expect(client.source.has('client:4:profilePicture(size:[32])')).toBe(false);
-  });
-
   it('keeps the roots of a hidden reader, with newer client data, across GC', async () => {
     const {me, sink} = await serve();
     sink.complete();
@@ -1024,63 +984,6 @@ describe('useFragment with a handed-off reference', () => {
       await flush();
     });
     expect(renderer.toJSON()).toBe('Zuckerberg 4.jpg');
-  });
-
-  it('publishes again at a later render when the replay its commit starts fails while its records are prepared', async () => {
-    const {me, sink} = await serve();
-    sink.complete();
-    await TestRenderer.act(() => flush());
-    const client = createClient();
-    const Activity = getActivity();
-    component TickCard(user: useRelayHandoffTestCard_user$key, tick: number) {
-      const data = useFragment(CardFragment, user);
-      return `${tick}:${data.lastName ?? ''} ${data.profilePicture?.uri ?? ''}`;
-    }
-    const MemoCard = React.memo(TickCard);
-    component Host(mode: 'hidden' | 'visible', tick: number) {
-      return (
-        <Activity mode={mode}>
-          <MemoCard tick={tick} user={me.card} />
-        </Activity>
-      );
-    }
-    const wrap = (mode: 'hidden' | 'visible', tick: number) => (
-      <RelayEnvironmentProvider environment={client.environment}>
-        <ErrorBoundary>
-          <React.Suspense fallback="loading">
-            <Host mode={mode} tick={tick} />
-          </React.Suspense>
-        </ErrorBoundary>
-      </RelayEnvironmentProvider>
-    );
-    let renderer;
-    await TestRenderer.act(async () => {
-      renderer = TestRenderer.create(wrap('hidden', 0), {
-        createNodeMock: () => null,
-        unstable_isConcurrent: true,
-      });
-      await flush();
-    });
-    client.source.remove('client:4:profilePicture(size:[32])');
-    // The replay the reveal's commit starts fails as it reads the client's
-    // records, before anything is published.
-    const hasValue = jest
-      .spyOn(RelayModernRecord, 'hasValue')
-      .mockImplementationOnce(() => {
-        throw new Error('preparing the records failed');
-      });
-    await TestRenderer.act(async () => {
-      renderer?.update(wrap('visible', 0));
-      await flush();
-    });
-    expect(hasValue).toHaveBeenCalled();
-    // As after a failure in the Environment's own handling of the replay, a
-    // later render replays the root again.
-    await TestRenderer.act(async () => {
-      renderer?.update(wrap('visible', 1));
-      await flush();
-    });
-    expect(renderer?.toJSON()).toBe('1:Zuckerberg 4.jpg');
   });
 
   it('keeps a record a list repeats when the server appends it again', async () => {
@@ -1512,74 +1415,6 @@ describe('useFragment with a handed-off reference', () => {
     // The failed execution ended, so nothing retains the root any more.
     client.store.__gc();
     expect(client.source.has('client:4:friends(first:10)')).toBe(false);
-  });
-
-  it('keeps a value that is not an Error, thrown as a chunk is prepared, as the cause of the failure, and releases the root', async () => {
-    const sinks: Array<Sink<GraphQLResponse>> = [];
-    const server = new Environment({
-      isServer: true,
-      network: Network.create(() =>
-        Observable.create((sink: Sink<GraphQLResponse>) => {
-          sinks.push(sink);
-        }),
-      ),
-      store: new Store(new RecordSource()),
-    });
-    const result = serverQuery(server, StreamQuery, {});
-    sinks[0].next({
-      data: {
-        me: {
-          __typename: 'User',
-          friends: {
-            edges: [{node: {__typename: 'User', id: 'f0', name: 'f0'}}],
-          },
-          id: '4',
-        },
-      },
-      extensions: {is_final: false},
-    });
-    const list = (await result).me?.list;
-    if (list == null) {
-      throw new Error('Expected a list reference.');
-    }
-    const client = createClient();
-    component List(user: useRelayHandoffTestStream_user$key) {
-      const value = useFragment(StreamFragment, user);
-      return (value.friends?.edges ?? [])
-        .map(edge => edge?.node?.name)
-        .join(',');
-    }
-    const first = render(client.environment, <List user={list} />);
-    await TestRenderer.act(() => flush());
-    expect(first.toJSON()).toBe('f0');
-    // The stream keeps the root retained after its reader unmounts.
-    TestRenderer.act(() => first.unmount());
-    await TestRenderer.act(() => flush());
-    // Preparing the next chunk throws something that is not an Error.
-    const thrown = {reason: 'reading the client records failed'};
-    jest.spyOn(client.store, 'getSource').mockImplementationOnce(() => {
-      throw thrown;
-    });
-    await TestRenderer.act(async () => {
-      sinks[0].next({
-        data: {node: {__typename: 'User', id: 'f1', name: 'f1'}},
-        label: 'useRelayHandoffTestStream_user$stream$edges',
-        path: ['me', 'friends', 'edges', 1],
-      });
-      await flush();
-    });
-    // The failed execution ended, so nothing retains the root any more.
-    client.store.__gc();
-    expect(client.source.has('client:4:friends(first:10)')).toBe(false);
-    // A reader that mounts again throws the failure, with what was thrown as
-    // its cause.
-    const second = render(client.environment, <List user={list} />);
-    expect(second.toJSON()).toBe('error: Relay: Publishing a handoff failed.');
-    const boundary = second.root.findByType(ErrorBoundary).instance;
-    if (!(boundary instanceof ErrorBoundary)) {
-      throw new Error('Expected the error boundary.');
-    }
-    expect(boundary.state.error?.cause).toBe(thrown);
   });
 
   it('keeps a root while its handoff still streams after its reader unmounts', async () => {

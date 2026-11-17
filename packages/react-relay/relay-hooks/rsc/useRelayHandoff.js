@@ -267,9 +267,6 @@ function toPayload(
       : null;
     const writes: {[storageKey: string]: HandoffWrite} = {};
     Object.keys(record).forEach(key => {
-      if (key === '__id') {
-        return;
-      }
       let value = record[key];
       const listKey = `${dataID}\n${key}`;
       // The list this root's handoff sent before, and what it sends now.
@@ -388,7 +385,6 @@ function executeHandoff(
         // replays old data, so it must not overwrite newer fields.
         const created = root.published ? new Set<DataID>() : null;
         root.published = true;
-        root.active = true;
         // Notifying subscribers during render would update other components
         // while this one renders, so what is published before the
         // subscription returns notifies later.
@@ -447,29 +443,6 @@ function executeHandoff(
             sink.next(payload);
           }
         };
-        // A chunk that fails as it is prepared or published ends the
-        // execution with that error, as a failure in the Environment's own
-        // handling of a payload does.
-        const publishOrFail = (
-          records: RelayHandoffChunk['records'],
-          sequence: number,
-          serverRendered: boolean,
-        ): boolean => {
-          try {
-            publish(records, sequence, serverRendered);
-            return true;
-          } catch (error: unknown) {
-            sink.error(
-              error instanceof Error
-                ? error
-                : new Error('Relay: Publishing a handoff failed.', {
-                    cause: error,
-                  }),
-              true,
-            );
-            return false;
-          }
-        };
         const follow = (next: Promise<?RelayHandoffChunk>) => {
           next.then(
             chunk => {
@@ -477,15 +450,21 @@ function executeHandoff(
                 return;
               }
               const apply = (arrived: RelayHandoffChunk) => {
-                if (
-                  publishOrFail(
+                // A chunk that fails as it is prepared or published ends the
+                // execution, which releases its retains.
+                try {
+                  publish(
                     arrived.records,
                     arrived.sequence,
                     root.hydration != null && !hasData(environment, root),
-                  )
-                ) {
-                  follow(arrived.next);
+                  );
+                } catch (error: unknown) {
+                  sink.error(
+                    error instanceof Error ? error : new Error(String(error)),
+                  );
+                  return;
                 }
+                follow(arrived.next);
               };
               if (chunk == null) {
                 root.active = false;
@@ -525,15 +504,11 @@ function executeHandoff(
             },
           );
         };
-        if (
-          publishOrFail(
-            handoff.records,
-            handoff.sequence,
-            root.hydration != null,
-          )
-        ) {
-          follow(handoff.next);
-        }
+        publish(handoff.records, handoff.sequence, root.hydration != null);
+        // Active only once its first publish succeeded: a source that throws
+        // returns no cleanup to end the execution.
+        root.active = true;
+        follow(handoff.next);
         deferNotify = null;
         return () => {
           active = false;

@@ -71,21 +71,6 @@ function getRelayHandoff(fragmentRef: unknown): unknown {
   if (handoff == null || typeof handoff !== 'object') {
     return null;
   }
-  if (
-    typeof handoff.id !== 'string' ||
-    typeof handoff.dataID !== 'string' ||
-    handoff.fragment == null ||
-    handoff.variables == null ||
-    handoff.records == null ||
-    handoff.next == null ||
-    typeof handoff.serverStore !== 'string' ||
-    typeof handoff.sequence !== 'number'
-  ) {
-    throw new Error(
-      'Relay: A fragment reference carries a handoff this version of Relay ' +
-        'cannot read.',
-    );
-  }
   return handoff;
 }
 

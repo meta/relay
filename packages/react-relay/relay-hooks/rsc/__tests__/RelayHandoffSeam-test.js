@@ -12,14 +12,24 @@
 'use strict';
 
 import type {RelayHandoffSeamTest_user$key} from './__generated__/RelayHandoffSeamTest_user.graphql';
+import type {RelayHandoffSeamTestHanded_user$key} from './__generated__/RelayHandoffSeamTestHanded_user.graphql';
 import type {RelayHandoffSeamTestQuery$data} from './__generated__/RelayHandoffSeamTestQuery.graphql';
+import type {GraphQLResponse} from 'relay-runtime/network/RelayNetworkTypes';
+import type {Sink} from 'relay-runtime/network/RelayObservable';
 
 const RelayEnvironmentProvider = require('../../../relay-hooks/RelayEnvironmentProvider');
 const useFragment = require('../../useFragment');
+const serverQuery = require('../serverQuery');
+const {render} = require('./RelayHandoffTestUtils');
 const React = require('react');
 const TestRenderer = require('react-test-renderer');
 const {
+  Environment,
+  Network,
+  Observable,
+  RecordSource,
   RelayFeatureFlags,
+  Store,
   createOperationDescriptor,
   graphql,
 } = require('relay-runtime');
@@ -45,6 +55,20 @@ const UserFragment = graphql`
   }
 `;
 
+const HandedFragment = graphql`
+  fragment RelayHandoffSeamTestHanded_user on User {
+    name
+  }
+`;
+
+const ServerQuery = graphql`
+  query RelayHandoffSeamTestServerQuery @server {
+    me {
+      ...RelayHandoffSeamTestHanded_user @alias(as: "user")
+    }
+  }
+`;
+
 // The Store's snapshot data for the query.
 declare function asQueryData(data: unknown): RelayHandoffSeamTestQuery$data;
 function asQueryData(data: unknown): unknown {
@@ -56,8 +80,13 @@ component Name(user: RelayHandoffSeamTest_user$key) {
   return data.name;
 }
 
-// A reader of an ordinary reference that carries a malformed `__handoff`,
-// which the handoff hook would reject.
+component HandedName(user: RelayHandoffSeamTestHanded_user$key) {
+  const data = useFragment(HandedFragment, user);
+  return data.name;
+}
+
+// A reader of an ordinary reference that also carries a `__handoff` field,
+// which only the handoff hook reads.
 function renderReader(
   environment: ReturnType<
     typeof createMockEnvironment,
@@ -85,6 +114,28 @@ function renderReader(
     throw new Error('Expected a renderer.');
   }
   return {element, environment, renderer};
+}
+
+// A reference to the user that a server query hands off, with `name`.
+async function handOff(name: string) {
+  const sinks: Array<Sink<GraphQLResponse>> = [];
+  const environment = new Environment({
+    isServer: true,
+    network: Network.create(() =>
+      Observable.create((sink: Sink<GraphQLResponse>) => {
+        sinks.push(sink);
+      }),
+    ),
+    store: new Store(new RecordSource()),
+  });
+  const result = serverQuery(environment, ServerQuery, {});
+  sinks[0].next({data: {me: {__typename: 'User', id: '4', name}}});
+  sinks[0].complete();
+  const user = (await result).me?.user;
+  if (user == null) {
+    throw new Error('Expected a reference.');
+  }
+  return user;
 }
 
 // The tests share module state, in order: a fragment is read before the RSC
@@ -129,17 +180,19 @@ describe('useFragment without installRelayHandoff(environment)', () => {
     expect(renderer.toJSON()).toBe('Zuck');
   });
 
-  it('leaves other Environments ordinary when one installs it', () => {
+  it('leaves other Environments ordinary when one installs it', async () => {
     const {installRelayHandoff} = require('../../../rsc-client_EXPERIMENTAL');
-    const installed = createMockEnvironment();
+    const installed = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      store: new Store(new RecordSource()),
+    });
     installRelayHandoff(installed);
-    // An Environment without it reads the malformed handoff as an ordinary
-    // reference; the one with it rejects the handoff.
+    // An Environment without it reads a reference from its own Store; the
+    // one with it reads a handed-off reference from the handoff.
     expect(renderReader().renderer.toJSON()).toBe('Zuck');
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderReader(installed)).toThrow(
-      'Relay: A fragment reference carries a handoff this version of Relay ' +
-        'cannot read.',
+    const user = await handOff('Handed');
+    expect(render(installed, <HandedName user={user} />).toJSON()).toBe(
+      'Handed',
     );
   });
 });

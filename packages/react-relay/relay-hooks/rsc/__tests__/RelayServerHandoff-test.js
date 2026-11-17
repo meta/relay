@@ -369,39 +369,6 @@ describe('RelayServerHandoff', () => {
     );
   });
 
-  it('rejects a handoff without the fields this version of Relay reads', () => {
-    const handoff = {dataID: 'user', fragment: {}, id: 'h', records: {}};
-    expect(() => getRelayHandoff({__handoff: handoff})).toThrow(
-      'Relay: A fragment reference carries a handoff this version of Relay ' +
-        'cannot read.',
-    );
-  });
-
-  it('rejects a handoff without its place in the write order of its request', () => {
-    const handoff = {
-      dataID: 'user',
-      fragment: {},
-      id: 'h',
-      next: Promise.resolve(null),
-      records: {},
-      variables: {},
-    };
-    const error =
-      'Relay: A fragment reference carries a handoff this version of Relay ' +
-      'cannot read.';
-    expect(() =>
-      getRelayHandoff({__handoff: {...handoff, sequence: 1}}),
-    ).toThrow(error);
-    expect(() =>
-      getRelayHandoff({__handoff: {...handoff, serverStore: 'request'}}),
-    ).toThrow(error);
-    expect(
-      getRelayHandoff({
-        __handoff: {...handoff, sequence: 1, serverStore: 'request'},
-      }),
-    ).not.toBeNull();
-  });
-
   it("hands off only a client fragment's records, with the variables it reads", async () => {
     const {me} = await start();
     const handoff = getHandoff(me.client);

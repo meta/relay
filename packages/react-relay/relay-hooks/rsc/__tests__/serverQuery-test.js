@@ -362,33 +362,6 @@ describe('serverQuery', () => {
     );
   });
 
-  it('disposes the request when it is aborted while subscribing', async () => {
-    const controller = createAbortController();
-    let disposed = false;
-    const environment = new Environment({
-      isServer: true,
-      network: Network.create(() =>
-        Observable.create(() => {
-          controller.abort();
-          return () => {
-            disposed = true;
-          };
-        }),
-      ),
-      store: new Store(new RecordSource()),
-    });
-    const result = serverQuery(
-      environment,
-      Query,
-      {},
-      {signal: controller.signal},
-    );
-    await expect(result).rejects.toThrow(
-      'serverQuery: The request was cancelled.',
-    );
-    expect(disposed).toBe(true);
-  });
-
   it('does not execute with an already aborted signal', async () => {
     const {environment, sinks} = createServer();
     const controller = createAbortController();

@@ -345,7 +345,7 @@ function execute(
         settle();
       }
     };
-    const subscribed = fetchQueryDeduped(
+    subscription = fetchQueryDeduped(
       environment,
       operation.request.identifier,
       // A query that already executed in this request reads the Store.
@@ -389,12 +389,6 @@ function execute(
         }
       },
     });
-    subscription = subscribed;
-    // A failure (e.g. an abort) during the synchronous subscribe could not
-    // unsubscribe yet.
-    if (execution.done && execution.error != null) {
-      subscribed.unsubscribe();
-    }
   }
   return first.then(() =>
     execution.handOff(environment.lookup(operation.fragment).data),
