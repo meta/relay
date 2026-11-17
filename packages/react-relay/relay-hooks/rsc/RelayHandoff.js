@@ -41,9 +41,17 @@ export type RelayHandoffRecords = {
   readonly [dataID: DataID]: {readonly [storageKey: string]: unknown},
 };
 
+// The normalizations of the `@module` operations the records name, by
+// operation reference: the client's garbage collection of the root reads the
+// module's data with them before the client loads the module itself.
+export type RelayHandoffModules = {
+  readonly [reference: string]: NormalizationSplitOperation,
+};
+
 export type RelayHandoffChunk = {
   readonly records: RelayHandoffRecords,
   readonly sequence: number,
+  readonly modules?: RelayHandoffModules,
   readonly next: Promise<?RelayHandoffChunk>,
 };
 
@@ -53,6 +61,7 @@ export type RelayHandoff = {
   readonly fragment: NormalizationSplitOperation,
   readonly variables: Variables,
   readonly records: RelayHandoffRecords,
+  readonly modules?: RelayHandoffModules,
   readonly next: Promise<?RelayHandoffChunk>,
   readonly serverStore: string,
   readonly sequence: number,

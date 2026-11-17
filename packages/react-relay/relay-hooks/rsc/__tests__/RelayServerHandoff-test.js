@@ -35,6 +35,10 @@ const {
   graphql,
   readInlineData,
 } = require('relay-runtime');
+const {
+  MultiActorEnvironment,
+  getActorIdentifier,
+} = require('relay-runtime/multi-actor-environment');
 
 const Query = graphql`
   query RelayServerHandoffTestQuery($size: [Int], $secret: Boolean!) @server {
@@ -179,6 +183,83 @@ graphql`
   }
 `;
 
+const ModuleQuery = graphql`
+  query RelayServerHandoffTestModuleQuery @server {
+    me {
+      ...RelayServerHandoffTestModule_user @alias(as: "client")
+    }
+  }
+`;
+
+graphql`
+  fragment RelayServerHandoffTestModule_user on User {
+    nameRenderer @match {
+      ...RelayServerHandoffTestPlainUserNameRenderer_name
+        @module(name: "PlainUserNameRenderer.react")
+    }
+  }
+`;
+
+graphql`
+  fragment RelayServerHandoffTestPlainUserNameRenderer_name on PlainUserNameRenderer {
+    plaintext
+    data {
+      text
+    }
+  }
+`;
+
+const TwoModulesQuery = graphql`
+  query RelayServerHandoffTestTwoModulesQuery @server {
+    me {
+      ...RelayServerHandoffTestTwoModules_user @alias(as: "client")
+    }
+  }
+`;
+
+graphql`
+  fragment RelayServerHandoffTestTwoModules_user on User {
+    ...RelayServerHandoffTestModuleA_user
+    ...RelayServerHandoffTestModuleB_user
+  }
+`;
+
+graphql`
+  fragment RelayServerHandoffTestModuleA_user on User {
+    nameRenderer @match {
+      ...RelayServerHandoffTestPlainUserNameRenderer_name
+        @module(name: "APlainUserNameRenderer.react")
+    }
+  }
+`;
+
+graphql`
+  fragment RelayServerHandoffTestModuleB_user on User {
+    nameRenderer @match {
+      ...RelayServerHandoffTestPlainUserNameRenderer_name
+        @module(name: "BPlainUserNameRenderer.react")
+    }
+  }
+`;
+
+const moduleResponse = {
+  data: {
+    me: {
+      __typename: 'User',
+      id: '4',
+      nameRenderer: {
+        __module_component_RelayServerHandoffTestModule_user:
+          'PlainUserNameRenderer.react',
+        __module_operation_RelayServerHandoffTestModule_user:
+          'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql',
+        __typename: 'PlainUserNameRenderer',
+        data: {id: 'data', text: 'Zuck'},
+        plaintext: 'Zuck',
+      },
+    },
+  },
+};
+
 const StreamQuery = graphql`
   query RelayServerHandoffTestStreamQuery @server {
     me {
@@ -321,6 +402,30 @@ async function start() {
     throw new Error('Expected me.');
   }
   return {...server, me};
+}
+
+// A copy of a compiled query whose `@module` selections name their modules
+// by provider functions, as the compiler emits them without Haste.
+declare function withModuleProviders<T>(query: T, provider: () => unknown): T;
+function withModuleProviders(query: unknown, provider: unknown): unknown {
+  const visit = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      return value.map(visit);
+    }
+    if (value == null || typeof value !== 'object') {
+      return value;
+    }
+    const copy: {[key: string]: unknown} = {};
+    Object.keys(value).forEach(key => {
+      copy[key] = visit(value[key]);
+    });
+    if (copy.kind === 'ModuleImport') {
+      copy.componentModuleProvider = provider;
+      copy.operationModuleProvider = provider;
+    }
+    return copy;
+  };
+  return visit(query);
 }
 
 describe('RelayServerHandoff', () => {
@@ -770,6 +875,454 @@ describe('RelayServerHandoff', () => {
       'stream failed',
     );
     expect(await getHandoff(data.me?.client).next).toBe(null);
+  });
+
+  it('hands off @module data with its loaded normalization', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    const operationLoader = {
+      get: () => PlainNormalization,
+      load: () => Promise.resolve(PlainNormalization),
+    };
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader,
+      // With the loader, the Store can check the root's `@module` data when
+      // the request completes.
+      store: new Store(new RecordSource(), {operationLoader}),
+    });
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_RelayServerHandoffTestModule_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_RelayServerHandoffTestModule_user:
+              'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+    });
+    sinks[0].complete();
+    const data = await result;
+    const handoff = getHandoff(data.me?.client);
+    expect(await handoff.next).toBe(null);
+    // The module's normalization goes with the data, by the reference the
+    // record names and the document of its `@match`.
+    expect(handoff.modules).toEqual({
+      'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql':
+        PlainNormalization,
+    });
+    const records = handoff.records;
+    expect(Object.values(records)).toContainEqual(
+      expect.objectContaining({
+        __module_component_RelayServerHandoffTestModule_user:
+          'PlainUserNameRenderer.react',
+        __typename: 'PlainUserNameRenderer',
+        plaintext: 'Zuck',
+      }),
+    );
+  });
+
+  it('hands off the @module data of two fragments that select the same field', async () => {
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => PlainNormalization,
+        load: () => Promise.resolve(PlainNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(environment, TwoModulesQuery, {});
+    const operation =
+      'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql';
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_RelayServerHandoffTestModuleA_user:
+              'APlainUserNameRenderer.react',
+            __module_component_RelayServerHandoffTestModuleB_user:
+              'BPlainUserNameRenderer.react',
+            __module_operation_RelayServerHandoffTestModuleA_user: operation,
+            __module_operation_RelayServerHandoffTestModuleB_user: operation,
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+    });
+    sinks[0].complete();
+    const me = (await result).me;
+    const handoff = getHandoff(me?.client);
+    expect(Object.values(handoff.records)).toContainEqual(
+      expect.objectContaining({
+        __module_component_RelayServerHandoffTestModuleB_user:
+          'BPlainUserNameRenderer.react',
+      }),
+    );
+    await expect(handoff.next).resolves.toBe(null);
+  });
+
+  it('hands off @module data in an actor environment', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    const environment = new MultiActorEnvironment({
+      createNetworkForActor: () =>
+        Network.create(() =>
+          Observable.create((sink: Sink<GraphQLResponse>) => {
+            sinks.push(sink);
+          }),
+        ),
+      operationLoader: {
+        get: () => PlainNormalization,
+        load: () => Promise.resolve(PlainNormalization),
+      },
+    }).forActor(getActorIdentifier('actor'));
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next(moduleResponse);
+    sinks[0].complete();
+    const data = await result;
+    expect(Object.values(getHandoff(data.me?.client).records)).toContainEqual(
+      expect.objectContaining({plaintext: 'Zuck'}),
+    );
+  });
+
+  it('hands off @module data once its normalization loads, before the request ends', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    let resolveLoad: () => void = () => {};
+    let loaded = false;
+    const loading = new Promise<typeof PlainNormalization>(resolve => {
+      resolveLoad = () => {
+        loaded = true;
+        resolve(PlainNormalization);
+      };
+    });
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => (loaded ? PlainNormalization : null),
+        load: () => loading,
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next({...moduleResponse, extensions: {is_final: false}});
+    const data = await result;
+    const handoff = getHandoff(data.me?.client);
+    resolveLoad();
+    // The network stays open.
+    const chunk = await handoff.next;
+    expect(Object.values(chunk?.records ?? {})).toContainEqual(
+      expect.objectContaining({plaintext: 'Zuck'}),
+    );
+    // The normalization goes with the first chunk after it loaded, although
+    // the record that names it did not change.
+    expect(handoff.modules).toBe(undefined);
+    expect(chunk?.modules).toEqual({
+      'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql':
+        PlainNormalization,
+    });
+  });
+
+  it('sends a @module normalization once it loads, even if no record changed', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    let loaded = false;
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => (loaded ? PlainNormalization : null),
+        load: () => new Promise(() => {}),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next({...moduleResponse, extensions: {is_final: false}});
+    const data = await result;
+    const handoff = getHandoff(data.me?.client);
+    expect(handoff.modules).toBe(undefined);
+    // The loader has the normalization; an update the root copies nothing
+    // new from sends it.
+    loaded = true;
+    const store = environment.getStore();
+    store.publish(
+      RecordSource.create({
+        '4': {__id: '4', __typename: 'User', name: 'Mark'},
+      }),
+    );
+    store.notify();
+    const chunk = await handoff.next;
+    expect(chunk?.records).toEqual({});
+    expect(chunk?.modules).toEqual({
+      'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql':
+        PlainNormalization,
+    });
+  });
+
+  it('hands off @module data once its normalization loads, when the Store already has it', async () => {
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    // The Store has the records, as another Environment normalized them.
+    const seeded = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: {
+        get: () => PlainNormalization,
+        load: () => Promise.resolve(PlainNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    seeded.commitPayload(
+      createOperationDescriptor(ModuleQuery, {}),
+      moduleResponse.data,
+    );
+    let resolveLoad: () => void = () => {};
+    let loaded = false;
+    const loading = new Promise<typeof PlainNormalization>(resolve => {
+      resolveLoad = () => {
+        loaded = true;
+        resolve(PlainNormalization);
+      };
+    });
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => (loaded ? PlainNormalization : null),
+        load: () => loading,
+      },
+      store: new Store(
+        RecordSource.create(seeded.getStore().getSource().toJSON()),
+      ),
+    });
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next({...moduleResponse, extensions: {is_final: false}});
+    const data = await result;
+    const handoff = getHandoff(data.me?.client);
+    expect(handoff.modules).toBe(undefined);
+    expect(Object.values(handoff.records)).not.toContainEqual(
+      expect.objectContaining({plaintext: 'Zuck'}),
+    );
+    // Loading the module publishes no changed record; the network stays
+    // open.
+    resolveLoad();
+    const chunk = await handoff.next;
+    expect(chunk?.modules).toEqual({
+      'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql':
+        PlainNormalization,
+    });
+    expect(Object.values(chunk?.records ?? {})).toContainEqual(
+      expect.objectContaining({plaintext: 'Zuck'}),
+    );
+    expect(Object.values(chunk?.records ?? {})).toContainEqual(
+      expect.objectContaining({id: 'data', text: 'Zuck'}),
+    );
+    sinks[0].complete();
+    expect(await chunk?.next).toBe(null);
+  });
+
+  it('fails the request when a @module normalization fails to load', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    let disposed = false;
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+          return () => {
+            disposed = true;
+          };
+        }),
+      ),
+      operationLoader: {
+        get: () => null,
+        load: () => Promise.reject(new Error('Module failed to load')),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next({...moduleResponse, extensions: {is_final: false}});
+    const data = await result;
+    await expect(getHandoff(data.me?.client).next).rejects.toThrow(
+      'Module failed to load',
+    );
+    expect(disposed).toBe(true);
+  });
+
+  it('hands off @module data a payload marked final carries before its normalization loads', async () => {
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    // The request ends when the network does, as in the executor, before or
+    // after the module loads.
+    const check = async (endBeforeLoad: boolean) => {
+      let resolveLoad: () => void = () => {};
+      let loaded = false;
+      const loading = new Promise<typeof PlainNormalization>(resolve => {
+        resolveLoad = () => {
+          loaded = true;
+          resolve(PlainNormalization);
+        };
+      });
+      const sinks: Array<Sink<GraphQLResponse>> = [];
+      const environment = new Environment({
+        isServer: true,
+        network: Network.create(() =>
+          Observable.create((sink: Sink<GraphQLResponse>) => {
+            sinks.push(sink);
+          }),
+        ),
+        operationLoader: {
+          get: () => (loaded ? PlainNormalization : null),
+          load: () => loading,
+        },
+        store: new Store(new RecordSource()),
+      });
+      const result = serverQuery(environment, ModuleQuery, {});
+      sinks[0].next({...moduleResponse, extensions: {is_final: true}});
+      if (endBeforeLoad) {
+        sinks[0].complete();
+      }
+      const handoff = getHandoff((await result).me?.client);
+      resolveLoad();
+      const chunk = await handoff.next;
+      if (!endBeforeLoad) {
+        sinks[0].complete();
+      }
+      expect(chunk?.modules).toEqual({
+        'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql':
+          PlainNormalization,
+      });
+      expect(Object.values(chunk?.records ?? {})).toContainEqual(
+        expect.objectContaining({plaintext: 'Zuck'}),
+      );
+      expect(await chunk?.next).toBe(null);
+    };
+    await check(false);
+    await check(true);
+  });
+
+  it('fails the request when a @module normalization a final payload names fails to load', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    let rejectLoad: (error: Error) => void = () => {};
+    const loading = new Promise<empty>((_resolve, reject) => {
+      rejectLoad = reject;
+    });
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {get: () => null, load: () => loading},
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(environment, ModuleQuery, {});
+    sinks[0].next({...moduleResponse, extensions: {is_final: true}});
+    sinks[0].complete();
+    const handoff = getHandoff((await result).me?.client);
+    rejectLoad(new Error('Module failed to load'));
+    await expect(handoff.next).rejects.toThrow('Module failed to load');
+  });
+
+  it('checks @module data with the loader that normalized it', async () => {
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    const operationLoader = {
+      get: () => PlainNormalization,
+      load: () => Promise.resolve(PlainNormalization),
+    };
+    // The module's data is missing `plaintext`; with and without the
+    // loader on the Store, the root fails once the request completes.
+    for (const store of [
+      new Store(new RecordSource()),
+      new Store(new RecordSource(), {operationLoader}),
+    ]) {
+      const sinks: Array<Sink<GraphQLResponse>> = [];
+      const environment = new Environment({
+        isServer: true,
+        network: Network.create(() =>
+          Observable.create((sink: Sink<GraphQLResponse>) => {
+            sinks.push(sink);
+          }),
+        ),
+        operationLoader,
+        store,
+      });
+      const result = serverQuery(environment, ModuleQuery, {});
+      const {plaintext: _plaintext, ...renderer} =
+        moduleResponse.data.me.nameRenderer;
+      sinks[0].next({
+        data: {me: {...moduleResponse.data.me, nameRenderer: renderer}},
+      });
+      sinks[0].complete();
+      const data = await result;
+      await expect(getHandoff(data.me?.client).next).rejects.toThrow(
+        'Relay: The server query completed without the data of',
+      );
+    }
+  });
+
+  it('rejects @module data loaded by module providers', async () => {
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    // The query as the compiler emits it without Haste: the `@module`
+    // selection names its modules by provider functions.
+    const query = withModuleProviders(ModuleQuery, () => PlainNormalization);
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const operationLoader = {
+      get: () => PlainNormalization,
+      load: () => Promise.resolve(PlainNormalization),
+    };
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader,
+      store: new Store(new RecordSource(), {operationLoader}),
+    });
+    const result = serverQuery(environment, query, {});
+    sinks[0].next(moduleResponse);
+    sinks[0].complete();
+    await expect(result).rejects.toThrow(
+      'loaded by module providers. Handing it to a client component is not supported yet.',
+    );
   });
 
   it('copies only what a client fragment reads, whatever else is in the Store', async () => {

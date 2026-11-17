@@ -14,6 +14,7 @@
 import type {
   RelayHandoff,
   RelayHandoffChunk,
+  RelayHandoffModules,
   RelayHandoffRecords,
 } from './RelayHandoff';
 import type {
@@ -22,10 +23,15 @@ import type {
   IEnvironment,
   NormalizationSplitOperation,
   OperationDescriptor,
+  OperationLoader,
   Variables,
 } from 'relay-runtime';
 import type {Record} from 'relay-runtime/store/RelayStoreTypes';
-import type {NormalizationSelectableNode} from 'relay-runtime/util/NormalizationNode';
+import type {
+  NormalizationModuleImport,
+  NormalizationSelectableNode,
+  NormalizationSelection,
+} from 'relay-runtime/util/NormalizationNode';
 
 const {getHandoffOperation} = require('./RelayHandoff');
 const invariant = require('invariant');
@@ -64,6 +70,10 @@ type Root = {
   // `_project`).
   readonly aliases: Map<DataID, DataID>,
   readonly connectionEdges: Map<DataID, ReadonlyArray<unknown>>,
+  // The `@module` operation references whose normalization was sent, and
+  // those the operation loader had not loaded yet.
+  readonly sentModules: Set<unknown>,
+  readonly pendingModules: Set<unknown>,
   settleNext: ?(result: ?RelayHandoffChunk | Error) => void,
 };
 
@@ -128,6 +138,34 @@ function getRefs(value: unknown): ?ReadonlyArray<unknown> {
     Array.isArray(value.__refs)
     ? value.__refs
     : null;
+}
+
+// Whether selections include an `@module` selection that passes `test`.
+function someModuleImport(
+  selections: ReadonlyArray<NormalizationSelection>,
+  test: (moduleImport: NormalizationModuleImport) => boolean,
+): boolean {
+  return selections.some(selection => {
+    switch (selection.kind) {
+      case 'ModuleImport':
+        return test(selection);
+      case 'FragmentSpread':
+        return someModuleImport(selection.fragment.selections, test);
+      case 'ActorChange':
+      case 'ClientEdgeToClientObject':
+      case 'ClientEdgeToServerObject':
+        return someModuleImport([selection.linkedField], test);
+      case 'ClientExtension':
+      case 'Condition':
+      case 'Defer':
+      case 'InlineFragment':
+      case 'LinkedField':
+      case 'Stream':
+        return someModuleImport(selection.selections, test);
+      default:
+        return false;
+    }
+  });
 }
 
 // The length of `before` if `after` only appended to it. For the list an
@@ -236,7 +274,11 @@ class RelayServerHandoff {
   _roots: Map<string, Root> = new Map();
   _copies: WeakMap<{...}, unknown> = new WeakMap();
   _updated: Set<DataID> = new Set();
+  // The `@module` operation references the operation loader is loading.
+  _loadingModules: Set<unknown> = new Set();
+  _syncForced: boolean = false;
   _observer: ?Disposable = null;
+  _syncScheduled: boolean = false;
   _sessionID: string;
   _writeOrder: WriteOrder;
   _onError: (error: Error) => void;
@@ -267,7 +309,10 @@ class RelayServerHandoff {
     // root instead of what it touched.
     if (store instanceof Store) {
       this._observer = store.observeUpdatedRecordIDs(updatedRecordIDs => {
-        updatedRecordIDs.forEach(id => this._updated.add(id));
+        if (updatedRecordIDs.size > 0) {
+          updatedRecordIDs.forEach(id => this._updated.add(id));
+          this._syncSoon();
+        }
       });
     }
   }
@@ -334,6 +379,26 @@ class RelayServerHandoff {
     return copy;
   }
 
+  // Records published other than by a network payload (e.g. once an
+  // asynchronously loaded `@module` normalizes its data) are handed off
+  // without waiting for the next payload. After a payload, `sync` has
+  // already handed them off by the time this runs.
+  _syncSoon(force: boolean = false): void {
+    this._syncForced = this._syncForced || force;
+    if (this._syncScheduled || this._done) {
+      return;
+    }
+    this._syncScheduled = true;
+    void Promise.resolve().then(() => {
+      const forced = this._syncForced;
+      this._syncScheduled = false;
+      this._syncForced = false;
+      if (!this._done && (forced || this._updated.size > 0)) {
+        this.sync();
+      }
+    });
+  }
+
   // Projects the roots again after a payload was published. `streamTargets`:
   // the lists (`<dataID>\n<storageKey>`) the payload's `@stream` items were
   // appended to, if it consisted of such items.
@@ -341,19 +406,44 @@ class RelayServerHandoff {
     const updated = this._observer != null ? this._updated : null;
     this._updated = new Set();
     try {
+      // A root waiting for a module that loaded copies its records again: the
+      // module's selections can be copied now.
+      const operationLoader = this._getOperationLoader();
+      this._loadingModules.forEach(reference => {
+        if (operationLoader?.get(reference) != null) {
+          this._loadingModules.delete(reference);
+          this._roots.forEach(root => {
+            if (root.pendingModules.has(reference)) {
+              root.visits.forEach((_visits, dataID) => updated?.add(dataID));
+            }
+          });
+        }
+      });
       this._roots.forEach(root => {
-        const records = this._project(root, updated, streamTargets);
+        const named: Set<unknown> = new Set();
+        const records = this._project(root, updated, streamTargets, named);
         const sequence = ++this._writeOrder.sequence;
-        if (records != null) {
+        const modules = this._modulesFor(root, named);
+        if (records != null || modules != null) {
           const settle = root.settleNext;
           const next = pending(root);
-          settle?.({next, records, sequence});
+          settle?.({
+            next,
+            records: records ?? {},
+            sequence,
+            ...(modules != null ? {modules} : null),
+          });
         }
       });
     } catch (error) {
-      this.fail(error, true);
-      this._onError(error);
+      this._failRequest(error);
     }
+  }
+
+  // Fails the handoffs and the request they hand off.
+  _failRequest(error: Error): void {
+    this.fail(error, true);
+    this._onError(error);
   }
 
   complete(): void {
@@ -399,7 +489,11 @@ class RelayServerHandoff {
   // `@module` normalization the root selects.
   // Whether the Store has all of the operation's data.
   isAvailable(): boolean {
-    return this._environment.check(this._operation).status === 'available';
+    return (
+      this._environment.getStore().check(this._operation, {
+        operationLoader: this._getOperationLoader(),
+      }).status === 'available'
+    );
   }
 
   _checkComplete(handoff: {
@@ -409,9 +503,14 @@ class RelayServerHandoff {
     readonly variables: Variables,
     ...
   }): ?Error {
+    // Checked with the operation loader that normalized the data, which the
+    // Store may have been created without.
+    const operationLoader = this._getOperationLoader();
     let status;
     try {
-      status = this._environment.check(getHandoffOperation(handoff)).status;
+      status = this._environment
+        .getStore()
+        .check(getHandoffOperation(handoff), {operationLoader}).status;
     } catch (error: unknown) {
       // A root whose data cannot be checked fails rather than counting as
       // complete.
@@ -422,6 +521,80 @@ class RelayServerHandoff {
       : new Error(
           `Relay: The server query completed without the data of \`${handoff.fragment.name}\`.`,
         );
+  }
+
+  _getOperationLoader(): ?OperationLoader {
+    return (
+      this._environment.getOperationLoader?.() ??
+      this._environment.getStore().getOperationLoader()
+    );
+  }
+
+  // The normalizations of the `@module` operations the root's records name
+  // (`named`, from copying them), which the root has not sent yet. One the
+  // operation loader has not loaded yet goes with a later chunk, since the
+  // record naming it may not change again.
+  _modulesFor(root: Root, named: ReadonlySet<unknown>): ?RelayHandoffModules {
+    named.forEach(reference => {
+      if (!root.sentModules.has(reference)) {
+        root.pendingModules.add(reference);
+      }
+    });
+    if (root.pendingModules.size === 0) {
+      return null;
+    }
+    const modules: {[reference: string]: NormalizationSplitOperation} = {};
+    let found = false;
+    const operationLoader = this._getOperationLoader();
+    root.pendingModules.forEach(reference => {
+      const node = operationLoader?.get(reference);
+      if (node == null) {
+        if (operationLoader != null) {
+          this._syncOnLoad(operationLoader, reference);
+        }
+      } else if (!this._loadingModules.has(reference)) {
+        root.pendingModules.delete(reference);
+        root.sentModules.add(reference);
+        found = true;
+        modules[String(reference)] =
+          node.kind === 'Request'
+            ? {
+                argumentDefinitions: node.operation.argumentDefinitions,
+                kind: 'SplitOperation',
+                metadata: null,
+                name: node.operation.name,
+                selections: node.operation.selections,
+              }
+            : node;
+      }
+    });
+    return found ? modules : null;
+  }
+
+  // Syncs once the operation loader has loaded a `@module` normalization,
+  // which then sends it with the data its selections copy: the Store may have
+  // had that data already, so loading may publish no change that would.
+  _syncOnLoad(operationLoader: OperationLoader, reference: unknown): void {
+    if (this._loadingModules.has(reference)) {
+      return;
+    }
+    this._loadingModules.add(reference);
+    // A module that fails to load fails the request, as it does in the
+    // executor. That fails it too when it loads the same module, and fails
+    // it first: the extra step here lets the executor's error reach the
+    // request before the request unsubscribes from it.
+    void new Promise<unknown>(resolve => {
+      resolve(operationLoader.load(reference));
+    }).then(
+      () => this._syncSoon(true),
+      (error: unknown) => {
+        if (!this._done) {
+          this._failRequest(
+            error instanceof Error ? error : new Error(String(error)),
+          );
+        }
+      },
+    );
   }
 
   _handoffFor(dataID: DataID, name: string, args: unknown): RelayHandoff {
@@ -452,6 +625,23 @@ class RelayServerHandoff {
     const key = `${dataID}\n${name}\n${JSON.stringify(stableCopy(variables))}`;
     let root = this._roots.get(key);
     if (root == null) {
+      // With module providers (the compiler's default without Haste), the
+      // records name their `@module` component and normalization by
+      // functions, which cannot be sent to a client component.
+      if (
+        someModuleImport(
+          normalization.selections,
+          moduleImport =>
+            moduleImport.componentModuleProvider != null ||
+            moduleImport.operationModuleProvider != null,
+        )
+      ) {
+        throw new Error(
+          `Relay: \`${name}\` selects \`@module\` data whose modules are ` +
+            'loaded by module providers. Handing it to a client component ' +
+            'is not supported yet.',
+        );
+      }
       root = this._createRoot(dataID, normalization, variables);
       this._roots.set(key, root);
     }
@@ -471,13 +661,17 @@ class RelayServerHandoff {
       dataID,
       handoff: null,
       node,
+      pendingModules: new Set(),
       sent: new Map(),
+      sentModules: new Set(),
       settleNext: null,
       variables,
       visits: new Map(),
     };
-    const records = this._project(root, null) ?? {};
+    const named: Set<unknown> = new Set();
+    const records = this._project(root, null, null, named) ?? {};
     const sequence = ++this._writeOrder.sequence;
+    const modules = this._modulesFor(root, named);
     const id = this._sessionID + ':' + String(this._roots.size);
     // A root created after the request ended (e.g. by data read once it
     // completed) gets the same verdict as the roots that existed then.
@@ -500,6 +694,7 @@ class RelayServerHandoff {
       id,
       next,
       records,
+      ...(modules != null ? {modules} : null),
       sequence,
       serverStore: this._writeOrder.id,
       variables,
@@ -511,8 +706,23 @@ class RelayServerHandoff {
     root: Root,
     updated: ?Set<DataID>,
     streamTargets: ?ReadonlySet<string> = null,
+    // Gets the `@module` operation references the copied records name.
+    named: ?Set<unknown> = null,
   ): ?RelayHandoffRecords {
     const source = this._environment.getStore().getSource();
+    // `@module` selections are copied with their loaded normalization, which
+    // the copy gets for each operation reference a record names.
+    const loader = this._getOperationLoader();
+    const operationLoader =
+      loader == null || named == null
+        ? loader
+        : {
+            get: (reference: unknown) => {
+              named.add(reference);
+              return loader.get(reference);
+            },
+            load: (reference: unknown) => loader.load(reference),
+          };
     const target = RecordSource.create();
     const traversed: Set<string> = new Set();
     // Lists the client already has that only grew: traverse and send only
@@ -567,7 +777,7 @@ class RelayServerHandoff {
         source,
         {dataID, node, variables},
         new Set(),
-        null,
+        operationLoader,
         false,
         {
           firstPluralLinkIndex,

@@ -11,12 +11,17 @@
 
 'use strict';
 
-import type {RelayHandoff, RelayHandoffChunk} from './RelayHandoff';
+import type {
+  RelayHandoff,
+  RelayHandoffChunk,
+  RelayHandoffModules,
+} from './RelayHandoff';
 import type {
   DataID,
   Disposable,
   GraphQLResponseWithData,
   IEnvironment,
+  NormalizationSplitOperation,
   OperationDescriptor,
   SingularReaderSelector,
   Snapshot,
@@ -91,6 +96,10 @@ type HandoffRoot = {
   delivered: boolean,
   // The records its handoff published.
   readonly recordIDs: Set<DataID>,
+  // The `@module` normalizations the server sent, by operation reference.
+  // Garbage collection of the root's operation reads its `@module` data with
+  // them as well as the Store's operation loader, and so does `hasData`.
+  readonly modules: Map<unknown, NormalizationSplitOperation>,
   // Why its server query failed, if it did; reads of the root throw it.
   error: ?Error,
   // Notifies the Store's subscribers of records published during render
@@ -197,6 +206,7 @@ function getRoot(
       generation: 0,
       hydration: null,
       id: handoff.id,
+      modules: new Map(),
       notify: null,
       operation: getHandoffOperation(handoff),
       published: false,
@@ -405,6 +415,7 @@ function executeHandoff(
         }
         const publish = (
           records: RelayHandoffChunk['records'],
+          modules: ?RelayHandoffModules,
           sequence: number,
           serverRendered: boolean,
         ) => {
@@ -427,6 +438,22 @@ function executeHandoff(
                 extensions: {is_normalized: true},
               },
             )();
+          }
+          if (modules != null) {
+            Object.keys(modules).forEach(reference =>
+              root.modules.set(reference, modules[reference]),
+            );
+            const store = environment.getStore();
+            if (!(store instanceof Store)) {
+              throw new Error(
+                'Relay: Handed-off `@module` data needs a RelayModernStore, ' +
+                  'which retains it with the root that published it.',
+              );
+            }
+            store.__registerHandoffModules(
+              root.operation.request,
+              root.modules,
+            );
           }
           if (deferNotify != null) {
             const notify = deferNotify.publishWithDeferredNotify(
@@ -455,6 +482,7 @@ function executeHandoff(
                 try {
                   publish(
                     arrived.records,
+                    arrived.modules,
                     arrived.sequence,
                     root.hydration != null && !hasData(environment, root),
                   );
@@ -504,7 +532,12 @@ function executeHandoff(
             },
           );
         };
-        publish(handoff.records, handoff.sequence, root.hydration != null);
+        publish(
+          handoff.records,
+          handoff.modules,
+          handoff.sequence,
+          root.hydration != null,
+        );
         // Active only once its first publish succeeded: a source that throws
         // returns no cleanup to end the execution.
         root.active = true;
@@ -551,15 +584,23 @@ function createHydrationEnvironment(
   };
 }
 
-// Whether the Store has a root's data. A check that throws (`@module` data
-// the client has no operation loader for) counts as missing.
+// Whether the Store has a root's data. `@module` data is checked with the
+// normalizations the server sent before the client loads the module.
 function hasData(environment: IEnvironment, root: HandoffRoot): boolean {
+  const storeLoader = environment.getStore().getOperationLoader();
   const store = (root.hydration?.environment ?? environment).getStore();
-  try {
-    return store.check(root.operation).status !== 'missing';
-  } catch {
-    return false;
-  }
+  return (
+    store.check(root.operation, {
+      operationLoader:
+        storeLoader == null
+          ? null
+          : {
+              get: reference =>
+                root.modules.get(reference) ?? storeLoader.get(reference),
+              load: () => Promise.resolve(null),
+            },
+    }).status !== 'missing'
+  );
 }
 
 // Whether records a root published were collected since. Garbage

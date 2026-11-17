@@ -22,6 +22,7 @@ import type {
   MutationParameters,
   OperationAvailability,
   OperationDescriptor,
+  OperationLoader,
   OperationTracker,
   OptimisticResponseConfig,
   OptimisticUpdateFunction,
@@ -57,12 +58,16 @@ export type ActorSpecificEnvironmentConfig = Readonly<{
   relayFieldLogger: RelayFieldLogger,
   store: Store,
   missingFieldHandlers: ReadonlyArray<MissingFieldHandler>,
+  operationLoader?: ?OperationLoader,
 }>;
 
 class ActorSpecificEnvironment implements IActorEnvironment {
   __log: LogFunction;
   readonly _defaultRenderPolicy: RenderPolicy;
   readonly _network: INetwork;
+  readonly _operationLoader: ?OperationLoader;
+  readonly getOperationLoader: () => ?OperationLoader = () =>
+    this._operationLoader;
   readonly _operationTracker: OperationTracker;
   readonly _publishQueue: RelayPublishQueue;
   readonly _store: Store;
@@ -79,6 +84,7 @@ class ActorSpecificEnvironment implements IActorEnvironment {
 
     this.__log = config.logFn;
     this.relayFieldLogger = config.relayFieldLogger;
+    this._operationLoader = config.operationLoader;
     this._operationTracker = new RelayOperationTracker();
     this._store = config.store;
     this._network = wrapNetworkWithLogObserver(this, config.network);

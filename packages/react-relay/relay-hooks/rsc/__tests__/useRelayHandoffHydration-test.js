@@ -17,7 +17,9 @@ import type {RelayHandoff} from '../RelayHandoff';
 import type {useRelayHandoffHydrationTestClientObject_query$key} from './__generated__/useRelayHandoffHydrationTestClientObject_query.graphql';
 import type {useRelayHandoffHydrationTestGreeting_user$key} from './__generated__/useRelayHandoffHydrationTestGreeting_user.graphql';
 import type {useRelayHandoffHydrationTestLiveName_user$key} from './__generated__/useRelayHandoffHydrationTestLiveName_user.graphql';
+import type {useRelayHandoffHydrationTestNamedModule_user$key} from './__generated__/useRelayHandoffHydrationTestNamedModule_user.graphql';
 import type {useRelayHandoffHydrationTestNameLength_user$key} from './__generated__/useRelayHandoffHydrationTestNameLength_user.graphql';
+import type {useRelayHandoffHydrationTestTwoMatches_user$key} from './__generated__/useRelayHandoffHydrationTestTwoMatches_user.graphql';
 import type {useRelayHandoffTestActors_user$key} from './__generated__/useRelayHandoffTestActors_user.graphql';
 import type {useRelayHandoffTestDeferChild_user$key} from './__generated__/useRelayHandoffTestDeferChild_user.graphql';
 import type {useRelayHandoffTestDeferParent_user$key} from './__generated__/useRelayHandoffTestDeferParent_user.graphql';
@@ -26,6 +28,7 @@ import type {useRelayHandoffTestStreamConnection_user$key} from './__generated__
 import type {GraphQLResponse} from 'relay-runtime/network/RelayNetworkTypes';
 import type {Sink} from 'relay-runtime/network/RelayObservable';
 import type {EnvironmentConfig} from 'relay-runtime/store/RelayModernEnvironment';
+import type {OperationLoader} from 'relay-runtime/store/RelayStoreTypes';
 
 const {installRelayHandoff} = require('../../../rsc-client_EXPERIMENTAL');
 const RelayEnvironmentProvider = require('../../RelayEnvironmentProvider');
@@ -70,6 +73,61 @@ const {
 const ReactDOMClient = jest.requireActual<any>(
   ['react-dom', 'client'].join('/'),
 );
+
+const NamedModuleQuery = graphql`
+  query useRelayHandoffHydrationTestNamedModuleQuery @server {
+    me {
+      ...useRelayHandoffHydrationTestNamedModule_user @alias(as: "client")
+    }
+  }
+`;
+
+const NamedModuleFragment = graphql`
+  fragment useRelayHandoffHydrationTestNamedModule_user on User {
+    name
+    nameRenderer @match {
+      ...RelayServerHandoffTestPlainUserNameRenderer_name
+        @module(name: "PlainUserNameRenderer.react")
+    }
+  }
+`;
+
+const TwoMatchesQuery = graphql`
+  query useRelayHandoffHydrationTestTwoMatchesQuery @server {
+    me {
+      ...useRelayHandoffHydrationTestTwoMatches_user @alias(as: "client")
+    }
+  }
+`;
+
+// Two records select one module: one passes `withData`, the other takes the
+// argument's default.
+const TwoMatchesFragment = graphql`
+  fragment useRelayHandoffHydrationTestTwoMatches_user on User {
+    name
+    nameRenderer
+      @match(key: "useRelayHandoffHydrationTestTwoMatches_user_with") {
+      ...useRelayHandoffHydrationTestDefaulted_name
+        @module(name: "PlainUserNameRenderer.react")
+        @arguments(withData: true)
+    }
+    nameRendererForContext(context: HEADER)
+      @match(key: "useRelayHandoffHydrationTestTwoMatches_user_default") {
+      ...useRelayHandoffHydrationTestDefaulted_name
+        @module(name: "PlainUserNameRenderer.react")
+    }
+  }
+`;
+
+graphql`
+  fragment useRelayHandoffHydrationTestDefaulted_name on PlainUserNameRenderer
+  @argumentDefinitions(withData: {type: "Boolean!", defaultValue: false}) {
+    plaintext
+    data @include(if: $withData) {
+      text
+    }
+  }
+`;
 
 const NameLengthAQuery = graphql`
   query useRelayHandoffHydrationTestNameLengthAQuery @server {
@@ -1015,6 +1073,178 @@ describe('hydrating a handed-off reference', () => {
       );
     });
     expect(container.textContent).toBe('f0f1');
+  });
+
+  it('renders what the server rendered of a root with @module data whose module the client has not loaded', async () => {
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => PlainNormalization,
+        load: () => Promise.resolve(PlainNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, NamedModuleQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          name: 'Ada',
+          nameRenderer: {
+            __module_component_useRelayHandoffHydrationTestNamedModule_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffHydrationTestNamedModule_user:
+              'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const user = (await result).me?.client;
+    const handoff = getRelayHandoff(user);
+    if (user == null || handoff == null) {
+      throw new Error('Expected a handed-off reference.');
+    }
+    // The server rendered the name before it changed; the change arrives
+    // before the browser hydrates.
+    const container = document.createElement('div');
+    container.innerHTML = 'Ada';
+    server.commitUpdate(store => {
+      store.get('4')?.setValue('Grace', 'name');
+    });
+    sinks[0].complete();
+    await settleArrivedChunks(handoff.next, handoff);
+
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store: new Store(new RecordSource(), {operationLoader: notLoaded}),
+    });
+    component Name(user: useRelayHandoffHydrationTestNamedModule_user$key) {
+      const data = useFragment(NamedModuleFragment, user);
+      return data.name ?? '';
+    }
+    const errors: Array<string> = [];
+    await act(async () => {
+      ReactDOMClient.hydrateRoot(
+        container,
+        <RelayEnvironmentProvider environment={client}>
+          <Name user={user} />
+        </RelayEnvironmentProvider>,
+        {
+          onRecoverableError: error => {
+            errors.push(String(error));
+          },
+        },
+      );
+    });
+    expect(errors).toEqual([]);
+    expect(container.innerHTML).toBe('Grace');
+  });
+
+  it('renders what the server rendered when two @match selections bind one module differently', async () => {
+    const DefaultedNormalization = require('./__generated__/useRelayHandoffHydrationTestDefaulted_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => DefaultedNormalization,
+        load: () => Promise.resolve(DefaultedNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, TwoMatchesQuery, {});
+    const operation =
+      'useRelayHandoffHydrationTestDefaulted_name$normalization.graphql';
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          name: 'Ada',
+          nameRenderer: {
+            __module_component_useRelayHandoffHydrationTestTwoMatches_user_with:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffHydrationTestTwoMatches_user_with:
+              operation,
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+          nameRendererForContext: {
+            __module_component_useRelayHandoffHydrationTestTwoMatches_user_default:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffHydrationTestTwoMatches_user_default:
+              operation,
+            __typename: 'PlainUserNameRenderer',
+            plaintext: 'Zuck',
+          },
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const user = (await result).me?.client;
+    const handoff = getRelayHandoff(user);
+    if (user == null || handoff == null) {
+      throw new Error('Expected a handed-off reference.');
+    }
+    const container = document.createElement('div');
+    container.innerHTML = 'Ada';
+    server.commitUpdate(store => {
+      store.get('4')?.setValue('Grace', 'name');
+    });
+    sinks[0].complete();
+    await settleArrivedChunks(handoff.next, handoff);
+
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store: new Store(new RecordSource(), {operationLoader: notLoaded}),
+    });
+    component Name(user: useRelayHandoffHydrationTestTwoMatches_user$key) {
+      const data = useFragment(TwoMatchesFragment, user);
+      return data.name ?? '';
+    }
+    const errors: Array<string> = [];
+    await act(async () => {
+      ReactDOMClient.hydrateRoot(
+        container,
+        <RelayEnvironmentProvider environment={client}>
+          <Name user={user} />
+        </RelayEnvironmentProvider>,
+        {
+          onRecoverableError: error => {
+            errors.push(String(error));
+          },
+        },
+      );
+    });
+    expect(errors).toEqual([]);
+    expect(container.innerHTML).toBe('Grace');
   });
 
   // Each of these runs with both `useFragment` implementations, and with and

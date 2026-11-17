@@ -250,14 +250,17 @@ export interface MutableRecordSource extends RecordSource {
 }
 
 export type CheckOptions = {
-  readonly handlers: ReadonlyArray<MissingFieldHandler>,
-  readonly defaultActorIdentifier: ActorIdentifier,
-  readonly getTargetForActor: (
+  readonly handlers?: ReadonlyArray<MissingFieldHandler>,
+  readonly defaultActorIdentifier?: ActorIdentifier,
+  readonly getTargetForActor?: (
     actorIdentifier: ActorIdentifier,
   ) => MutableRecordSource,
-  readonly getSourceForActor: (
+  readonly getSourceForActor?: (
     actorIdentifier: ActorIdentifier,
   ) => RecordSource,
+  // Loads the normalization of `@module` selections; by default, the
+  // Store's operation loader.
+  readonly operationLoader?: ?OperationLoader,
 };
 
 export type OperationAvailability =
@@ -950,6 +953,12 @@ export interface IEnvironment {
    * Extra information attached to the environment instance
    */
   readonly options: unknown;
+
+  /**
+   * The loader for `@module` normalization operations the environment was
+   * created with, if any.
+   */
+  readonly getOperationLoader?: () => ?OperationLoader;
 
   /**
    * **UNSTABLE** Event based logging API thats scoped to the environment.

@@ -12,6 +12,7 @@
 'use strict';
 
 import type {ActorIdentifier} from '../multi-actor-environment/ActorIdentifier';
+import type {NormalizationSplitOperation} from '../util/NormalizationNode';
 import type {DataID, Disposable} from '../util/RelayRuntimeTypes';
 import type {Availability} from './DataChecker';
 import type {UpdatedRecords} from './live-resolvers/LiveResolverCache';
@@ -108,6 +109,9 @@ class RelayModernStore implements Store {
   __log: ?LogFunction;
   _queryCacheExpirationTime: ?number;
   _operationLoader: ?OperationLoader;
+  // The operation loader of each handoff operation (see
+  // `__registerHandoffModules`).
+  _handoffLoaders: ?WeakMap<RequestDescriptor, OperationLoader>;
   _optimisticSource: ?MutableRecordSource;
   _recordSource: MutableRecordSource;
   _resolverCache: LiveResolverCache;
@@ -183,6 +187,7 @@ class RelayModernStore implements Store {
     this.__log = options?.log ?? null;
     this._queryCacheExpirationTime = options?.queryCacheExpirationTime;
     this._operationLoader = options?.operationLoader ?? null;
+    this._handoffLoaders = null;
     this._optimisticSource = null;
     this._recordSource = source;
     this._releaseBuffer = [];
@@ -216,6 +221,31 @@ class RelayModernStore implements Store {
 
   getOperationLoader(): ?OperationLoader {
     return this._operationLoader;
+  }
+
+  /**
+   * Internal to Relay: `modules` are the normalizations of the `@module`
+   * operations whose data a Relay RSC handoff published under `request`, by
+   * operation reference. Garbage collection of that operation reads its
+   * `@module` selections with `modules` as well as the operation loader, so
+   * retaining the operation retains its `@module` data before the client
+   * loads the module. Other
+   * operations use only the operation loader, and a Store without one
+   * rejects `@module` selections as before.
+   */
+  __registerHandoffModules(
+    request: RequestDescriptor,
+    modules: ReadonlyMap<unknown, NormalizationSplitOperation>,
+  ): void {
+    const operationLoader = this._operationLoader;
+    if (operationLoader != null) {
+      let loaders = this._handoffLoaders;
+      if (loaders == null) {
+        loaders = new WeakMap();
+        this._handoffLoaders = loaders;
+      }
+      loaders.set(request, withModules(modules, operationLoader));
+    }
   }
 
   _getMutableRecordSource(): MutableRecordSource {
@@ -352,7 +382,7 @@ class RelayModernStore implements Store {
       options?.defaultActorIdentifier ?? INTERNAL_ACTOR_IDENTIFIER_DO_NOT_USE,
       selector,
       handlers,
-      this._operationLoader,
+      options?.operationLoader ?? this._operationLoader,
       this._getDataID,
       this.__log,
       useExecTimeResolvers,
@@ -999,7 +1029,7 @@ class RelayModernStore implements Store {
           this._recordSource,
           selector,
           references,
-          this._operationLoader,
+          this._handoffLoaders?.get(operation.request) ?? this._operationLoader,
           useExecTimeResolvers,
         );
         // Yield for other work after each operation
@@ -1083,6 +1113,20 @@ class RelayModernStore implements Store {
     this.notify();
     this._updatedRecordIDs = prevUpdatedRecordIDs;
   }
+}
+
+// An operation loader that gets each reference from `modules`, else `loader`.
+function withModules(
+  modules: ReadonlyMap<unknown, NormalizationSplitOperation>,
+  loader: OperationLoader,
+): OperationLoader {
+  return {
+    get: reference => modules.get(reference) ?? loader.get(reference),
+    load: reference =>
+      modules.has(reference)
+        ? Promise.resolve(modules.get(reference))
+        : loader.load(reference),
+  };
 }
 
 function initializeRecordSource(target: MutableRecordSource) {

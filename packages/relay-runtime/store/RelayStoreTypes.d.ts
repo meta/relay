@@ -214,8 +214,9 @@ export interface MutableRecordSource extends RecordSource {
 }
 
 export interface CheckOptions {
-    target: MutableRecordSource;
-    handlers: readonly MissingFieldHandler[];
+    target?: MutableRecordSource | undefined;
+    handlers?: readonly MissingFieldHandler[] | undefined;
+    operationLoader?: OperationLoader | null | undefined;
 }
 
 export type OperationAvailability =

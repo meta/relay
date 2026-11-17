@@ -91,6 +91,12 @@ class RelayModernEnvironment implements IEnvironment {
   __log: LogFunction;
   readonly _defaultRenderPolicy: RenderPolicy;
   _operationLoader: ?OperationLoader;
+  /**
+   * The loader for `@module` normalization operations this Environment was
+   * created with, if any.
+   */
+  readonly getOperationLoader: () => ?OperationLoader = () =>
+    this._operationLoader;
   _network: INetwork;
   _publishQueue: PublishQueue;
   _scheduler: ?TaskScheduler;

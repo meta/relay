@@ -11,6 +11,7 @@
 
 'use strict';
 
+import type {RelayServerHandoffTestModule_user$key} from './__generated__/RelayServerHandoffTestModule_user.graphql';
 import type {useRelayHandoffTestActors_user$key} from './__generated__/useRelayHandoffTestActors_user.graphql';
 import type {useRelayHandoffTestCard_user$key} from './__generated__/useRelayHandoffTestCard_user.graphql';
 import type {useRelayHandoffTestDeferChild_user$key} from './__generated__/useRelayHandoffTestDeferChild_user.graphql';
@@ -19,11 +20,15 @@ import type {useRelayHandoffTestDeferred_user$key} from './__generated__/useRela
 import type {useRelayHandoffTestFieldErrorCatch_user$key} from './__generated__/useRelayHandoffTestFieldErrorCatch_user.graphql';
 import type {useRelayHandoffTestFieldErrorThrow_user$key} from './__generated__/useRelayHandoffTestFieldErrorThrow_user.graphql';
 import type {useRelayHandoffTestFriends_user$key} from './__generated__/useRelayHandoffTestFriends_user.graphql';
+import type {useRelayHandoffTestModuleArgs_user$key} from './__generated__/useRelayHandoffTestModuleArgs_user.graphql';
+import type {useRelayHandoffTestModuleTwoArgs_user$key} from './__generated__/useRelayHandoffTestModuleTwoArgs_user.graphql';
+import type {useRelayHandoffTestNestedCard_user$key} from './__generated__/useRelayHandoffTestNestedCard_user.graphql';
 import type {useRelayHandoffTestProvided_user$key} from './__generated__/useRelayHandoffTestProvided_user.graphql';
 import type {useRelayHandoffTestQuery$variables} from './__generated__/useRelayHandoffTestQuery.graphql';
 import type {useRelayHandoffTestScaled_user$key} from './__generated__/useRelayHandoffTestScaled_user.graphql';
 import type {useRelayHandoffTestStream_user$key} from './__generated__/useRelayHandoffTestStream_user.graphql';
 import type {useRelayHandoffTestStreamConnection_user$key} from './__generated__/useRelayHandoffTestStreamConnection_user.graphql';
+import type {NormalizationSplitOperation, OperationLoader} from 'relay-runtime';
 import type {GraphQLResponse} from 'relay-runtime/network/RelayNetworkTypes';
 import type {Sink} from 'relay-runtime/network/RelayObservable';
 import type {EnvironmentConfig} from 'relay-runtime/store/RelayModernEnvironment';
@@ -33,6 +38,7 @@ const RelayEnvironmentProvider = require('../../RelayEnvironmentProvider');
 const useFragment = require('../../useFragment');
 const useLazyLoadQuery = require('../../useLazyLoadQuery');
 const usePaginationFragment = require('../../usePaginationFragment');
+const {getHandoffOperation, getRelayHandoff} = require('../RelayHandoff');
 const serverQuery = require('../serverQuery');
 const {
   ADA,
@@ -229,6 +235,70 @@ const ProvidedFragment = graphql`
   }
 `;
 
+const ModuleArgsQuery = graphql`
+  query useRelayHandoffTestModuleArgsQuery @server {
+    me {
+      ...useRelayHandoffTestModuleArgs_user @alias(as: "client")
+    }
+  }
+`;
+
+const ModuleArgsFragment = graphql`
+  fragment useRelayHandoffTestModuleArgs_user on User
+  @argumentDefinitions(withData: {type: "Boolean!", defaultValue: true}) {
+    nameRenderer @match {
+      ...useRelayHandoffTestModuleArgsName_name
+        @module(name: "PlainUserNameRenderer.react")
+        @arguments(withData: $withData)
+    }
+  }
+`;
+
+graphql`
+  fragment useRelayHandoffTestModuleArgsName_name on PlainUserNameRenderer
+  @argumentDefinitions(withData: {type: "Boolean!"}) {
+    plaintext
+    data @include(if: $withData) {
+      text
+    }
+  }
+`;
+
+const ModuleArgsWithoutDataQuery = graphql`
+  query useRelayHandoffTestModuleArgsWithoutDataQuery @server {
+    me {
+      ...useRelayHandoffTestModuleArgs_user
+        @arguments(withData: false)
+        @alias(as: "client")
+    }
+  }
+`;
+
+const ModuleTwoArgsQuery = graphql`
+  query useRelayHandoffTestModuleTwoArgsQuery @server {
+    me {
+      ...useRelayHandoffTestModuleTwoArgs_user @alias(as: "client")
+    }
+  }
+`;
+
+const ModuleTwoArgsFragment = graphql`
+  fragment useRelayHandoffTestModuleTwoArgs_user on User {
+    without: nameRenderer
+      @match(key: "useRelayHandoffTestModuleTwoArgs_user_without") {
+      ...useRelayHandoffTestModuleArgsName_name
+        @module(name: "PlainUserNameRenderer.react")
+        @arguments(withData: false)
+    }
+    with: nameRenderer
+      @match(key: "useRelayHandoffTestModuleTwoArgs_user_with") {
+      ...useRelayHandoffTestModuleArgsName_name
+        @module(name: "PlainUserNameRenderer.react")
+        @arguments(withData: true)
+    }
+  }
+`;
+
 const ScaledQuery = graphql`
   query useRelayHandoffTestScaledQuery @server {
     me {
@@ -293,6 +363,47 @@ const FieldErrorClientQuery = graphql`
   query useRelayHandoffTestFieldErrorClientQuery {
     me {
       lastName @catch
+    }
+  }
+`;
+
+const NestedQuery = graphql`
+  query useRelayHandoffTestNestedQuery @server {
+    me {
+      ...useRelayHandoffTestNestedCard_user @alias(as: "client")
+    }
+  }
+`;
+
+const NestedCardFragment = graphql`
+  fragment useRelayHandoffTestNestedCard_user on User {
+    name
+    nameRenderer @match {
+      ...useRelayHandoffTestNestedOuter_name @module(name: "Outer.react")
+    }
+  }
+`;
+
+// A `@module` fragment that selects a `@module` fragment with `@arguments`.
+graphql`
+  fragment useRelayHandoffTestNestedOuter_name on PlainUserNameRenderer {
+    plaintext
+    user {
+      nameRenderer @match {
+        ...useRelayHandoffTestNestedInner_name
+          @module(name: "Inner.react")
+          @arguments(cond: true)
+      }
+    }
+  }
+`;
+
+graphql`
+  fragment useRelayHandoffTestNestedInner_name on PlainUserNameRenderer
+  @argumentDefinitions(cond: {type: "Boolean", defaultValue: false}) {
+    plaintext
+    data @include(if: $cond) {
+      text
     }
   }
 `;
@@ -1670,6 +1781,729 @@ describe('useFragment with a handed-off reference', () => {
       await flush();
     });
     expect(renderer.toJSON()).toBe('G1,G2,P2');
+  });
+
+  it('reads handed-off @module data without loading the module on the client', async () => {
+    const ModuleQuery = require('./__generated__/RelayServerHandoffTestModuleQuery.graphql');
+    const ModuleFragment = require('./__generated__/RelayServerHandoffTestModule_user.graphql');
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => PlainNormalization,
+        load: () => Promise.resolve(PlainNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_RelayServerHandoffTestModule_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_RelayServerHandoffTestModule_user:
+              'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+    });
+    sinks[0].complete();
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    component ModuleReader(user: RelayServerHandoffTestModule_user$key) {
+      const data = useFragment(ModuleFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    // The client has not loaded the module: its loader's `get` returns null.
+    const never = () => new Promise<?NormalizationSplitOperation>(() => {});
+    const notLoaded: OperationLoader = {get: () => null, load: never};
+    // The reader reads the module's data, and a mounted root retains it,
+    // including records it links to, without the client loading the module.
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    const renderer = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(renderer.toJSON()).toBe('renderer');
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+  });
+
+  it('retains handed-off @module data once its normalization arrives, before the client loads the module', async () => {
+    const ModuleQuery = require('./__generated__/RelayServerHandoffTestModuleQuery.graphql');
+    const ModuleFragment = require('./__generated__/RelayServerHandoffTestModule_user.graphql');
+    const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
+    // The server's loader loads the module after the payload that selects it,
+    // so the first records name the module without its data or normalization.
+    let loaded = false;
+    let finishLoad: () => void = () => {};
+    const loading = new Promise<typeof PlainNormalization>(resolve => {
+      finishLoad = () => {
+        loaded = true;
+        resolve(PlainNormalization);
+      };
+    });
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => (loaded ? PlainNormalization : null),
+        load: () => loading,
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_RelayServerHandoffTestModule_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_RelayServerHandoffTestModule_user:
+              'RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    component ModuleReader(user: RelayServerHandoffTestModule_user$key) {
+      const data = useFragment(ModuleFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    const renderer = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(renderer.toJSON()).toBe('renderer');
+    // Before the normalization arrives, garbage collection skips the module,
+    // as for a module the client's loader has not loaded.
+    expect(() => store.__gc()).not.toThrow();
+    await TestRenderer.act(async () => {
+      finishLoad();
+      await flush();
+    });
+    expect(source.has('data')).toBe(true);
+    // Then the root's retain keeps the module's data.
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+    sinks[0].complete();
+    TestRenderer.act(() => renderer.unmount());
+    await TestRenderer.act(() => flush());
+    store.__gc();
+    expect(source.has('data')).toBe(false);
+  });
+
+  it('retains handed-off @module data only with the operation of the handoff that sent its normalization', async () => {
+    const ModuleNormalization = require('./__generated__/useRelayHandoffTestModuleArgsName_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => ModuleNormalization,
+        load: () => Promise.resolve(ModuleNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleArgsQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_useRelayHandoffTestModuleArgs_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffTestModuleArgs_user:
+              'useRelayHandoffTestModuleArgsName_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+    });
+    sinks[0].complete();
+    const user = (await result).me?.client;
+    const handoff = getRelayHandoff(user);
+    if (user == null || handoff == null) {
+      throw new Error('Expected a handed-off reference.');
+    }
+    component ModuleReader(user: useRelayHandoffTestModuleArgs_user$key) {
+      const data = useFragment(ModuleArgsFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    // Another operation that selects the same records, `@module` included.
+    const other = store.retain(getHandoffOperation({...handoff, id: 'other'}));
+    const renderer = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(renderer.toJSON()).toBe('renderer');
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+    // The other operation reads `@module` data with the client's loader, as
+    // any operation does: without the module, it does not retain the data.
+    TestRenderer.act(() => renderer.unmount());
+    await TestRenderer.act(() => flush());
+    store.__gc();
+    expect(source.has('4')).toBe(true);
+    expect(source.has('data')).toBe(false);
+    other.dispose();
+  });
+
+  it("binds each root's arguments to the one @module normalization the Store keeps", async () => {
+    const ModuleNormalization = require('./__generated__/useRelayHandoffTestModuleArgsName_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => ModuleNormalization,
+        load: () => Promise.resolve(ModuleNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    // Two roots of one client fragment select the same `@module` fragment,
+    // one with `withData: true` (which selects `data`) and one with `false`.
+    const withData = serverQuery(server, ModuleArgsQuery, {});
+    const withoutData = serverQuery(server, ModuleArgsWithoutDataQuery, {});
+    const response: GraphQLResponse = {
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_useRelayHandoffTestModuleArgs_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffTestModuleArgs_user:
+              'useRelayHandoffTestModuleArgsName_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+    };
+    sinks[0].next(response);
+    sinks[1].next(response);
+    sinks[0].complete();
+    sinks[1].complete();
+    const a = (await withData).me?.client;
+    const b = (await withoutData).me?.client;
+    if (a == null || b == null) {
+      throw new Error('Expected references.');
+    }
+    component ModuleReader(user: useRelayHandoffTestModuleArgs_user$key) {
+      const data = useFragment(ModuleArgsFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    const readerA = render(client, <ModuleReader user={a} />);
+    const readerB = render(client, <ModuleReader user={b} />);
+    await TestRenderer.act(() => flush());
+    expect([readerA.toJSON(), readerB.toJSON()]).toEqual([
+      'renderer',
+      'renderer',
+    ]);
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+    // Only the root with `withData: true` reaches `data`.
+    TestRenderer.act(() => readerA.unmount());
+    await TestRenderer.act(() => flush());
+    store.__gc();
+    expect(source.has('data')).toBe(false);
+    expect(readerB.toJSON()).toBe('renderer');
+  });
+
+  it('retains handed-off @module data bound by @arguments, and keeps collecting garbage, with an operation loader that has not loaded the module', async () => {
+    const ModuleNormalization = require('./__generated__/useRelayHandoffTestModuleArgsName_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => ModuleNormalization,
+        load: () => Promise.resolve(ModuleNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleArgsQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_useRelayHandoffTestModuleArgs_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffTestModuleArgs_user:
+              'useRelayHandoffTestModuleArgsName_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+    });
+    sinks[0].complete();
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    component ModuleReader(user: useRelayHandoffTestModuleArgs_user$key) {
+      const data = useFragment(ModuleArgsFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const steps: Array<() => void> = [];
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      gcScheduler: step => {
+        steps.push(step);
+      },
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    const renderer = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(renderer.toJSON()).toBe('renderer');
+
+    // Scheduled collections run, keep the module's data (`data` is selected
+    // only with the argument the `@module` selection passes) and collect
+    // records nothing retains.
+    const errors: Array<string> = [];
+    const collect = (garbage: string) => {
+      client.commitUpdate(proxies => {
+        proxies.create(garbage, 'User');
+      });
+      store.scheduleGC();
+      for (let step = steps.shift(); step != null; step = steps.shift()) {
+        try {
+          step();
+        } catch (error) {
+          errors.push(error.message);
+        }
+      }
+      return source.has(garbage);
+    };
+    // A collection that threw would leave later ones unscheduled.
+    expect([collect('garbage:1'), collect('garbage:2'), errors]).toEqual([
+      false,
+      false,
+      [],
+    ]);
+    expect(source.has('data')).toBe(true);
+  });
+
+  it('keeps handed-off @module data while its handoff still streams after its reader unmounts', async () => {
+    const ModuleNormalization = require('./__generated__/useRelayHandoffTestModuleArgsName_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => ModuleNormalization,
+        load: () => Promise.resolve(ModuleNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleArgsQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          nameRenderer: {
+            __module_component_useRelayHandoffTestModuleArgs_user:
+              'PlainUserNameRenderer.react',
+            __module_operation_useRelayHandoffTestModuleArgs_user:
+              'useRelayHandoffTestModuleArgsName_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            data: {id: 'data', text: 'Zuck'},
+            plaintext: 'Zuck',
+          },
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    component ModuleReader(user: useRelayHandoffTestModuleArgs_user$key) {
+      const data = useFragment(ModuleArgsFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    // The client has not loaded the module, so only the module operations
+    // the handoff retains keep `data`.
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    const renderer = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(renderer.toJSON()).toBe('renderer');
+    TestRenderer.act(() => renderer.unmount());
+    await TestRenderer.act(() => flush());
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+    // Once the handoff ends, nothing retains it.
+    await TestRenderer.act(async () => {
+      sinks[0].complete();
+      await flush();
+    });
+    store.__gc();
+    expect(source.has('data')).toBe(false);
+  });
+
+  it('keeps @module data that arrives after the last reader unmounted, while its stream is open', async () => {
+    const ModuleNormalization = require('./__generated__/useRelayHandoffTestModuleArgsName_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => ModuleNormalization,
+        load: () => Promise.resolve(ModuleNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleArgsQuery, {});
+    sinks[0].next({
+      data: {me: {__typename: 'User', id: '4', nameRenderer: null}},
+      extensions: {is_final: false},
+    });
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    component ModuleReader(user: useRelayHandoffTestModuleArgs_user$key) {
+      const data = useFragment(ModuleArgsFragment, user);
+      return data.nameRenderer == null ? 'none' : 'renderer';
+    }
+    // The client has not loaded the module, so only the module operations
+    // the handoff retains keep `data`.
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    const first = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(first.toJSON()).toBe('none');
+    TestRenderer.act(() => first.unmount());
+    await TestRenderer.act(() => flush());
+    // The stream still extends the root's records, so it keeps them retained;
+    // the module's data that arrives now is part of them.
+    await TestRenderer.act(async () => {
+      sinks[0].next({
+        data: {
+          me: {
+            __typename: 'User',
+            id: '4',
+            nameRenderer: {
+              __module_component_useRelayHandoffTestModuleArgs_user:
+                'PlainUserNameRenderer.react',
+              __module_operation_useRelayHandoffTestModuleArgs_user:
+                'useRelayHandoffTestModuleArgsName_name$normalization.graphql',
+              __typename: 'PlainUserNameRenderer',
+              data: {id: 'data', text: 'Zuck'},
+              plaintext: 'Zuck',
+            },
+          },
+        },
+        extensions: {is_final: false},
+      });
+      await flush();
+    });
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+    const second = render(client, <ModuleReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(second.toJSON()).toBe('renderer');
+    TestRenderer.act(() => second.unmount());
+    // Once the handoff ends, nothing retains it.
+    await TestRenderer.act(async () => {
+      sinks[0].complete();
+      await flush();
+    });
+    store.__gc();
+    expect(source.has('data')).toBe(false);
+  });
+
+  it('binds the arguments of the @module selection that each @match chose', async () => {
+    const ModuleNormalization = require('./__generated__/useRelayHandoffTestModuleArgsName_name$normalization.graphql');
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get: () => ModuleNormalization,
+        load: () => Promise.resolve(ModuleNormalization),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, ModuleTwoArgsQuery, {});
+    // Both selections are the same record.
+    const nameRenderer = (key: string) => ({
+      [`__module_component_${key}`]: 'PlainUserNameRenderer.react',
+      [`__module_operation_${key}`]:
+        'useRelayHandoffTestModuleArgsName_name$normalization.graphql',
+      __typename: 'PlainUserNameRenderer',
+      data: {id: 'data', text: 'Zuck'},
+      plaintext: 'Zuck',
+    });
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          with: nameRenderer('useRelayHandoffTestModuleTwoArgs_user_with'),
+          without: nameRenderer(
+            'useRelayHandoffTestModuleTwoArgs_user_without',
+          ),
+        },
+      },
+    });
+    sinks[0].complete();
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    component TwoArgsReader(user: useRelayHandoffTestModuleTwoArgs_user$key) {
+      const data = useFragment(ModuleTwoArgsFragment, user);
+      return data.with == null ? 'none' : 'renderer';
+    }
+    const renderer = render(client, <TwoArgsReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(renderer.toJSON()).toBe('renderer');
+    // `data` is selected only by the `@module` selection that passes
+    // `withData: true`.
+    store.__gc();
+    expect(source.has('data')).toBe(true);
+  });
+
+  it('retains the data a nested @module selection binds with its @arguments', async () => {
+    const Outer = require('./__generated__/useRelayHandoffTestNestedOuter_name$normalization.graphql');
+    const Inner = require('./__generated__/useRelayHandoffTestNestedInner_name$normalization.graphql');
+    const get = (reference: unknown) =>
+      reference === 'useRelayHandoffTestNestedOuter_name$normalization.graphql'
+        ? Outer
+        : reference ===
+            'useRelayHandoffTestNestedInner_name$normalization.graphql'
+          ? Inner
+          : null;
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      operationLoader: {
+        get,
+        load: reference => Promise.resolve(get(reference)),
+      },
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, NestedQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          id: '4',
+          name: 'Zuck',
+          nameRenderer: {
+            __module_component_useRelayHandoffTestNestedCard_user:
+              'Outer.react',
+            __module_operation_useRelayHandoffTestNestedCard_user:
+              'useRelayHandoffTestNestedOuter_name$normalization.graphql',
+            __typename: 'PlainUserNameRenderer',
+            plaintext: 'outer',
+            user: {
+              __typename: 'User',
+              id: '5',
+              nameRenderer: {
+                __module_component_useRelayHandoffTestNestedOuter_name:
+                  'Inner.react',
+                __module_operation_useRelayHandoffTestNestedOuter_name:
+                  'useRelayHandoffTestNestedInner_name$normalization.graphql',
+                __typename: 'PlainUserNameRenderer',
+                data: {id: 'data', text: 'T'},
+                plaintext: 'inner',
+              },
+            },
+          },
+        },
+      },
+    });
+    sinks[0].complete();
+    const user = (await result).me?.client;
+    if (user == null) {
+      throw new Error('Expected a reference.');
+    }
+    // The client's loader has not loaded either module.
+    const notLoaded: OperationLoader = {
+      get: () => null,
+      load: () => new Promise(() => {}),
+    };
+    const source = new RecordSource();
+    const store = new Store(source, {
+      gcReleaseBufferSize: 0,
+      operationLoader: notLoaded,
+    });
+    const client = new Environment({
+      network: Network.create(() => Observable.create(() => {})),
+      operationLoader: notLoaded,
+      store,
+    });
+    component NestedReader(user: useRelayHandoffTestNestedCard_user$key) {
+      return useFragment(NestedCardFragment, user).name ?? '';
+    }
+    render(client, <NestedReader user={user} />);
+    await TestRenderer.act(() => flush());
+    expect(source.has('data')).toBe(true);
+    store.__gc();
+    expect(source.has('data')).toBe(true);
   });
 
   it('paginates a handed-off connection on the client', async () => {

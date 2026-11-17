@@ -365,6 +365,9 @@ function execute(
         if (responses.some(item => item.data != null)) {
           receivedPayload = true;
         }
+        const ended = !environment.isRequestActive(
+          operation.request.identifier,
+        );
         // A payload of `@stream` items appends to the lists they target;
         // everything else it touched is compared in full.
         const source = environment.getStore().getSource();
@@ -384,7 +387,7 @@ function execute(
         if (receivedPayload) {
           resolveFirst();
         }
-        if (responses.some(item => item.extensions?.is_final === true)) {
+        if (ended) {
           complete();
         }
       },

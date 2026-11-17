@@ -142,6 +142,7 @@ class MultiActorEnvironment implements IMultiActorEnvironment {
         handlerProvider: this._handlerProvider,
         defaultRenderPolicy: this._defaultRenderPolicy,
         missingFieldHandlers: this._missingFieldHandlers,
+        operationLoader: this._operationLoader,
       });
       this._actorEnvironments.set(actorIdentifier, newEnvironment);
       return newEnvironment;
