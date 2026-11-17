@@ -109,8 +109,9 @@ export type FeatureFlags = {
   // Relay RSC requires it.
   ENABLE_EXPLICIT_NULL_FRAGMENT_ARGUMENTS: boolean,
 
-  // Temporary flag for the rollout of a useFragment fix: a store update that a
-  // subscription delivers keeps the store epoch it was read at.
+  // Ignored, to be removed: the useFragment fix that this flag rolled out is
+  // always on (with ENABLE_ACTIVITY_COMPATIBILITY, a store update that a
+  // subscription delivers keeps the store epoch it was read at).
   ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX: boolean,
 
   // Performance optimizations of the runtime, by the code they change. Each

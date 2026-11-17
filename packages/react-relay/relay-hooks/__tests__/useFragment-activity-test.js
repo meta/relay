@@ -126,12 +126,10 @@ function renderApp(options?: Options): {
   };
 }
 
-const {ENABLE_ACTIVITY_COMPATIBILITY, ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX} =
-  RelayFeatureFlags;
+const {ENABLE_ACTIVITY_COMPATIBILITY} = RelayFeatureFlags;
 
-function setUp(flag: boolean): void {
+beforeEach(() => {
   RelayFeatureFlags.ENABLE_ACTIVITY_COMPATIBILITY = true;
-  RelayFeatureFlags.ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX = flag;
   renders = [];
   environment = createMockEnvironment();
   environment.commitPayload(
@@ -149,24 +147,15 @@ function setUp(flag: boolean): void {
   environment.commitPayload(createOperationDescriptor(userQuery, {id: '2'}), {
     node: {__typename: 'User', id: '2', name: 'Bob', username: 'bob'},
   });
-}
+});
 
 afterEach(() => {
   ReactTestingLibrary.cleanup();
   RelayFeatureFlags.ENABLE_ACTIVITY_COMPATIBILITY =
     ENABLE_ACTIVITY_COMPATIBILITY;
-  RelayFeatureFlags.ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX =
-    ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX;
 });
 
-describe.each([
-  ['off', false],
-  ['on', true],
-])('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX %s', (_name, flag) => {
-  beforeEach(() => {
-    setUp(flag);
-  });
-
+describe('useFragment revealed by an <Activity>', () => {
   it('shows the latest data when revealed after an update queued before the hide', () => {
     const app = renderApp();
     expect(app.content()).toBe('Alice');
@@ -184,7 +173,7 @@ describe.each([
     act(() => {
       app.click('show');
     });
-    expect(app.content()).toBe(flag ? 'Alison' : 'Alicia2');
+    expect(app.content()).toBe('Alison');
   });
 
   it('shows the latest data of a plural fragment when revealed after an update queued before the hide', () => {
@@ -198,7 +187,7 @@ describe.each([
     act(() => {
       app.click('show');
     });
-    expect(app.content()).toBe(flag ? 'Alison,Bob' : 'Alicia2,Bob');
+    expect(app.content()).toBe('Alison,Bob');
   });
 
   it('shows the latest data when revealed after one update queued before the hide', () => {
@@ -215,12 +204,12 @@ describe.each([
     act(() => {
       app.click('show');
     });
-    expect(app.content()).toBe(flag ? 'Alison' : 'Alicia2');
+    expect(app.content()).toBe('Alison');
   });
 
   it('shows the latest data when revealed after the first update since mount', () => {
     // React computes the first state update after the mount when it is
-    // delivered, so the epoch it records is right with the flag off too.
+    // delivered, so this case read the right epoch even before the fix.
     const app = renderApp();
     act(() => {
       setName('1', 'Alicia');
@@ -233,63 +222,87 @@ describe.each([
   });
 });
 
-describe('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX on behaves as off', () => {
-  // Runs `scenario` with the flag off and on: the reading components render
-  // the same names, in the same order, and read the store as often.
-  function expectSameRenders(
-    scenario: (v: ReturnType<typeof renderApp>) => void,
-    options?: Options,
-  ): void {
-    const results = [false, true].map(flag => {
-      setUp(flag);
-      const lookup = jest.spyOn(environment, 'lookup');
-      const app = renderApp(options);
-      scenario(app);
-      const result = {
-        content: app.content(),
-        lookups: lookup.mock.calls.length,
-        renders,
-      };
-      ReactTestingLibrary.cleanup();
-      return result;
-    });
-    expect(results[1]).toEqual(results[0]);
-  }
+type Result = {content: ?string, lookups: number, renders: Array<string>};
 
+// Runs `scenario` and returns what the reading components showed: the DOM,
+// each render's names, in order, and how often they read the store.
+function run(
+  scenario: (v: ReturnType<typeof renderApp>) => void,
+  options?: Options,
+): Result {
+  const lookup = jest.spyOn(environment, 'lookup');
+  const app = renderApp(options);
+  scenario(app);
+  return {
+    content: app.content(),
+    lookups: lookup.mock.calls.length,
+    renders,
+  };
+}
+
+// `result` with consecutive renders of the same names counted once: the data
+// the components showed, in order, however often React rendered it (React
+// renders a subtree again when an <Activity> hides or reveals it, and twice
+// under StrictMode).
+function withoutRepeatedRenders(result: Result): Result {
+  const renders: Array<string> = [];
+  for (let i = 0; i < result.renders.length; i++) {
+    if (i === 0 || result.renders[i] !== result.renders[i - 1]) {
+      renders.push(result.renders[i]);
+    }
+  }
+  return {...result, renders};
+}
+
+// What the reading components did before the fix too, with and without it: a
+// change to any of these is a change of behavior.
+describe('useFragment renders and store reads', () => {
   it('for updates while visible', () => {
-    expectSameRenders(app => {
-      act(() => {
-        setName('1', 'Alicia');
-      });
-      act(() => {
-        setName('1', 'Alicia2');
-        setName('1', 'Alicia3');
-      });
-      act(() => {
-        React.startTransition(() => {
-          setName('1', 'Alicia4');
+    expect(
+      run(app => {
+        act(() => {
+          setName('1', 'Alicia');
         });
-      });
+        act(() => {
+          setName('1', 'Alicia2');
+          setName('1', 'Alicia3');
+        });
+        act(() => {
+          React.startTransition(() => {
+            setName('1', 'Alicia4');
+          });
+        });
+      }),
+    ).toEqual({
+      content: 'Alicia4',
+      lookups: 2,
+      renders: ['Alice', 'Alicia', 'Alicia3', 'Alicia4'],
     });
   });
 
   it('for updates of a plural fragment while visible', () => {
-    expectSameRenders(
-      app => {
-        act(() => {
-          setName('1', 'Alicia');
-          setName('2', 'Bobby');
-        });
-        act(() => {
-          setName('2', 'Bobby2');
-        });
-      },
-      {plural: true},
-    );
+    expect(
+      run(
+        app => {
+          act(() => {
+            setName('1', 'Alicia');
+            setName('2', 'Bobby');
+          });
+          act(() => {
+            setName('2', 'Bobby2');
+          });
+        },
+        {plural: true},
+      ),
+    ).toEqual({
+      content: 'Alicia,Bobby2',
+      lookups: 3,
+      renders: ['Alice,Bob', 'Alicia,Bobby', 'Alicia,Bobby2'],
+    });
   });
 
   it('for a reveal with no update while hidden', () => {
-    expectSameRenders(app => {
+    const result = run(app => {
       act(() => {
         setName('1', 'Alicia');
       });
@@ -301,10 +314,15 @@ describe('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX on behaves as off', () => {
         app.click('show');
       });
     });
+    expect(withoutRepeatedRenders(result)).toEqual({
+      content: 'Alison',
+      lookups: 4,
+      renders: ['Alice', 'Alicia', 'Alison'],
+    });
   });
 
   it('for a reveal with no store write since the last update', () => {
-    expectSameRenders(
+    const result = run(
       app => {
         act(() => {
           setName('1', 'Alicia');
@@ -321,10 +339,15 @@ describe('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX on behaves as off', () => {
       },
       {writeOnHide: false},
     );
+    expect(withoutRepeatedRenders(result)).toEqual({
+      content: 'Alicia2',
+      lookups: 3,
+      renders: ['Alice', 'Alicia', 'Alicia2'],
+    });
   });
 
   it('for a reveal after an update while hidden with no update queued', () => {
-    expectSameRenders(app => {
+    const result = run(app => {
       act(() => {
         setName('1', 'Alicia');
       });
@@ -338,10 +361,15 @@ describe('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX on behaves as off', () => {
         app.click('show');
       });
     });
+    expect(withoutRepeatedRenders(result)).toEqual({
+      content: 'Alicia2',
+      lookups: 4,
+      renders: ['Alice', 'Alicia', 'Alicia2'],
+    });
   });
 
   it('for an update delivered together with a new fragment reference', () => {
-    expectSameRenders(app => {
+    const result = run(app => {
       act(() => {
         setName('1', 'Alicia');
       });
@@ -355,25 +383,38 @@ describe('ENABLE_FRAGMENT_SUBSCRIPTION_UPDATE_FIX on behaves as off', () => {
         setName('2', 'Bobby2');
       });
     });
+    expect(withoutRepeatedRenders(result)).toEqual({
+      content: 'Bobby2',
+      lookups: 4,
+      renders: ['Alice', 'Alicia', 'Bobby', 'Bobby2'],
+    });
   });
 
   it('under StrictMode (double render, double effects)', () => {
-    expectSameRenders(
-      app => {
-        act(() => {
-          setName('1', 'Alicia');
-        });
-        act(() => {
-          app.click('hide');
-        });
-        act(() => {
-          app.click('show');
-        });
-        act(() => {
-          setName('1', 'Alicia2');
-        });
-      },
-      {strict: true},
+    // StrictMode also reads the store twice where React runs a render or an
+    // effect twice, so this compares only what the component showed.
+    const {content, renders} = withoutRepeatedRenders(
+      run(
+        app => {
+          act(() => {
+            setName('1', 'Alicia');
+          });
+          act(() => {
+            app.click('hide');
+          });
+          act(() => {
+            app.click('show');
+          });
+          act(() => {
+            setName('1', 'Alicia2');
+          });
+        },
+        {strict: true},
+      ),
     );
+    expect({content, renders}).toEqual({
+      content: 'Alicia2',
+      renders: ['Alice', 'Alicia', 'Alison', 'Alicia2'],
+    });
   });
 });
