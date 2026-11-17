@@ -10,6 +10,7 @@ use graphql_ir::FragmentDefinitionNameMap;
 use graphql_ir::FragmentDefinitionNameSet;
 use graphql_ir::OperationDefinitionName;
 use graphql_syntax::*;
+use rayon::prelude::*;
 
 use crate::ExecutableDefinitionNameMap;
 use crate::ExecutableDefinitionNameSet;
@@ -34,13 +35,13 @@ pub fn get_reachable_ast(
 ) -> ReachableAst {
     if base_definitions.is_empty() {
         return ReachableAst {
-            definitions: project_definitions.to_vec(),
+            definitions: project_definitions.par_iter().cloned().collect(),
             base_fragment_names: Default::default(),
         };
     }
 
     let mut reachable_base_asts = Default::default();
-    let mut base_definitions_map: FragmentDefinitionNameMap<ExecutableDefinition> =
+    let mut base_definitions_map: FragmentDefinitionNameMap<&ExecutableDefinition> =
         Default::default();
 
     // Preprocess all base fragment definitions
@@ -49,9 +50,7 @@ pub fn get_reachable_ast(
         if let ExecutableDefinition::Fragment(fragment) = base_definition {
             let name = FragmentDefinitionName(fragment.name.value);
             assert!(
-                base_definitions_map
-                    .insert(name, base_definition.clone())
-                    .is_none(),
+                base_definitions_map.insert(name, base_definition).is_none(),
                 "get_reachable_ast called on graph with duplicate definition of `{name}`"
             );
         }
@@ -59,7 +58,7 @@ pub fn get_reachable_ast(
 
     // Clone project definitions into result once. We iterate the borrowed slice
     // directly below for selection visiting, avoiding a second clone.
-    let mut result = project_definitions.to_vec();
+    let mut result: Vec<ExecutableDefinition> = project_definitions.par_iter().cloned().collect();
 
     // Find references from project definitions -> base definitions
     for definition in project_definitions {
@@ -75,10 +74,11 @@ pub fn get_reachable_ast(
         )
     }
 
-    for key in &reachable_base_asts {
-        let value = base_definitions_map.remove(key).unwrap();
-        result.push(value);
-    }
+    result.extend(
+        reachable_base_asts
+            .iter()
+            .map(|key| base_definitions_map[key].clone()),
+    );
 
     ReachableAst {
         definitions: result,
@@ -124,7 +124,7 @@ pub fn get_definition_references<'a>(
 }
 
 fn visit_selections(
-    base_definitions_map: &FragmentDefinitionNameMap<ExecutableDefinition>,
+    base_definitions_map: &FragmentDefinitionNameMap<&ExecutableDefinition>,
     reachable_base_asts: &mut FragmentDefinitionNameSet,
     selections: &List<Selection>,
     is_base: bool,
@@ -159,7 +159,7 @@ fn visit_selections(
 }
 
 fn traverse_base_ast_definition(
-    base_definitions_map: &FragmentDefinitionNameMap<ExecutableDefinition>,
+    base_definitions_map: &FragmentDefinitionNameMap<&ExecutableDefinition>,
     reachable_base_asts: &mut FragmentDefinitionNameSet,
     key: FragmentDefinitionName,
 ) {

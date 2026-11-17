@@ -137,6 +137,9 @@ pub fn build_ir(
         SourceHashes::from_definitions(&asts, Some(&affected_names))
     };
 
+    // Free the whole project's ASTs in parallel.
+    asts.into_par_iter().for_each(drop);
+
     Ok(BuildIRResult {
         ir: affected_ir,
         source_hashes,

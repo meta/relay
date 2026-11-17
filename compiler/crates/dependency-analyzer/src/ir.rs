@@ -11,6 +11,7 @@ use std::fmt;
 
 use common::PerfLogEvent;
 use graphql_ir::*;
+use rayon::iter::IntoParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use relay_transforms::get_all_resolver_fragment_dependency_names;
@@ -130,10 +131,13 @@ pub fn get_reachable_ir(
             }
         }
 
-        filtered_definitions
+        let reachable = filtered_definitions
             .drain()
             .map(|(_, definition)| definition)
-            .collect()
+            .collect();
+        // The graph holds the whole project's IR, so free it in parallel.
+        dependency_graph.into_par_iter().for_each(drop);
+        reachable
     };
 
     log_event.stop(timer);
