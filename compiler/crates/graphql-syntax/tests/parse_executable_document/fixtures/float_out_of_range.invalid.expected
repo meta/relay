@@ -12,7 +12,7 @@ query FloatOutOfRange {
     }
 }
 ==================================== ERROR ====================================
-✖︎ Invalid floating point value
+✖︎ Float literal is outside the finite range of a 64-bit floating point value
 
   float_out_of_range.invalid.graphql:9:14
     8 │ query FloatOutOfRange {
