@@ -33,7 +33,6 @@ use crate::ClientComponentBoundaryMetadata;
 use crate::ClientEdgeGeneratedQueryMetadataDirective;
 use crate::ClientEdgeMetadataDirective;
 use crate::ClientImplementorCaseDirective;
-use crate::ClientRscSeamMetadata;
 use crate::DIRECTIVE_SPLIT_OPERATION;
 use crate::FragmentAliasMetadata;
 use crate::INTERNAL_METADATA_DIRECTIVE;
@@ -99,7 +98,7 @@ pub fn extract_variable_name(argument: Option<&Argument>) -> Option<StringKey> {
     }
 }
 
-static CUSTOM_METADATA_DIRECTIVES: LazyLock<[DirectiveName; 28]> = LazyLock::new(|| {
+static CUSTOM_METADATA_DIRECTIVES: LazyLock<[DirectiveName; 27]> = LazyLock::new(|| {
     [
         *CATCH_DIRECTIVE_NAME,
         *CLIENT_EXTENSION_DIRECTIVE_NAME,
@@ -117,7 +116,6 @@ static CUSTOM_METADATA_DIRECTIVES: LazyLock<[DirectiveName; 28]> = LazyLock::new
         ClientEdgeMetadataDirective::directive_name(),
         ClientEdgeGeneratedQueryMetadataDirective::directive_name(),
         ClientComponentBoundaryMetadata::directive_name(),
-        ClientRscSeamMetadata::directive_name(),
         RscSeamMetadata::directive_name(),
         *CHILDREN_CAN_BUBBLE_METADATA_KEY,
         RelayResolverMetadata::directive_name(),

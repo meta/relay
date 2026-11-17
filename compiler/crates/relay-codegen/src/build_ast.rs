@@ -51,7 +51,6 @@ use relay_transforms::ClientEdgeMetadata;
 use relay_transforms::ClientEdgeMetadataDirective;
 use relay_transforms::ClientEdgeModelResolver;
 use relay_transforms::ClientExtensionAbstractTypeMetadataDirective;
-use relay_transforms::ClientRscSeamMetadata;
 use relay_transforms::ClientToServerResolverOperationMetadata;
 use relay_transforms::ConnectionConstants;
 use relay_transforms::ConnectionMetadata;
@@ -505,7 +504,6 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
             has_exec_time_resolvers_enabled_provider: exec_time_resolvers_enabled_provider
                 .is_some(),
             has_server_to_client_resolvers: false,
-            rsc_seams: Vec::new(),
             use_experimental_provider,
         };
         match operation.directives.named(*DIRECTIVE_SPLIT_OPERATION) {
@@ -531,9 +529,6 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
                     });
                 }
                 let selections = self.build_selections(&mut context, operation.selections.iter());
-                if !context.rsc_seams.is_empty() {
-                    metadata_entries.push(self.build_rsc_descriptors(&context.rsc_seams));
-                }
                 let metadata = Primitive::Key(self.object(metadata_entries));
                 let mut fields = object! {
                     kind: Primitive::String(CODEGEN_CONSTANTS.split_operation),
@@ -940,7 +935,7 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         match selection {
             Selection::Condition(condition) => vec![self.build_condition(context, condition)],
             Selection::FragmentSpread(frag_spread) => {
-                self.build_fragment_spread_selections(context, frag_spread)
+                self.build_fragment_spread_selections(frag_spread)
             }
             Selection::InlineFragment(inline_fragment) => {
                 let defer = inline_fragment.directives.named(
@@ -1645,23 +1640,8 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         }
     }
 
-    fn build_fragment_spread_selections(
-        &mut self,
-        context: &mut ContextualMetadata,
-        frag_spread: &FragmentSpread,
-    ) -> Vec<Primitive> {
+    fn build_fragment_spread_selections(&mut self, frag_spread: &FragmentSpread) -> Vec<Primitive> {
         if let Some(seam) = RscSeamMetadata::find(&frag_spread.directives) {
-            if ClientRscSeamMetadata::find(&frag_spread.directives).is_some() {
-                assert!(self.variant == CodegenVariant::Normalization);
-                if !context
-                    .rsc_seams
-                    .iter()
-                    .any(|existing| existing.definition_id == seam.definition_id)
-                {
-                    context.rsc_seams.push(seam.clone());
-                }
-                return vec![self.build_rsc_handle(frag_spread, seam)];
-            }
             return match self.variant {
                 CodegenVariant::Reader => vec![self.build_rsc_seam_reader(frag_spread, seam)],
                 CodegenVariant::Normalization => {
@@ -1738,63 +1718,6 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
             value: Primitive::String(self.rsc_render_id(seam)),
         });
         Primitive::Key(self.object(fields))
-    }
-
-    fn build_rsc_handle(
-        &mut self,
-        frag_spread: &FragmentSpread,
-        seam: &RscSeamMetadata,
-    ) -> Primitive {
-        let client_id_field_name = self.schema.field(self.schema.clientid_field()).name.item;
-        let public_arguments: Vec<&Argument> = frag_spread
-            .arguments
-            .iter()
-            .filter(|argument| seam.is_public_argument(argument.name.item))
-            .collect();
-        let identity_arguments = self.build_arguments_from_refs(public_arguments.clone());
-        let handler_arguments = self.build_arguments(&frag_spread.arguments);
-        let filters = if public_arguments.is_empty() {
-            Primitive::SkippableNull
-        } else {
-            Primitive::Key(
-                self.array(
-                    public_arguments
-                        .iter()
-                        .map(|argument| Primitive::String(argument.name.item.0))
-                        .collect(),
-                ),
-            )
-        };
-        let source_field = Primitive::Key(self.object(object! {
-            alias: Primitive::SkippableNull,
-            args: identity_arguments.map_or(Primitive::SkippableNull, Primitive::Key),
-            kind: Primitive::String(CODEGEN_CONSTANTS.scalar_field),
-            name: Primitive::String(client_id_field_name),
-            storage_key: Primitive::SkippableNull,
-        }));
-        let mut handle_object = object! {
-            alias: Primitive::SkippableNull,
-            args: identity_arguments.map_or(Primitive::SkippableNull, Primitive::Key),
-            filters: filters,
-            handle: Primitive::String("rsc".intern()),
-            key: Primitive::String(seam.definition_id),
-            kind: Primitive::String(CODEGEN_CONSTANTS.scalar_handle),
-            name: Primitive::String(client_id_field_name),
-        };
-        // `handleArgs` is optional but not nullable in the runtime's
-        // NormalizationHandle type, so a handle without arguments omits it.
-        if let Some(handler_arguments) = handler_arguments {
-            handle_object.push(ObjectEntry {
-                key: CODEGEN_CONSTANTS.handle_args,
-                value: Primitive::Key(handler_arguments),
-            });
-        }
-        let handle_field = Primitive::Key(self.object(handle_object));
-        let selections = Primitive::Key(self.array(vec![source_field, handle_field]));
-        Primitive::Key(self.object(object! {
-            kind: Primitive::String(CODEGEN_CONSTANTS.client_extension),
-            selections: selections,
-        }))
     }
 
     fn build_rsc_seam_reader(
@@ -3620,7 +3543,6 @@ struct ContextualMetadata {
     has_exec_time_resolvers_directive: bool,
     has_exec_time_resolvers_enabled_provider: bool,
     has_server_to_client_resolvers: bool,
-    rsc_seams: Vec<RscSeamMetadata>,
     use_experimental_provider: Option<WithLocation<StringKey>>,
 }
 

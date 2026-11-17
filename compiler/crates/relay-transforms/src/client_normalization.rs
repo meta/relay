@@ -93,10 +93,8 @@ pub(crate) fn generate_server_operation_handoffs(
         collector.client_fragments.sort_unstable();
         collector.client_fragments.dedup();
         for client_fragment in &mut collector.client_fragments {
-            match boundary_root_variables(program, fragments_program, &operation, client_fragment) {
-                Ok(root_variables) => client_fragment.root_variables = root_variables,
-                Err(error) => errors.push(error),
-            }
+            client_fragment.root_variables =
+                boundary_root_variables(program, fragments_program, &operation, client_fragment);
         }
         handoffs.insert(
             operation.name.item,
@@ -203,7 +201,7 @@ fn boundary_root_variables(
     fragments_program: &Program,
     operation: &OperationDefinition,
     client_fragment: &ServerOperationClientFragment,
-) -> Result<Vec<VariableName>, Diagnostic> {
+) -> Vec<VariableName> {
     let is_defined = |definitions: &[VariableDefinition], name: &VariableName| {
         definitions
             .iter()
@@ -222,9 +220,17 @@ fn boundary_root_variables(
                     && is_defined(&operation.variable_definitions, name)
             })
             .collect()
-    } else if let Some(fragment) = fragments_program.fragment(client_fragment.fragment) {
+    } else {
         // A base project's normalization: the operation variables its
         // fragment reads, outside each fragment's own arguments.
+        let fragment = fragments_program
+            .fragment(client_fragment.fragment)
+            .unwrap_or_else(|| {
+                panic!(
+                    "should have the definition of client fragment `{}`, which a client boundary names",
+                    client_fragment.fragment
+                )
+            });
         let mut collector = UsedVariableCollector::new(fragments_program, fragments_program);
         collector.visit_fragment(fragment);
         collector
@@ -232,16 +238,9 @@ fn boundary_root_variables(
             .into_iter()
             .filter(|name| is_defined(&operation.variable_definitions, name))
             .collect()
-    } else {
-        return Err(Diagnostic::error(
-            ValidationMessage::MissingClientNormalization {
-                fragment_name: client_fragment.fragment,
-            },
-            client_fragment.fragment_location,
-        ));
     };
     root_variables.sort_unstable();
-    Ok(root_variables)
+    root_variables
 }
 
 /// Collects the variables that selections read, including inside the
@@ -366,12 +365,6 @@ impl Visitor for UsedVariableCollector<'_> {
 enum ValidationMessage {
     #[error("Server-owned operations do not yet support non-inlined fragment `{fragment_name}`.")]
     NoInlineFragmentUnsupported {
-        fragment_name: FragmentDefinitionName,
-    },
-    #[error(
-        "The normalization operation of client fragment `{fragment_name}` is missing, so the operation variables it reads are unknown."
-    )]
-    MissingClientNormalization {
         fragment_name: FragmentDefinitionName,
     },
 }

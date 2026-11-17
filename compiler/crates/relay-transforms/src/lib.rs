@@ -224,7 +224,6 @@ pub use required_directive::RequiredMetadataDirective;
 pub use required_directive::THROW_ACTION;
 pub use required_directive::required_directive;
 pub use root_variables::VariableMapEntry;
-pub use rsc_resolver_fields::ClientRscSeamMetadata;
 pub use rsc_resolver_fields::RscSeamMetadata;
 pub(crate) use rsc_resolver_fields::lower_rsc_resolver_fields;
 pub use rsc_resolver_fields::rsc_fragment_prop_name;

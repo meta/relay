@@ -159,11 +159,6 @@ pub fn rsc_seam_arguments(spread: &FragmentSpread, seam: &RscSeamMetadata) -> Ve
         .collect()
 }
 
-/// Marks the same seam after it has been retained in `$clientNormalization`.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct ClientRscSeamMetadata;
-associated_data_impl!(ClientRscSeamMetadata);
-
 pub(crate) fn lower_rsc_resolver_fields(
     program: &Program,
     base_fragment_names: &FragmentDefinitionNameSet,
