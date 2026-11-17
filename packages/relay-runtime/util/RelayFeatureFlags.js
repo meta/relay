@@ -124,6 +124,8 @@ export type FeatureFlags = {
   ENABLE_PERF_READER: boolean,
   // Records, mutations, normalization and publishing to the store.
   ENABLE_PERF_PUBLISH: boolean,
+  // The garbage collector's reference marking (RelayReferenceMarker).
+  ENABLE_PERF_CHECK_GC: boolean,
   // recycleNodesInto and the notify overlap check (hasOverlappingIDsPerf).
   ENABLE_PERF_NOTIFY: boolean,
   // RelayObservable's subscriptions and hasCycle().
@@ -162,6 +164,7 @@ const RelayFeatureFlags: FeatureFlags = {
   ENABLE_PERF_STORAGE_KEYS: false,
   ENABLE_PERF_READER: false,
   ENABLE_PERF_PUBLISH: false,
+  ENABLE_PERF_CHECK_GC: false,
   ENABLE_PERF_NOTIFY: false,
   ENABLE_PERF_QUERY: false,
 };
