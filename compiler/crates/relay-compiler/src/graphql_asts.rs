@@ -22,6 +22,7 @@ use graphql_ir::OperationDefinitionName;
 use graphql_syntax::ExecutableDefinition;
 use graphql_syntax::ParserFeatures;
 use intern::string_key::StringKey;
+use rayon::iter::IntoParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use relay_config::ProjectConfig;
 use relay_config::ProjectName;
@@ -116,6 +117,20 @@ pub struct GraphQLAsts {
 }
 
 impl GraphQLAsts {
+    /// Drops the ASTs in parallel; a large project holds hundreds of thousands
+    /// of definitions, twice.
+    pub fn drop_in_parallel(self) {
+        let Self {
+            asts,
+            all_definitions,
+            ..
+        } = self;
+        rayon::join(
+            || asts.into_par_iter().for_each(drop),
+            || all_definitions.into_par_iter().for_each(drop),
+        );
+    }
+
     pub fn get_executable_definitions_for_file(
         &self,
         file_path: &Path,

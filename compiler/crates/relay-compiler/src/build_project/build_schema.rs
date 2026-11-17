@@ -269,7 +269,11 @@ pub(crate) fn preparse_unique_server_schemas(
     let mut schema_groups: FnvHashMap<&Path, Vec<&ProjectConfig>> = FnvHashMap::default();
     for project_config in config.enabled_projects() {
         if let Some(path) = schema_location_sdl_path(&project_config.schema_location) {
-            // Only include projects that will actually rebuild their schema
+            // Only include projects that will build and rebuild their schema
+            let will_build = compiler_state.project_has_pending_changes(project_config.name)
+                || project_config
+                    .base
+                    .is_some_and(|base| compiler_state.project_has_pending_changes(base));
             let needs_rebuild = !compiler_state
                 .schema_cache
                 .contains_key(&project_config.name)
@@ -277,7 +281,7 @@ pub(crate) fn preparse_unique_server_schemas(
                 || project_config
                     .base
                     .is_some_and(|base| compiler_state.project_has_pending_schema_changes(base));
-            if needs_rebuild {
+            if will_build && needs_rebuild {
                 schema_groups.entry(path).or_default().push(project_config);
             }
         }

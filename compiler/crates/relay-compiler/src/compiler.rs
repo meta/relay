@@ -723,6 +723,7 @@ async fn build_projects<TPerfLogger: PerfLogger + 'static>(
     }
 
     let mut handles: Vec<JoinHandle<std::result::Result<_, BuildProjectFailure>>> = Vec::new();
+    let mut built_asts = Vec::new();
     for WithDiagnostics {
         item: (project_name, schema, programs, artifacts),
         diagnostics,
@@ -736,10 +737,12 @@ async fn build_projects<TPerfLogger: PerfLogger + 'static>(
             .get(&project_name)
             .cloned()
             .unwrap_or_else(|| Arc::new(ArtifactMapKind::Unconnected(Default::default())));
-        let mut removed_artifact_sources = graphql_asts
+        let mut project_asts = graphql_asts
             .remove(&project_name)
-            .expect("Expect GraphQLAsts to exist.")
-            .removed_definition_names;
+            .expect("Expect GraphQLAsts to exist.");
+        let mut removed_artifact_sources =
+            std::mem::take(&mut project_asts.removed_definition_names);
+        built_asts.push(project_asts);
 
         let removed_docblock_artifact_sources =
             get_removed_docblock_artifact_source_keys(compiler_state.docblocks.get(&project_name));
@@ -801,6 +804,10 @@ async fn build_projects<TPerfLogger: PerfLogger + 'static>(
             Ok(((project_name, artifact_map, schema), diagnostics))
         }));
     }
+    built_asts
+        .into_par_iter()
+        .chain(graphql_asts.into_par_iter().map(|(_, asts)| asts))
+        .for_each(GraphQLAsts::drop_in_parallel);
     setup_event.stop(build_commit_state_timer);
 
     let commit_all_projects_timer = setup_event.start("commit_all_projects_time");
