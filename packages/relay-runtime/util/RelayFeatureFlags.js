@@ -126,7 +126,7 @@ export type FeatureFlags = {
   ENABLE_PERF_PUBLISH: boolean,
   // recycleNodesInto and the notify overlap check (hasOverlappingIDsPerf).
   ENABLE_PERF_NOTIFY: boolean,
-  // RelayObservable's subscriptions.
+  // RelayObservable's subscriptions and hasCycle().
   ENABLE_PERF_QUERY: boolean,
 };
 

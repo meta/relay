@@ -11,6 +11,7 @@
 
 'use strict';
 
+const RelayFeatureFlags = require('../RelayFeatureFlags');
 const {hasCycle, stableCopy} = require('../stableCopy');
 
 describe('stableCopy', () => {
@@ -114,6 +115,42 @@ describe('hasCycle', () => {
     expect(hasCycle(Infinity)).toBe(false);
   });
 
+  it('reads ENABLE_PERF_QUERY once per call, not once per nested value', () => {
+    const enabled = RelayFeatureFlags.ENABLE_PERF_QUERY;
+    let reads = 0;
+    Reflect.defineProperty(RelayFeatureFlags, 'ENABLE_PERF_QUERY', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        reads++;
+        return enabled;
+      },
+    });
+    try {
+      expect(hasCycle({a: {b: [1, {c: 2}]}, d: [3]})).toBe(false);
+      expect(reads).toBe(1);
+    } finally {
+      Reflect.defineProperty(RelayFeatureFlags, 'ENABLE_PERF_QUERY', {
+        configurable: true,
+        enumerable: true,
+        value: enabled,
+        writable: true,
+      });
+    }
+  });
+
+  it('detects a cycle in a value that other values follow', () => {
+    const value: {self?: unknown} = {};
+    value.self = value;
+    expect(hasCycle({x: value, y: 1})).toBe(true);
+  });
+
+  it("calls an array's own some() as the check without the flag does", () => {
+    const array = [1];
+    Reflect.defineProperty(array, 'some', {value: () => true});
+    expect(hasCycle({a: array})).toBe(true);
+  });
+
   it('does not detect multiple null or NaN as a cycle', () => {
     expect(hasCycle([null, null])).toBe(false);
     expect(hasCycle([NaN, NaN])).toBe(false);
@@ -174,5 +211,44 @@ describe('hasCycle', () => {
       b: someObj,
     };
     expect(hasCycle(object)).toBe(false);
+  });
+});
+
+describe('hasCycle with parents', () => {
+  it('treats the given parents as ancestors and leaves them unchanged', () => {
+    const parent = {a: 1};
+    const parents = new Set<unknown>([parent]);
+    expect(hasCycle({child: parent}, parents)).toBe(true);
+    expect(hasCycle({child: [{a: 1}]}, parents)).toBe(false);
+    expect(Array.from(parents)).toEqual([parent]);
+  });
+
+  it('keeps the given parents for an array with its own some()', () => {
+    const parent = {a: 1};
+    const array = [parent];
+    Reflect.defineProperty(array, 'some', {
+      value: (callback: (item: unknown) => boolean) => [parent].some(callback),
+    });
+    expect(hasCycle({a: array}, new Set<unknown>([parent]))).toBe(true);
+  });
+
+  it('visits only the items an array had when its check started', () => {
+    const array: Array<unknown> = [1];
+    Reflect.defineProperty(array, '0', {
+      enumerable: true,
+      get() {
+        array.push(array);
+        return 1;
+      },
+    });
+    expect(hasCycle({a: array})).toBe(false);
+  });
+
+  it('detects a cycle through arrays and objects below the root', () => {
+    const inner: {self?: unknown} = {};
+    const value = {list: [1, 'a', {inner}]};
+    expect(hasCycle(value)).toBe(false);
+    inner.self = value.list;
+    expect(hasCycle(value)).toBe(true);
   });
 });
