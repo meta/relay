@@ -444,14 +444,15 @@ class QueryResourceImpl {
       }
     }
 
-    // Tracks whether this call has ever populated a cache entry for
-    // `cacheIdentifier`. Used by the `next`/`error` callbacks below to
-    // distinguish "entry not yet created" (synchronous observable that
-    // fires during `.subscribe()`, before the post-subscribe creation
-    // path at the bottom runs) from "entry was created and has since
-    // been disposed" (StrictMode / navigation / suspended-and-discarded
-    // — in which case we must NOT resurrect it).
-    let entryHasBeenCreated = false;
+    // The cache entry this call populated for `cacheIdentifier`, if any.
+    // Used by the `next`/`error` callbacks below to distinguish "entry not
+    // yet created" (synchronous observable that fires during `.subscribe()`,
+    // before the post-subscribe creation path at the bottom runs) from "entry
+    // was created and is no longer the one cached under `cacheIdentifier`":
+    // it was disposed (StrictMode / navigation / suspended-and-discarded), in
+    // which case we must NOT resurrect it, or disposed and replaced by the
+    // entry of a newer fetch, which this fetch must NOT overwrite.
+    let ownCacheEntry: ?QueryResourceCacheEntry = null;
 
     // NOTE: If this value is false, we will cache a promise for this
     // query, which means we will suspend here at this query root.
@@ -468,7 +469,7 @@ class QueryResourceImpl {
         this._clearCacheEntry,
       );
       this._cache.set(cacheIdentifier, cacheEntry);
-      entryHasBeenCreated = true;
+      ownCacheEntry = cacheEntry;
     }
 
     if (shouldFetch) {
@@ -522,10 +523,12 @@ class QueryResourceImpl {
           // entry has ever existed for this fetch — there is nothing
           // to resurrect.
           let cacheEntry = this._cache.get(cacheIdentifier);
+          if (ownCacheEntry != null && cacheEntry !== ownCacheEntry) {
+            // Still wake a render suspended on this fetch's promise.
+            resolveNetworkPromise();
+            return;
+          }
           if (cacheEntry == null) {
-            if (entryHasBeenCreated) {
-              return;
-            }
             cacheEntry = this._getOrCreateCacheEntry(
               cacheIdentifier,
               operation,
@@ -533,7 +536,7 @@ class QueryResourceImpl {
               queryResult,
               networkSubscription,
             );
-            entryHasBeenCreated = true;
+            ownCacheEntry = cacheEntry;
           }
           cacheEntry.processedPayloadsCount += 1;
           cacheEntry.setValue(queryResult);
@@ -550,10 +553,12 @@ class QueryResourceImpl {
           // disposed cache entry, but do create the entry on a
           // first-time synchronous fire.
           let cacheEntry = this._cache.get(cacheIdentifier);
+          if (ownCacheEntry != null && cacheEntry !== ownCacheEntry) {
+            // Still wake a render suspended on this fetch's promise.
+            resolveNetworkPromise();
+            return;
+          }
           if (cacheEntry == null) {
-            if (entryHasBeenCreated) {
-              return;
-            }
             cacheEntry = this._getOrCreateCacheEntry(
               cacheIdentifier,
               operation,
@@ -561,7 +566,7 @@ class QueryResourceImpl {
               error,
               networkSubscription,
             );
-            entryHasBeenCreated = true;
+            ownCacheEntry = cacheEntry;
           }
 
           // If, this is the first thing we receive for the query,
@@ -621,7 +626,7 @@ class QueryResourceImpl {
           this._clearCacheEntry,
         );
         this._cache.set(cacheIdentifier, cacheEntry);
-        entryHasBeenCreated = true;
+        ownCacheEntry = cacheEntry;
       }
     } else {
       const observerComplete = observer?.complete;
