@@ -74,13 +74,16 @@ function resultOf(snapshot: Snapshot): unknown {
 }
 
 // With ENABLE_PERF_READER on, RelayReaderOptimized#_readScalar takes the
-// storage key of a scalar field without arguments from its name, and calls
-// getStorageKey for every other field it reads, also when all its arguments
+// storage key of a scalar field without arguments from its name, as #_readLink
+// does for a singular linked field without arguments, and they call
+// getStorageKey for every other field they read, also when all its arguments
 // are literals: if only rarer fields made the call, V8 could optimize the
 // reader before the call had run, and the first such field would then
-// deoptimize it. Each case reads the same records with RelayReader (the flag
-// off) and RelayReaderOptimized, and every storage key holds a value of its
-// own, so a key that differs from RelayReader's reads another value or none.
+// deoptimize it. For the same reason RelayReaderOptimized#_readPluralLink
+// calls getStorageKey for every plural field: plural fields with arguments
+// are rare. Each case reads the same records with RelayReader (the flag off)
+// and RelayReaderOptimized, and every storage key holds a value of its own,
+// so a key that differs from RelayReader's reads another value or none.
 describe('RelayReaderOptimized storage keys', () => {
   it('reads fields without arguments, with literal and with variable arguments under the keys RelayReader uses', () => {
     const query = graphql`
@@ -182,9 +185,10 @@ describe('RelayReaderOptimized storage keys', () => {
     expect(optimized.snapshot.isMissingData).toBe(false);
     expect(resultOf(optimized.snapshot)).toEqual(resultOf(master.snapshot));
     // Every field with arguments goes through getStorageKey, the literal ones
-    // too; the fields without arguments (`me`, `id`, `allPhones`,
-    // `isVerified`, `firstName`, `uri`) don't.
+    // too, and so does every plural field (`allPhones`); the other fields
+    // without arguments (`me`, `id`, `isVerified`, `firstName`, `uri`) don't.
     expect(optimized.storageKeyFieldNames).toEqual([
+      'allPhones',
       'firstName',
       'url',
       'url',

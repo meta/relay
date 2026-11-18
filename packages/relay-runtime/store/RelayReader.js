@@ -3504,12 +3504,10 @@ class RelayReaderOptimized {
     record: Record,
     data: SelectorData,
   ): ?unknown {
-    // See _readScalar. Read `this._variables` for every field, not only for
-    // the rare fields with arguments: a full GC can clear that load's
-    // feedback, and the next field with arguments would deoptimize this.
-    const variables = this._variables;
-    const storageKey =
-      field.args == null ? field.name : getStorageKey(field, variables);
+    // No shortcut for fields without arguments (see _readScalar): plural fields
+    // with arguments are rare, so V8 could optimize this method before the call
+    // had run, and the first such field would then deoptimize it.
+    const storageKey = getStorageKey(field, this._variables);
     if (this._fieldGranularNotificationDataID != null) {
       this._seenRecords.add(
         getFieldNotificationKey(
