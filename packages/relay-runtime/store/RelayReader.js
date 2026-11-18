@@ -3358,10 +3358,45 @@ class RelayReaderOptimized {
     );
     const prevErrors = this._fieldErrors;
     this._fieldErrors = null;
-    // $FlowFixMe[incompatible-variance]
-    const value = this._traverse(field, linkedID, prevData);
-
-    this._prependPreviousErrors(prevErrors, fieldName);
+    // _traverse's work, done here, and _prependPreviousErrors only when the
+    // link added field errors: when V8 inlines this method into
+    // _traverseSelections, it keeps those two as real calls.
+    const linkedRecord = this._recordSource.get(linkedID);
+    const prevFieldGranularDataID = this._fieldGranularNotificationDataID;
+    if (
+      (!RelayFeatureFlags.ENABLE_PERF_PUBLISH ||
+        RelayFeatureFlags.ENABLE_FIELD_GRANULAR_NOTIFICATIONS) &&
+      linkedRecord != null &&
+      RelayModernRecord.getValue(linkedRecord, FIELD_GRANULAR_NOTIFICATIONS_KEY)
+    ) {
+      this._fieldGranularNotificationDataID = linkedID;
+    } else {
+      this._seenRecords.add(linkedID);
+      this._fieldGranularNotificationDataID = null;
+    }
+    let value;
+    if (linkedRecord == null) {
+      if (linkedRecord === undefined) {
+        this._markDataAsMissing('<record>');
+      }
+      value = linkedRecord;
+    } else {
+      // $FlowFixMe[incompatible-variance]
+      const linkedData: SelectorData = prevData || {};
+      value = this._traverseSelections(
+        field.selections,
+        linkedRecord,
+        linkedData,
+      )
+        ? linkedData
+        : null;
+    }
+    this._fieldGranularNotificationDataID = prevFieldGranularDataID;
+    if (this._fieldErrors != null) {
+      this._prependPreviousErrors(prevErrors, fieldName);
+    } else {
+      this._fieldErrors = prevErrors;
+    }
     data[fieldName] = value;
     return value;
   }
