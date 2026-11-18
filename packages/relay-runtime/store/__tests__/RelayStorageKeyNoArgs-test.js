@@ -35,13 +35,14 @@ const path = jest.requireActual<{
   join(...parts: ReadonlyArray<string>): string,
 }>('path');
 
-// RelayReader with ENABLE_PERF_READER and RelayResponseNormalizer with
-// ENABLE_PERF_STORAGE_KEYS take a field's name as its storage key when the
-// field has no arguments, without calling getStorageKey. That is right only
-// while every field with a static `storageKey` has arguments (the compiler's
-// build_ast.rs emits one only then). DataChecker or RelayReferenceMarker doing
-// the same would also rely on the handle fields cloned for checks and GC
-// keeping `name === storageKey` with `args: null`.
+// RelayReader with ENABLE_PERF_READER, and RelayResponseNormalizer and
+// DataChecker with ENABLE_PERF_STORAGE_KEYS, take a field's name as its storage
+// key when the field has no arguments, without calling getStorageKey. That is
+// right only while every field with a static `storageKey` has arguments (the
+// compiler's build_ast.rs emits one only then), and, for DataChecker, while the
+// handle fields cloned for checks keep `name === storageKey` with `args: null`.
+// RelayReferenceMarker doing the same would rely on that for the handle fields
+// cloned for GC too.
 
 type FieldKeys = {
   readonly args: unknown,

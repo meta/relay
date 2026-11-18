@@ -40,6 +40,7 @@ const {
   createRelayRecordSourceProxy,
 } = require('../mutations/RelayRecordSourceProxyOptimized');
 const getOperation = require('../util/getOperation');
+const RelayFeatureFlags = require('../util/RelayFeatureFlags');
 const {isClientID} = require('./ClientID');
 const cloneRelayHandleSourceField = require('./cloneRelayHandleSourceField');
 const cloneRelayScalarHandleSourceField = require('./cloneRelayScalarHandleSourceField');
@@ -57,6 +58,55 @@ export type Availability = {
 
 const {getModuleOperationKey, getStorageKey, getArgumentValues} =
   RelayStoreUtils;
+
+// With `ENABLE_PERF_STORAGE_KEYS`, the storage key of a field the checker
+// checks. A field without arguments is stored under its name: the compiler
+// emits a static `storageKey` only for fields with arguments, and the handle
+// fields cloned for checks have no arguments and their key as both name and
+// `storageKey`. Every field with arguments goes through getStorageKey, also
+// when they are all literals, so that V8 has type feedback for that call before
+// it optimizes the check.
+function getScalarStorageKeyByName(
+  field: NormalizationScalarField,
+  variables: Variables,
+): string {
+  return field.args == null ? field.name : getStorageKey(field, variables);
+}
+
+function getLinkStorageKeyByName(
+  field: NormalizationLinkedField,
+  variables: Variables,
+): string {
+  return field.args == null ? field.name : getStorageKey(field, variables);
+}
+
+function getPluralLinkStorageKeyByName(
+  field: NormalizationLinkedField,
+  variables: Variables,
+): string {
+  return field.args == null ? field.name : getStorageKey(field, variables);
+}
+
+// The key functions of the three check methods, shared by every checker: each
+// DataChecker constructor sets them from the flag, to getStorageKey when it is
+// off. A flag change in the middle of a check switches the rest of that check
+// to the other functions once another checker is constructed; both give the
+// same keys. They start as the helpers above rather than getStorageKey: with
+// inline requires, a reference to getStorageKey evaluated when this module
+// loads would load RelayStoreUtils (which needs `WeakMap`) along with this
+// module (`DataChecker-ExecTimeS2C-test` loads it without `WeakMap`).
+let getScalarStorageKey: (
+  field: NormalizationScalarField,
+  variables: Variables,
+) => string = getScalarStorageKeyByName;
+let getLinkStorageKey: (
+  field: NormalizationLinkedField,
+  variables: Variables,
+) => string = getLinkStorageKeyByName;
+let getPluralLinkStorageKey: (
+  field: NormalizationLinkedField,
+  variables: Variables,
+) => string = getPluralLinkStorageKeyByName;
 
 /**
  * Synchronously check whether the records required to fulfill the given
@@ -163,6 +213,13 @@ class DataChecker {
     this._recordWasMissing = false;
     this._variables = variables;
     this._log = log;
+    // The module-level key functions declared above, not fields.
+    const byName = RelayFeatureFlags.ENABLE_PERF_STORAGE_KEYS;
+    getScalarStorageKey = byName ? getScalarStorageKeyByName : getStorageKey;
+    getLinkStorageKey = byName ? getLinkStorageKeyByName : getStorageKey;
+    getPluralLinkStorageKey = byName
+      ? getPluralLinkStorageKeyByName
+      : getStorageKey;
   }
 
   _getMutatorAndRecordProxyForActor(
@@ -577,7 +634,7 @@ class DataChecker {
   }
 
   _checkScalar(field: NormalizationScalarField, dataID: DataID): void {
-    const storageKey = getStorageKey(field, this._variables);
+    const storageKey = getScalarStorageKey(field, this._variables);
     let fieldValue = this._mutator.getValue(dataID, storageKey);
     if (fieldValue === undefined) {
       fieldValue = this._handleMissingScalarField(field, dataID);
@@ -588,7 +645,7 @@ class DataChecker {
   }
 
   _checkLink(field: NormalizationLinkedField, dataID: DataID): void {
-    const storageKey = getStorageKey(field, this._variables);
+    const storageKey = getLinkStorageKey(field, this._variables);
     let linkedID = this._mutator.getLinkedRecordID(dataID, storageKey);
 
     if (linkedID === undefined) {
@@ -605,7 +662,7 @@ class DataChecker {
   }
 
   _checkPluralLink(field: NormalizationLinkedField, dataID: DataID): void {
-    const storageKey = getStorageKey(field, this._variables);
+    const storageKey = getPluralLinkStorageKey(field, this._variables);
     let linkedIDs = this._mutator.getLinkedRecordIDs(dataID, storageKey);
 
     if (linkedIDs === undefined) {
