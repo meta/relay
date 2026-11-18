@@ -52,13 +52,12 @@ function buildReactRelayContainer<TBase extends component(...empty)>(
   const Container = createContainerWithFragments(ComponentClass, fragments);
   Container.displayName = containerName;
 
-  function ForwardRef(
+  hook useForwardRef(
     props: any,
     ref:
       | ((v: null | React.ElementRef<TBase>) => unknown)
       | {writeonly current: null | React.ElementRef<TBase>, ...},
   ) {
-    // $FlowFixMe[react-rule-hook]
     const context = useContext(ReactRelayContext);
     invariant(
       context != null,
@@ -67,7 +66,6 @@ function buildReactRelayContainer<TBase extends component(...empty)>(
       containerName,
       containerName,
     );
-    // $FlowFixMe[react-rule-hook]
     const queryRendererContext = useContext(ReactRelayQueryRendererContext);
 
     return (
@@ -79,6 +77,19 @@ function buildReactRelayContainer<TBase extends component(...empty)>(
         }
         componentRef={props.componentRef || ref}
       />
+    );
+  }
+
+  function ForwardRef(
+    props: any,
+    ref:
+      | ((v: null | React.ElementRef<TBase>) => unknown)
+      | {writeonly current: null | React.ElementRef<TBase>, ...},
+  ) {
+    // $FlowFixMe[react-rule-hook-incompatible]
+    return (useForwardRef as (props: any, ref: typeof ref) => React.Node)(
+      props,
+      ref,
     );
   }
   ForwardRef.displayName = containerName;
