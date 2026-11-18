@@ -1,8 +1,7 @@
-# BUG: a screen goes permanently blank after you leave it mid-refresh
+# A screen left mid-refresh refetches when you open it again
 
-**This fixture records current, broken behaviour.** The snapshot below is the
-bug, not the goal. It exists so that the fix can be reviewed as a diff of the
-snapshot.
+This fixture records a fixed bug. Before the fix, the snapshot below read
+`(blank forever)` and `requests = 2`.
 
 The bug as a user would report it: *"If I open the profile, go back while it's
 refreshing, and open it again later, the name is just blank. No spinner, no
@@ -37,9 +36,8 @@ the background" policy. Every step is an ordinary user action:
    wait for, no error to catch, and no suspense to fall back to, so the screen
    renders blank and stays blank.
 
-Once a disposed entry stays disposed, step 6 will cache-miss, refetch, and
-render `Alice #3` after a third request. Until then the snapshot reads
-`(blank forever)` and `requests = 2`.
+A disposed entry stays disposed, so step 6 cache-misses, refetches, and
+renders `Alice #3` after a third request.
 
 Relay warns that it expected non-null fragment data only when a fragment reads
 as `undefined`, which here needed the root record itself to be gone. Since the
@@ -189,9 +187,8 @@ export default function TestApp() {
 
 ## Steps
 
-The last visit is the assertion, and it currently asserts the bug: a blank name
-and no third request. When the zombie is fixed this becomes
-`wait "name = Alice #3"` and the snapshot changes with it, to `requests = 3`.
+The last visit is the assertion: it refetches and renders the third response,
+so the snapshot shows `requests = 3`.
 
 ```steps
 wait "sidebar = Alice #1"
@@ -201,5 +198,5 @@ click button "Back"
 click button "Deliver refresh"
 click button "Close sidebar"
 click button "Open profile"
-wait "(blank forever)"
+wait "name = Alice #3"
 ```
