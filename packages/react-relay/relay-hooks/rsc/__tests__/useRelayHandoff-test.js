@@ -1097,6 +1097,66 @@ describe('useFragment with a handed-off reference', () => {
     expect(renderer.toJSON()).toBe('Zuckerberg 4.jpg');
   });
 
+  it('publishes again at commit when a reader revealed without rendering again lost its records before it committed', async () => {
+    const {me, sink} = await serve();
+    sink.complete();
+    await TestRenderer.act(() => flush());
+    const client = createClient();
+    const Activity = getActivity();
+    let renders = 0;
+    const shown: Array<string> = [];
+    component ShownCard(user: useRelayHandoffTestCard_user$key) {
+      const data = useFragment(CardFragment, user);
+      const text = `${data.lastName ?? ''} ${data.profilePicture?.uri ?? ''}`;
+      shown.push(text);
+      return text;
+    }
+    component CountedCard(user: useRelayHandoffTestCard_user$key) {
+      renders++;
+      return <ShownCard user={user} />;
+    }
+    const MemoCard = React.memo(CountedCard);
+    component Host(mode: 'hidden' | 'visible') {
+      return (
+        <Activity mode={mode}>
+          <MemoCard user={me.card} />
+        </Activity>
+      );
+    }
+    const wrap = (mode: 'hidden' | 'visible') => (
+      <RelayEnvironmentProvider environment={client.environment}>
+        <ErrorBoundary>
+          <React.Suspense fallback="loading">
+            <Host mode={mode} />
+          </React.Suspense>
+        </ErrorBoundary>
+      </RelayEnvironmentProvider>
+    );
+    // The hidden reader has not committed its effects. Remove a record below to
+    // verify commit-time replay; its render still has Relay's temporary retain.
+    let renderer;
+    await TestRenderer.act(async () => {
+      renderer = TestRenderer.create(wrap('hidden'), {
+        createNodeMock: () => null,
+        unstable_isConcurrent: true,
+      });
+      await flush();
+    });
+    const hiddenRenders = renders;
+    expect(hiddenRenders).toBeGreaterThan(0);
+    client.source.remove('client:4:profilePicture(size:[32])');
+    // Revealed, the memoized reader commits without rendering again, so only
+    // its commit can publish the records again.
+    await TestRenderer.act(async () => {
+      renderer?.update(wrap('visible'));
+      await flush();
+    });
+    expect(renders).toBe(hiddenRenders);
+    expect(client.source.has('client:4:profilePicture(size:[32])')).toBe(true);
+    expect(renderer?.toJSON()).toBe('Zuckerberg 4.jpg');
+    expect(shown.filter(text => text !== 'Zuckerberg 4.jpg')).toEqual([]);
+  });
+
   it('keeps a record a list repeats when the server appends it again', async () => {
     const sinks: Array<Sink<GraphQLResponse>> = [];
     const server = new Environment({

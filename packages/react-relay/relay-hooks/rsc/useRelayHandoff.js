@@ -26,6 +26,7 @@ import type {
   SingularReaderSelector,
   Snapshot,
 } from 'relay-runtime';
+import type {RecordJSON} from 'relay-runtime/store/RelayModernRecord';
 import type {Record} from 'relay-runtime/store/RelayStoreTypes';
 
 const {getQueryResourceForEnvironment} = require('../QueryResource');
@@ -44,10 +45,8 @@ const {
 } = require('react');
 const {
   __internal: {fetchQueryDeduped},
-  Environment: RelayModernEnvironment,
   FRAGMENT_OWNER_KEY,
   FRAGMENTS_KEY,
-  Network,
   Observable,
   Record: RelayModernRecord,
   RecordSource,
@@ -78,24 +77,25 @@ type HandoffRoot = {
   // The full lists its handoff sent, whether or not the client applied them.
   readonly serverLists: Map<string, ReadonlyArray<unknown>>,
   // What the server rendered its readers with, once a hydrating (or server)
-  // render executed it: an Environment with the records its handoff sent,
-  // which its readers read while they hydrate (see
-  // `createHydrationEnvironment`).
-  hydration: ?HydrationRecords,
+  // render executed it: a Store with the records its handoff sent, which its
+  // readers read while they hydrate (see `createHydrationStore`).
+  hydration: ?Store,
   // The server's ConnectionHandler connections and edges (see `toPayload`).
   readonly connections: Set<string>,
   readonly edges: Set<string>,
-  // Whether an execution is publishing its records now.
-  active: boolean,
-  // Bumped to execute the root again once its records were collected.
-  generation: number,
-  // The generation a render last executed.
-  executed: number,
-  // Whether its handoff completed: the server checked that the root's data
-  // was complete (see RelayServerHandoff).
+  // 'new' until a render executes it, 'running' while an execution
+  // publishes its records, then 'idle'.
+  status: 'new' | 'running' | 'idle',
+  // How many times a render executed it again. Its readers' effects depend
+  // on it, so each reader rendered after a replay checks the root again at
+  // its commit.
+  replays: number,
+  // Whether its handoff ever completed: the server checked that the root's
+  // data was complete (see RelayServerHandoff). Only then is the root
+  // executed again, once some of the records it published were collected,
+  // and then it only fills missing fields.
   delivered: boolean,
-  // The records its handoff published. A root executes again only once
-  // some were collected, and then only fills missing fields.
+  // The records its handoff published.
   readonly recordIDs: Set<DataID>,
   // The `@module` normalizations the server sent, by operation reference.
   // Garbage collection of the root's operation reads its `@module` data with
@@ -119,7 +119,7 @@ type HandoffRoot = {
 // readers render and commit in their own order, so a write older than one
 // already applied is never applied: the Store only moves forward (see
 // `RelayHandoff`). A hydrating reader reads its own root's records instead
-// (see `createHydrationEnvironment`). Kept on the record, it goes when the
+// (see `createHydrationStore`). Kept on the record, it goes when the
 // record does.
 const HANDOFF_WRITES_KEY = '__handoffWrites';
 
@@ -202,22 +202,21 @@ function getRoot(
   let root = state.roots.get(handoff);
   if (root == null) {
     root = {
-      active: false,
       operationKeys: getOperationKeys(handoff.fragment),
       connections: new Set(),
       delivered: false,
       edges: new Set(),
       error: null,
-      executed: -1,
-      generation: 0,
       hydration: null,
       id: handoff.id,
       modules: new Map(),
       notify: null,
       operation: getHandoffOperation(handoff),
       recordIDs: new Set(),
+      replays: 0,
       serverLists: new Map(),
       serverStore: handoff.serverStore,
+      status: 'new',
     };
     state.roots.set(handoff, root);
     handoffsByOwner.set(root.operation.request, handoff);
@@ -269,7 +268,7 @@ function toPayload(
   // On a replay, the records it re-created; others only get missing fields.
   created: ?Set<DataID>,
   // In a hydrating render: the root's own records, which this adds to.
-  hydrationRecords: ?{[dataID: DataID]: {[key: string]: unknown}},
+  hydrationRecords: ?{[dataID: DataID]: RecordJSON},
 ): GraphQLResponseWithData {
   const source = environment.getStore().getSource();
   const {serverLengths} = getState(environment);
@@ -424,15 +423,21 @@ function executeHandoff(
   root: HandoffRoot,
   inRender: boolean,
   hydrating: boolean,
-) {
-  return fetchQueryDeduped(environment, root.operation.request.identifier, () =>
+): void {
+  // No longer 'new', even when this joins an execution of its request that
+  // is already running (whose source then publishes instead).
+  if (root.status === 'new') {
+    root.status = 'idle';
+  }
+  fetchQueryDeduped(environment, root.operation.request.identifier, () =>
     environment.executeWithSource({
       operation: root.operation,
       source: Observable.create(sink => {
         let active = true;
-        // Executing a root again (once its records were collected) replays
-        // old data, so it must not overwrite newer fields.
-        const created = root.recordIDs.size > 0 ? new Set<DataID>() : null;
+        // Only a delivered root executes again (once its records were
+        // collected): that replays old data, so it must not overwrite newer
+        // fields.
+        const created = root.delivered ? new Set<DataID>() : null;
         // Notifying subscribers during render would update other components
         // while this one renders, so what is published before the
         // subscription returns notifies later.
@@ -449,7 +454,7 @@ function executeHandoff(
         // missing (the server render showed nothing else either: its readers
         // also hydrate). Every chunk goes to the Environment at once.
         if (inRender && hydrating) {
-          root.hydration = createHydrationEnvironment(environment);
+          root.hydration = createHydrationStore(environment);
         }
         const publish = (
           records: RelayHandoffChunk['records'],
@@ -457,9 +462,8 @@ function executeHandoff(
           sequence: number,
           serverRendered: boolean,
         ) => {
-          const hydrationRecords: ?{
-            [dataID: DataID]: {[key: string]: unknown},
-          } = serverRendered ? {} : null;
+          const hydrationRecords: ?{[dataID: DataID]: RecordJSON} =
+            serverRendered ? {} : null;
           const payload = toPayload(
             environment,
             root,
@@ -468,14 +472,16 @@ function executeHandoff(
             created,
             hydrationRecords,
           );
-          if (hydrationRecords != null) {
-            root.hydration?.environment.publishWithDeferredNotify(
+          const hydration = root.hydration;
+          if (hydrationRecords != null && hydration != null) {
+            // As an Environment publishes normalized records and then runs
+            // the notification it deferred.
+            hydration.publishWithDeferredNotify(
+              new RecordSource(hydrationRecords),
               root.operation,
-              {
-                data: hydrationRecords,
-                extensions: {is_normalized: true},
-              },
-            )();
+              new Set(),
+            );
+            hydration.notify();
           }
           if (modules != null) {
             Object.keys(modules).forEach(reference =>
@@ -533,7 +539,7 @@ function executeHandoff(
                 follow(arrived.next);
               };
               if (chunk == null) {
-                root.active = false;
+                root.status = 'idle';
                 root.delivered = true;
                 sink.complete();
               } else if (
@@ -559,7 +565,7 @@ function executeHandoff(
             },
             error => {
               if (active) {
-                root.active = false;
+                root.status = 'idle';
                 const failure =
                   error instanceof Error
                     ? error
@@ -576,9 +582,9 @@ function executeHandoff(
           handoff.sequence,
           root.hydration != null,
         );
-        // Active only once its first publish succeeded: a source that throws
+        // Running only once its first publish succeeded: a source that throws
         // returns no cleanup to end the execution.
-        root.active = true;
+        root.status = 'running';
         // As Relay's executor retains an operation whose payloads are still
         // arriving: later chunks extend the root's records.
         const executionRetain = environment.retain(root.operation);
@@ -586,50 +592,42 @@ function executeHandoff(
         deferNotify = null;
         return () => {
           active = false;
-          root.active = false;
+          root.status = 'idle';
           executionRetain.dispose();
         };
       }),
     }),
-  );
+  ).subscribe({
+    // A render's execution records its failure, which the root's readers
+    // throw. A replay that a commit starts records none.
+    error: inRender
+      ? (error: Error) => {
+          root.error = error;
+        }
+      : undefined,
+  });
 }
 
 // What the server rendered a root's readers with, as its handoff sent it, in
-// an Environment of its own: readers that hydrate read it, so they match the
+// a Store of its own: readers that hydrate read it, so they match the
 // server's HTML whatever newer data the root's chunks or other roots wrote to
-// the page's Environment since; after they commit they read the page's. It
-// has no network and retains nothing, and it is no larger than the handoff's
-// records, which it lives no longer than.
-type HydrationRecords = {
-  readonly environment: RelayModernEnvironment,
-  readonly store: Store,
-};
-
-// It reads its records as `environment`'s Store does (resolver context and
-// all) when that is a `RelayModernStore`.
-function createHydrationEnvironment(
-  environment: IEnvironment,
-): HydrationRecords {
+// the page's Store since; after they commit they read the page's. Nothing
+// retains its records, and it is no larger than the handoff's records, which
+// it lives no longer than. It reads its records as `environment`'s Store does
+// (resolver context and all) when that is a `RelayModernStore`.
+function createHydrationStore(environment: IEnvironment): Store {
   const source = new RecordSource();
   const pageStore = environment.getStore();
-  const store =
-    pageStore instanceof Store
-      ? pageStore.__createSnapshotStore(source)
-      : new Store(source);
-  return {
-    environment: new RelayModernEnvironment({
-      network: Network.create(() => Observable.create(() => {})),
-      store,
-    }),
-    store,
-  };
+  return pageStore instanceof Store
+    ? pageStore.__createSnapshotStore(source)
+    : new Store(source);
 }
 
 // Whether the Store has a root's data. `@module` data is checked with the
 // normalizations the server sent before the client loads the module.
 function hasData(environment: IEnvironment, root: HandoffRoot): boolean {
   const storeLoader = environment.getStore().getOperationLoader();
-  const store = (root.hydration?.environment ?? environment).getStore();
+  const store = root.hydration ?? environment.getStore();
   return (
     store.check(root.operation, {
       operationLoader:
@@ -644,15 +642,12 @@ function hasData(environment: IEnvironment, root: HandoffRoot): boolean {
   );
 }
 
-// Whether records a root published were collected since. Garbage
-// collection removes whole records, so checking that each is still in the
-// Store is enough, and needs no operation loader for `@module` data.
-function isCollected(
-  environment: IEnvironment,
-  handoff: RelayHandoff,
-): boolean {
-  const root = getRoot(environment, handoff);
-  if (!root.delivered || root.active) {
+// Whether a delivered root, not running, lost records it published to
+// garbage collection, which removes whole records: checking that each is
+// still in the Store is enough, and needs no operation loader for `@module`
+// data.
+function needsReplay(environment: IEnvironment, root: HandoffRoot): boolean {
+  if (root.status !== 'idle' || !root.delivered) {
     return false;
   }
   const source = environment.getStore().getSource();
@@ -662,32 +657,20 @@ function isCollected(
 type Acquisition = {
   release: () => void,
   releaseSoon: () => void,
-  cancelRelease: () => void,
 };
 
 function createAcquisition(release: () => void): Acquisition {
   let released = false;
-  let cancelled = false;
-  const acquisition = {
-    cancelRelease: () => {
-      cancelled = true;
-    },
-    release: () => {
-      if (!released) {
-        released = true;
-        release();
-      }
-    },
-    releaseSoon: () => {
-      cancelled = false;
-      void Promise.resolve().then(() => {
-        if (!cancelled) {
-          acquisition.release();
-        }
-      });
-    },
+  const releaseOnce = () => {
+    if (!released) {
+      released = true;
+      release();
+    }
   };
-  return acquisition;
+  return {
+    release: releaseOnce,
+    releaseSoon: () => void Promise.resolve().then(releaseOnce),
+  };
 }
 
 // A list field as a handoff sends it: the whole list, or the items appended
@@ -832,25 +815,23 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
       if (handoffs != null && root.error != null) {
         throw root.error;
       }
-      if (isCollected(environment, handoff)) {
-        root.generation++;
-      }
-      const id = `${root.operation.request.identifier}-${root.generation}`;
-      key = key == null ? id : `${key} ${id}`;
-      // Once per generation.
-      if (root.executed !== root.generation) {
-        root.executed = root.generation;
-        executeHandoff(environment, handoff, root, true, hydrating).subscribe({
-          error: error => {
-            root.error = error;
-          },
-        });
+      // A render executes a root once, and again once records of its
+      // delivered handoff were collected. Its records are in the Store once
+      // the execution starts, retained until the reader's layout effect
+      // retains them.
+      if (root.status === 'new') {
+        executeHandoff(environment, handoff, root, true, hydrating);
+      } else if (needsReplay(environment, root)) {
+        root.replays++;
+        executeHandoff(environment, handoff, root, true, hydrating);
       }
       // A chunk that had already failed (a settled Flight promise) fails the
       // root while it executes.
       if (handoffs != null && root.error != null) {
         throw root.error;
       }
+      const id = `${root.operation.request.identifier}-${root.replays}`;
+      key = key == null ? id : `${key} ${id}`;
       // `store-only`: the handoff, not QueryResource, executes the root.
       return queryResource.prepare(
         root.operation,
@@ -873,21 +854,15 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
   useLayoutEffect(() => {
     const previous = acquired.current;
     acquired.current = null;
-    previous?.cancelRelease();
     let roots: ReadonlyArray<HandoffRoot> = [];
     if (retained != null) {
       // Records collected before this reader committed (e.g. under an
       // Activity hidden from the start): publish them again from the
       // handoff, filling only missing fields.
       retained.forEach(handoff => {
-        if (isCollected(environment, handoff)) {
-          executeHandoff(
-            environment,
-            handoff,
-            getRoot(environment, handoff),
-            false,
-            false,
-          ).subscribe({});
+        const root = getRoot(environment, handoff);
+        if (needsReplay(environment, root)) {
+          executeHandoff(environment, handoff, root, false, false);
         }
       });
       // Retain before releasing the previous roots.
@@ -908,13 +883,13 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
       root.notify = null;
       notify?.();
     });
-    // `environment` and `key` identify the retained roots.
+    // `environment` and `key` identify the retained roots and their replays.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [environment, key]);
   useInsertionEffect(
     () => () => {
-      // A true unmount: release after the current task, unless a reader
-      // acquires the roots again first.
+      // A true unmount: release after the current task (another reader that
+      // acquires the roots first keeps them held).
       acquired.current?.releaseSoon();
     },
     [],
@@ -935,18 +910,18 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
   }
   const owned = withOwner(environment, fragmentRef);
   // A hydrating render reads each root's own records (see
-  // `createHydrationEnvironment`); other renders read the Environment's.
-  const hydrationEnvironments: Map<unknown, HydrationRecords> = new Map();
+  // `createHydrationStore`); other renders read the Environment's.
+  const hydrationStores: Map<unknown, Store> = new Map();
   if (hydrating) {
     handoffs.forEach(handoff => {
       const root = getRoot(environment, handoff);
       if (root.hydration != null) {
-        hydrationEnvironments.set(root.operation.request, root.hydration);
+        hydrationStores.set(root.operation.request, root.hydration);
       }
     });
   }
   if (
-    hydrationEnvironments.size === 0 ||
+    hydrationStores.size === 0 ||
     owned == null ||
     typeof owned !== 'object'
   ) {
@@ -954,14 +929,14 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
   }
   const hydratingRef: {...} = Array.isArray(owned) ? [...owned] : {...owned};
   const lookup = (selector: SingularReaderSelector): ?Snapshot => {
-    const hydration = hydrationEnvironments.get(selector.owner);
+    const hydration = hydrationStores.get(selector.owner);
     if (hydration == null) {
       return null;
     }
-    const snapshot = hydration.environment.lookup(selector);
+    const snapshot = hydration.lookup(selector);
     // A Live Resolver's value shows as it was read here; once the reader
     // commits it reads the page's Store, which follows it.
-    hydration.store.__unsubscribeFromLiveResolvers();
+    hydration.__unsubscribeFromLiveResolvers();
     // The fragments it spreads hydrate from the same records.
     forEachFragmentRef(snapshot.data, ref =>
       setHandoffHydrationLookup(ref, lookup),
