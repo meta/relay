@@ -2009,6 +2009,7 @@ dependencies = [
  "indexmap",
  "intern",
  "js-config-loader",
+ "libc",
  "log",
  "md-5",
  "persist-query",

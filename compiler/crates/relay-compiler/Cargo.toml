@@ -92,3 +92,6 @@ graphql-test-helpers = { path = "../graphql-test-helpers" }
 relay-test-schema = { path = "../relay-test-schema" }
 tempfile = "3.27.0"
 url = "2.5.8"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.186"

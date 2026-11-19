@@ -13,9 +13,14 @@
 //! * Applying transformations to the AST
 //! * Generating output files based on the transformed AST
 use std::collections::HashSet;
+use std::future::pending;
+use std::io;
+use std::io::BufRead;
+use std::io::IsTerminal;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
+use std::thread;
 
 use common::Diagnostic;
 use common::PerfLogEvent;
@@ -171,7 +176,19 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
     /// message rather than a crash error), and exits cleanly. The next
     /// client invocation respawns a fresh daemon via
     /// `ensure_daemon_running` against the current `current_exe()`.
+    ///
+    /// Outside daemon mode, when stdin is a terminal, entering `r` reruns
+    /// the setup of the outer loop, which includes `initialize_resources`.
     pub async fn watch(&self) -> Result<()> {
+        let reload_enabled =
+            self.config.daemon_build_status.is_none() && stdin_is_foreground_terminal();
+        let reload_requests = reload_enabled.then(spawn_reload_listener);
+        self.watch_with_reload_requests(reload_requests.as_deref())
+            .await
+    }
+
+    async fn watch_with_reload_requests(&self, reload_requests: Option<&Notify>) -> Result<()> {
+        let mut show_reload_hint = reload_requests.is_some();
         'watch: loop {
             // Clear any stale cached artifact operations from a previous watch
             // loop iteration. After a source control update (rebase), the old
@@ -347,6 +364,10 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
                     setup_event.stop(initial_watch_compile_timer);
                     setup_event.complete();
                     info!("Watching for new changes...");
+                    if show_reload_hint {
+                        info!("Press r + Enter to reload schemas and restart");
+                        show_reload_hint = false;
+                    }
 
                     if let Some(reason) = self
                         .incremental_build_loop(
@@ -354,6 +375,7 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
                             notify_receiver,
                             &subscription_handle,
                             restart_recheck_pending,
+                            reload_requests,
                         )
                         .await
                     {
@@ -395,11 +417,22 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
         notify_receiver: Arc<Notify>,
         subscription_handle: &JoinHandle<()>,
         restart_recheck_pending: Arc<AtomicBool>,
+        reload_requests: Option<&Notify>,
     ) -> Option<crate::config::RestartReason> {
         let mut red_to_green = RedToGreen::new();
 
         loop {
-            notify_receiver.notified().await;
+            // A reload request made during a build stays as a `Notify`
+            // permit, so this check handles it after the build.
+            tokio::select! {
+                biased;
+                _ = reload_requested(reload_requests) => {
+                    info!("Reload requested: reinitializing compiler state...");
+                    subscription_handle.abort();
+                    return None;
+                }
+                _ = notify_receiver.notified() => {}
+            }
 
             // Clear any deferred-restart wake-request from a prior iteration.
             // Without this, a deferred restart that gets woken by a non-Leave
@@ -640,6 +673,52 @@ impl<TPerfLogger: PerfLogger> Compiler<TPerfLogger> {
                 Ok(diagnostics)
             })
         })
+    }
+}
+
+/// Whether stdin is a terminal and this process is in the foreground process
+/// group of that terminal. A read from a background process group stops the
+/// process with `SIGTTIN`.
+#[cfg(unix)]
+fn stdin_is_foreground_terminal() -> bool {
+    // SAFETY: `tcgetpgrp` and `getpgrp` take no pointers and only read process
+    // state. `tcgetpgrp` returns -1 on failure, which never equals a group id.
+    io::stdin().is_terminal() && unsafe { libc::tcgetpgrp(libc::STDIN_FILENO) == libc::getpgrp() }
+}
+
+/// Whether stdin is a terminal. Platforms other than Unix have no process
+/// group check.
+#[cfg(not(unix))]
+fn stdin_is_foreground_terminal() -> bool {
+    io::stdin().is_terminal()
+}
+
+/// Starts a thread that notifies the returned `Notify` each time the user
+/// enters `r` on stdin. It is a plain thread, not `tokio::io::stdin`, so a
+/// pending read does not block runtime shutdown.
+fn spawn_reload_listener() -> Arc<Notify> {
+    let reload_requests = Arc::new(Notify::new());
+    let sender = Arc::clone(&reload_requests);
+    thread::spawn(move || forward_reload_requests(io::stdin().lock(), &sender));
+    reload_requests
+}
+
+/// Notifies `reload_requests` for each `r` line. Stops at end of input or at
+/// the first read error.
+fn forward_reload_requests(input: impl BufRead, reload_requests: &Notify) {
+    input
+        .lines()
+        .map_while(io::Result::ok)
+        .filter(|line| line.trim() == "r")
+        .for_each(|_| reload_requests.notify_one());
+}
+
+/// Completes when a reload is requested. Never completes when
+/// `reload_requests` is `None`.
+async fn reload_requested(reload_requests: Option<&Notify>) {
+    match reload_requests {
+        Some(reload_requests) => reload_requests.notified().await,
+        None => pending().await,
     }
 }
 
@@ -956,4 +1035,86 @@ fn get_removed_full_sources(full_sources: Option<&FullSources>) -> Vec<ArtifactS
         }
     }
     removed_full_sources
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::io::Cursor;
+    use std::time::Duration;
+
+    use common::NoopPerfLogger;
+    use futures::FutureExt;
+    use tokio::sync::mpsc;
+
+    use super::*;
+    use crate::config::FileSourceKind;
+    use crate::config::TestFileSourceConfig;
+
+    #[test]
+    fn reload_listener_only_accepts_r_lines() {
+        let reload_requests = Notify::new();
+
+        forward_reload_requests(Cursor::new("\nx\nrr\nreload\n"), &reload_requests);
+        assert!(
+            reload_requests.notified().now_or_never().is_none(),
+            "lines other than `r` should not request a reload"
+        );
+
+        forward_reload_requests(Cursor::new(b"\xff\nr\n".as_slice()), &reload_requests);
+        assert!(
+            reload_requests.notified().now_or_never().is_none(),
+            "a read error should stop the listener before the `r` line"
+        );
+
+        forward_reload_requests(Cursor::new("x\n r \n"), &reload_requests);
+        assert!(
+            reload_requests.notified().now_or_never().is_some(),
+            "an `r` line should request a reload"
+        );
+    }
+
+    #[tokio::test]
+    async fn reload_request_reruns_watch_setup() {
+        let root = tempfile::tempdir().expect("should create root dir");
+        fs::create_dir(root.path().join("src")).expect("should create src dir");
+        for (path, content) in [
+            (
+                "relay.config.json",
+                r#"{"sources": {"src": "test"}, "projects": {"test": {"schema": "schema.graphql", "language": "typescript"}}, "noSourceControl": true}"#,
+            ),
+            ("schema.graphql", "type Query { greeting: String }"),
+            ("src/foo.ts", "graphql`query fooQuery { greeting }`;"),
+        ] {
+            fs::write(root.path().join(path), content).expect("should write test file");
+        }
+
+        let mut config = Config::search(root.path()).expect("should load config");
+        config.file_source_config = FileSourceKind::Test(TestFileSourceConfig::new());
+        let (setup_runs_sender, mut setup_runs) = mpsc::unbounded_channel();
+        config.initialize_resources = Some(Box::new(move || {
+            setup_runs_sender
+                .send(())
+                .expect("test should receive setup runs");
+        }));
+        let compiler = Compiler::new(Arc::new(config), Arc::new(NoopPerfLogger));
+
+        // Requested before the first build, so the build loop must keep the
+        // request until the first build is done.
+        let reload_requests = Notify::new();
+        reload_requests.notify_one();
+
+        let setup_ran_twice = async {
+            setup_runs.recv().await;
+            setup_runs.recv().await;
+        };
+        tokio::select! {
+            result = compiler.watch_with_reload_requests(Some(&reload_requests)) => {
+                panic!("watch should not exit: {result:?}");
+            }
+            result = tokio::time::timeout(Duration::from_secs(60), setup_ran_twice) => {
+                result.expect("the reload request should run the watch setup again");
+            }
+        }
+    }
 }
