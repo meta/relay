@@ -1,0 +1,52 @@
+//- src/Page.js
+
+// A provided variable passed to an RSC field argument that only the component
+// receives is renamed to its global name in the seam's arguments, like any
+// other provided variable: in the Reader and in the server operation.
+graphql`query ServerRscProvidedVariableQuery @server {
+  me {
+    ...ServerRscProvidedVariable_user
+  }
+}`
+
+graphql`fragment ServerRscProvidedVariable_user on User @server
+  @argumentDefinitions(tone: {type: "String", provider: "ToneProvider.relayprovider"}) {
+  panel: rscPanel(tone: $tone)
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel(tone: String): RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

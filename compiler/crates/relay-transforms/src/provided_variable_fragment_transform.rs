@@ -14,6 +14,7 @@ use common::Named;
 use common::NamedItem;
 use common::WithLocation;
 use fnv::FnvHashMap;
+use graphql_ir::Directive;
 use graphql_ir::FragmentDefinition;
 use graphql_ir::Program;
 use graphql_ir::ProvidedVariableMetadata;
@@ -32,6 +33,7 @@ use schema::Type;
 use schema::TypeReference;
 use thiserror::Error;
 
+use crate::RscSeamMetadata;
 use crate::util::format_provided_variable_name;
 
 /// This transform applies provided variables in each fragment.
@@ -207,6 +209,26 @@ impl Transformer<'_> for ProvidedVariableFragmentTransform<'_> {
         } else {
             TransformedValue::Keep
         }
+    }
+
+    /// A Relay RSC field's component-only arguments live in its
+    /// `RscSeamMetadata`, which default directive visiting does not reach.
+    fn transform_directive(&mut self, directive: &Directive) -> Transformed<Directive> {
+        if directive.name.item == RscSeamMetadata::directive_name()
+            && let Some(seam) = RscSeamMetadata::from(directive)
+        {
+            return self
+                .transform_arguments(&seam.component_arguments)
+                .map(|component_arguments| {
+                    RscSeamMetadata {
+                        component_arguments,
+                        ..seam.clone()
+                    }
+                    .into()
+                })
+                .into();
+        }
+        self.default_transform_directive(directive)
     }
 
     fn transform_fragment(
