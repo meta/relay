@@ -146,7 +146,6 @@ function prepareEntryPoint<
         loadingPromise = loadingPromise ?? entryPoint.root.load();
         throw loadingPromise;
       }
-      // $FlowFixMe[incompatible-type] - trust me Flow, its entryPoint component
       return component as TEntryPointComponent;
     },
     // $FlowFixMe[incompatible-type]

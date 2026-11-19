@@ -159,7 +159,6 @@ component MatchContainer<
   }, [__id, __fragments, __fragmentOwner, __fragmentPropName]);
 
   if (LoadedContainer != null && fragmentProps != null) {
-    // $FlowFixMe[incompatible-type]
     // $FlowFixMe[cannot-spread-indexer]
     return <LoadedContainer {...props} {...fragmentProps} />;
   } else {

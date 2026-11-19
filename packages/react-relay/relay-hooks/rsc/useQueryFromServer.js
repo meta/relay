@@ -21,7 +21,6 @@ import type {IEnvironment, Query, Variables} from 'relay-runtime';
 const usePreloadedQuery = require('../usePreloadedQuery');
 const useRelayEnvironment = require('../useRelayEnvironment');
 const invariant = require('invariant');
-// $FlowFixMe[missing-export] React.use is available in React 19+
 const {use, useEffect, useLayoutEffect, useMemo} = require('react');
 const {
   Environment: RelayModernEnvironment,
@@ -154,7 +153,6 @@ hook useQueryFromServer<TVariables extends Variables, TData>(
   // created via loadQuery/useQueryLoader. There's no public API to create
   // one from server-fetched data, so we construct a plain object with the
   // fields usePreloadedQuery reads internally.
-  // $FlowFixMe[incompatible-call]
   // $FlowFixMe[incompatible-type]
   return usePreloadedQuery(query, preloadedQuery);
 }

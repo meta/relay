@@ -20,7 +20,6 @@ const React = require('react');
 const {act} = require('react');
 const {Environment, Network, RecordSource, Store} = require('relay-runtime');
 
-// $FlowFixMe[unclear-type]
 function createTestConcreteRequest(name: string, fields: Array<string>): any {
   const selections = fields.map(f => ({
     alias: null,
@@ -58,7 +57,6 @@ function createTestConcreteRequest(name: string, fields: Array<string>): any {
   };
 }
 
-// $FlowFixMe[unclear-type]
 function createTestEnvironment(baseFetch?: any): Environment {
   const fetch = baseFetch ?? (() => Promise.resolve({data: {}}));
   return new Environment({
@@ -67,7 +65,6 @@ function createTestEnvironment(baseFetch?: any): Environment {
   });
 }
 
-// $FlowFixMe[unclear-type]
 function createQueryRef(
   data: any,
   variables?: {...},
@@ -211,7 +208,6 @@ describe('useQueryFromServer', () => {
       now + 1,
     );
 
-    // $FlowFixMe[unclear-type]
     function TestComponent({queryRef}: any) {
       const data = useQueryFromServer(testQuery, queryRef);
       return <div data-testid="result">{data.name}</div>;
@@ -311,7 +307,6 @@ describe('useQueryFromServer', () => {
       );
     }
 
-    // $FlowFixMe[unclear-type] Flow can't track assignment through act() callback
     const ref: any = {current: null};
     await act(async () => {
       ref.current = ReactTestingLibrary.render(
@@ -375,7 +370,6 @@ describe('useQueryFromServer', () => {
       );
     }
 
-    // $FlowFixMe[unclear-type] Flow can't track assignment through act() callback
     const ref: any = {current: null};
     await act(async () => {
       ref.current = ReactTestingLibrary.render(
@@ -579,7 +573,6 @@ describe('useQueryFromServer', () => {
       );
 
       const query = createTestConcreteRequest('RoundtripQuery', ['id', 'name']);
-      // $FlowFixMe[incompatible-call] test fixture
       const queryRef = serverPreloadQuery(serverEnv, query, {});
 
       expect(queryRef.kind).toBe('PreloadedQueryRef');

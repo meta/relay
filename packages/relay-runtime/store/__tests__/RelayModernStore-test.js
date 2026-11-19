@@ -200,7 +200,6 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('frees data when disposed', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose} = store.retain(
             createOperationDescriptor(UserQuery, {id: '4', size: 32}),
           );
@@ -244,7 +243,6 @@ function cloneEventWithSets(event: LogEvent) {
             },
           });
           store.publish(nextSource);
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose} = store.retain(
             createOperationDescriptor(UserQuery, {id: '4', size: 32}),
           );
@@ -870,7 +868,6 @@ function cloneEventWithSets(event: LogEvent) {
           );
           const snapshot = store.lookup(selector);
           const callback = jest.fn<[Snapshot], void>();
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose} = store.subscribe(snapshot, callback);
           // Publish a change to profilePicture.uri
           const nextSource = getRecordSourceImplementation({
@@ -2518,7 +2515,6 @@ function cloneEventWithSets(event: LogEvent) {
             [ROOT_ID]: {
               __id: ROOT_ID,
               __typename: ROOT_TYPE,
-              // $FlowFixMe[invalid-computed-prop]
               [`node(id:"${nodeID}")`]: {__ref: nodeID},
             },
           });
@@ -2546,7 +2542,6 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('calls the gc scheduler function when GC should run', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose} = writeAndRetainNode('a');
           expect(schedulerQueue.length).toBe(0);
           /* $FlowFixMe[incompatible-type] Error exposed after fixing this
@@ -2557,9 +2552,7 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('runs GC with full cleanup mode when no retains left', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose: disposeA} = writeAndRetainNode('a');
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose: disposeB} = writeAndRetainNode('b');
           /* $FlowFixMe[incompatible-type] Error exposed after fixing this
            * typing unsoundness in flow */
@@ -2574,7 +2567,6 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('runs GC with partial cleanup when some retain is left', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose: disposeA} = writeAndRetainNode('a');
           writeAndRetainNode('b');
           /* $FlowFixMe[incompatible-type] Error exposed after fixing this
@@ -2590,7 +2582,6 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('GC pauses during optimistic updates.', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose: disposeA} = writeAndRetainNode('a');
           writeAndRetainNode('b');
           expect(getStoreRecordIDs()).toEqual(['a', 'b', 'client:root']);
@@ -2613,7 +2604,6 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('GC pauses after holdGC', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose: disposeA} = writeAndRetainNode('a');
           writeAndRetainNode('b');
           expect(getStoreRecordIDs()).toEqual(['a', 'b', 'client:root']);
@@ -2674,7 +2664,6 @@ function cloneEventWithSets(event: LogEvent) {
         });
 
         it('restarts GC when data is written halfway through', () => {
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose: disposeA} = writeAndRetainNode('a');
           writeAndRetainNode('b');
           /* $FlowFixMe[incompatible-type] Error exposed after fixing this
@@ -2803,7 +2792,6 @@ function cloneEventWithSets(event: LogEvent) {
 
         it('prevents data from being collected with disabled GC, and reruns GC when it is enabled', () => {
           const gcHold = store.holdGC();
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose} = store.retain(
             createOperationDescriptor(UserQuery, {id: '4', size: 32}),
           );

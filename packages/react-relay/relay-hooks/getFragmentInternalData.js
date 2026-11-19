@@ -30,7 +30,6 @@ function getFragmentInternalData(
   if (fragmentData == null || typeof fragmentData !== 'object') {
     return fragmentData;
   }
-  // $FlowFixMe[prop-missing] Result<T, _> shape
   return fragmentData.ok === true ? fragmentData.value : null;
 }
 

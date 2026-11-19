@@ -11,7 +11,6 @@
 
 'use strict';
 
-// $FlowFixMe[method-unbinding] added when improving typing for this parameters
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 function isEmptyObject(obj: {readonly [key: string]: unknown}): boolean {

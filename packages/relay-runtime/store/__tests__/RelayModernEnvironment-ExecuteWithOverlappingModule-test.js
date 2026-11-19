@@ -139,7 +139,6 @@ describe('execute() multiple queries with overlapping @module-s', () => {
       });
     };
     operationLoader = {
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       load: jest.fn(moduleName => {
         return Promise.resolve();
       }),

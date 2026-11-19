@@ -109,7 +109,6 @@ async function runViaOperationExecutor(
     gcReleaseBufferSize: 0,
   });
   const localEnv = new RelayModernEnvironment({
-    // $FlowFixMe[invalid-tuple-arity] error found when enabling Flow LTI mode
     network: RelayNetwork.create(localFetch),
     normalizeResponse: normalizeResponseSpy,
     operationLoader: buildOperationLoader(

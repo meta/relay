@@ -106,13 +106,11 @@ describe.each([
     function FragmentReader(props: {
       userRef: $FlowFixMe,
     }): React.MixedElement | string | null {
-      // $FlowFixMe[incompatible-call]
       const data = useFragment(FragmentArtifact, props.userRef);
       return data == null ? null : (data.name ?? 'no name');
     }
 
     function App(): React.Node {
-      // $FlowFixMe[incompatible-call]
       const data = useLazyLoadQuery(QueryArtifact, {id: '1'});
       if (data?.node == null) {
         return null;

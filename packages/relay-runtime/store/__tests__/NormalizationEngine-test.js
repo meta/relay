@@ -76,7 +76,6 @@ describe('NormalizationEngine', () => {
 
     const userRecord = result.payloads[0].source.get('1');
     expect(userRecord).toBeDefined();
-    // $FlowFixMe[prop-missing] - test internal record shape
     // $FlowFixMe[incompatible-use] - userRecord is checked above with toBeDefined
     expect(userRecord.name).toBe('Zuck');
   });

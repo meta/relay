@@ -75,15 +75,11 @@ describe('FragmentResource Client Edges behavior', () => {
     };
 
     release = jest.fn<ReadonlyArray<unknown>, unknown>();
-    // eslint-disable-next-line ft-flow/no-flow-fix-me-comments
-    // $FlowFixMe[method-unbinding]
     environment.retain.mockImplementation((...args) => {
       return {
         dispose: release,
       };
     });
-    // eslint-disable-next-line ft-flow/no-flow-fix-me-comments
-    // $FlowFixMe[method-unbinding]
     retain = environment.retain; // so that we don't have to suppress method-unbinding throughout.
   });
 

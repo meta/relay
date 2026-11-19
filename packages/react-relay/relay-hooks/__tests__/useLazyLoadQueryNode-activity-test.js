@@ -63,9 +63,7 @@ function expectToHaveFetched(
   environment: RelayMockEnvironment,
   query: OperationDescriptor,
 ) {
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute.mock.calls[0][0].operation).toMatchObject({
     fragment: expect.anything(),
     root: expect.anything(),
@@ -173,7 +171,6 @@ beforeEach(() => {
     store: new Store(new RecordSource(), {gcReleaseBufferSize: 0}),
   });
   release = jest.fn<[unknown], unknown>();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const originalRetain = environment.retain.bind(environment);
   // $FlowFixMe[cannot-write]
   environment.retain = jest.fn((...args) => {
@@ -222,7 +219,6 @@ it('fetches and renders the query data', async () => {
   expect(instance?.asFragment().textContent).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   await ReactTestingLibrary.act(() => {
@@ -265,9 +261,7 @@ it('does not dispose and GC the query when hiding within store TTL', async () =>
   expect(instance?.asFragment().textContent).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
   renderFn.mockClear();
 
@@ -285,7 +279,6 @@ it('does not dispose and GC the query when hiding within store TTL', async () =>
 
   const data = environment.lookup(query.fragment).data;
   expectToBeRendered(renderFn, data);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
   renderFn.mockClear();
 
@@ -357,9 +350,7 @@ it('disposes and GCs the query when hiding past query TTL in the store', async (
   expect(instance?.asFragment().textContent).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
   renderFn.mockClear();
 
@@ -377,7 +368,6 @@ it('disposes and GCs the query when hiding past query TTL in the store', async (
 
   const data = environment.lookup(query.fragment).data;
   expectToBeRendered(renderFn, data);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
   renderFn.mockClear();
 
@@ -412,9 +402,7 @@ it('does not dispose the temporary retain when hiding before committing', async 
   expect(instance.asFragment().textContent).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
   renderFn.mockClear();
 

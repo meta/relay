@@ -145,7 +145,6 @@ test('reads singular fragment data from the store', async () => {
     __id: 'user-1',
     __fragments: {TestFragment: {}},
     __fragmentOwner: operationDescriptor.request,
-    // $FlowFixMe[incompatible-type] test fixture
     $fragmentSpreads: {TestFragment: true},
   };
 
@@ -158,7 +157,6 @@ test('reads singular fragment data from the store', async () => {
 test('reads fragment data after serverFetchQuery populates the store', async () => {
   const {query, fragment} = createTestFixtures();
 
-  // $FlowFixMe[incompatible-type] test fixture
   await serverFetchQuery(environment, query, {});
 
   const request = getRequest(query);
@@ -168,7 +166,6 @@ test('reads fragment data after serverFetchQuery populates the store', async () 
     __id: 'user-1',
     __fragments: {TestFragment: {}},
     __fragmentOwner: operationDescriptor.request,
-    // $FlowFixMe[incompatible-type] test fixture
     $fragmentSpreads: {TestFragment: true},
   };
 

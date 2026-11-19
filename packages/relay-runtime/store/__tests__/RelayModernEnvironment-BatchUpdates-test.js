@@ -51,9 +51,7 @@ describe('experimental_batchUpdates()', () => {
     const operationB = createOperationDescriptor(queryB, {});
 
     const subjects: Array<$FlowFixMe> = [];
-    // $FlowFixMe[missing-local-annot]
     const fetch = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot]
       RelayObservable.create(sink => {
         subjects.push(sink);
       }),
@@ -155,9 +153,7 @@ describe('experimental_batchUpdates()', () => {
     const operation = createOperationDescriptor(query, {});
 
     const subjects: Array<$FlowFixMe> = [];
-    // $FlowFixMe[missing-local-annot]
     const fetch = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot]
       RelayObservable.create(sink => {
         subjects.push(sink);
       }),
@@ -219,9 +215,7 @@ describe('experimental_batchUpdates()', () => {
     const operation = createOperationDescriptor(query, {});
 
     const subjects: Array<$FlowFixMe> = [];
-    // $FlowFixMe[missing-local-annot]
     const fetch = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot]
       RelayObservable.create(sink => {
         subjects.push(sink);
       }),

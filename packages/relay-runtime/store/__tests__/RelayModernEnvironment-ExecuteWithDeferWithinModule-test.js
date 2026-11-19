@@ -99,7 +99,6 @@ function runViaOperationExecutor(args: ParityArgs): ParityResult {
     gcReleaseBufferSize: 0,
   });
   const localEnv = new RelayModernEnvironment({
-    // $FlowFixMe[invalid-tuple-arity] error found when enabling Flow LTI mode
     network: RelayNetwork.create(localFetch),
     normalizeResponse: normalizeResponseSpy,
     operationLoader: buildOperationLoader(args.loadFragment),
@@ -167,14 +166,12 @@ function createOperationLoader() {
     cache.set(moduleName, {kind: 'value', operation: operation});
   };
   const loader = {
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     get: jest.fn(moduleName => {
       const entry = cache.get(moduleName);
       if (entry && entry.kind === 'value') {
         return entry.operation;
       }
     }),
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     load: jest.fn(moduleName => {
       let entry = cache.get(moduleName);
       if (entry == null) {

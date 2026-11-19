@@ -91,7 +91,6 @@ describe('useBlockingPaginationFragment', () => {
     fragmentNode: any,
     fragmentRef: unknown,
   ) {
-    // $FlowFixMe[incompatible-type]
     const {data, ...result} = useBlockingPaginationFragmentOriginal(
       fragmentNode,
       // $FlowFixMe[incompatible-type]
@@ -147,8 +146,6 @@ describe('useBlockingPaginationFragment', () => {
 
   beforeEach(() => {
     // Set up mocks
-    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-     * enabling Flow LTI mode */
     renderSpy = jest.fn<_, unknown>();
 
     // Set up environment and base data
@@ -735,7 +732,6 @@ describe('useBlockingPaginationFragment', () => {
 
     beforeEach(() => {
       release = jest.fn<ReadonlyArray<unknown>, unknown>();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockImplementation((...args) => {
         return {
           dispose: release,
@@ -744,7 +740,6 @@ describe('useBlockingPaginationFragment', () => {
     });
 
     function expectRequestIsInFlight(expected: any) {
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment.execute).toBeCalledTimes(expected.requestCount);
       expect(
         environment.mock.isLoading(
@@ -807,7 +802,6 @@ describe('useBlockingPaginationFragment', () => {
           loadNext(1);
         });
 
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.execute).toHaveBeenCalledTimes(0);
       });
 
@@ -828,7 +822,6 @@ describe('useBlockingPaginationFragment', () => {
           loadNext(1);
         });
 
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.execute).toHaveBeenCalledTimes(0);
       });
 
@@ -870,7 +863,6 @@ describe('useBlockingPaginationFragment', () => {
           loadNext(1, {onComplete: callback});
         });
 
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.execute).toBeCalledTimes(1);
         expect(callback).toBeCalledTimes(1);
         expect(renderSpy).toBeCalledTimes(0);
@@ -880,7 +872,6 @@ describe('useBlockingPaginationFragment', () => {
         fetchQuery(environment, query).subscribe({});
 
         const callback = jest.fn<[Error | null], void>();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.execute.mockClear();
         await renderFragment();
 
@@ -894,7 +885,6 @@ describe('useBlockingPaginationFragment', () => {
         await act(async () => {
           loadNext(1, {onComplete: callback});
         });
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.execute).toBeCalledTimes(0);
         expect(callback).toBeCalledTimes(1);
         expect(renderSpy).toBeCalledTimes(0);
@@ -912,15 +902,12 @@ describe('useBlockingPaginationFragment', () => {
               hasPrevious: false,
             },
           ]);
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(0);
           await act(async () => {
             loadNext(1, {onComplete: callback});
           });
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(1);
           const unsubscribe = jest.spyOn(
-            // $FlowFixMe[method-unbinding]
             environment.execute.mock.subscriptions[0],
             'unsubscribe',
           );
@@ -949,7 +936,6 @@ describe('useBlockingPaginationFragment', () => {
           });
           // not cancelled, for activity compatibility
           expect(unsubscribe).toHaveBeenCalledTimes(0);
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           expect(environment.execute).toBeCalledTimes(1);
           expect(callback).toBeCalledTimes(0);
           expect(renderSpy).toBeCalledTimes(0);
@@ -965,15 +951,12 @@ describe('useBlockingPaginationFragment', () => {
               hasPrevious: false,
             },
           ]);
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(0);
           await act(async () => {
             loadNext(1, {onComplete: callback});
           });
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(1);
           const unsubscribe = jest.spyOn(
-            // $FlowFixMe[method-unbinding]
             environment.execute.mock.subscriptions[0],
             'unsubscribe',
           );
@@ -1001,9 +984,7 @@ describe('useBlockingPaginationFragment', () => {
             refetch({id: '4'});
           });
           expect(unsubscribe).toHaveBeenCalledTimes(1);
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           expect(environment.execute).toBeCalledTimes(1); // loadMore
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           expect(environment.executeWithSource).toBeCalledTimes(1); // refetch
           expect(callback).toBeCalledTimes(0);
           expect(renderSpy).toBeCalledTimes(0);
@@ -1443,7 +1424,6 @@ describe('useBlockingPaginationFragment', () => {
         // Paginate a second time
         renderSpy.mockClear();
         callback.mockClear();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.execute.mockClear();
         await act(async () => {
           loadNext(1, {onComplete: callback});
@@ -2872,15 +2852,12 @@ describe('useBlockingPaginationFragment', () => {
               hasPrevious: false,
             },
           ]);
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(0);
           await act(async () => {
             loadNext(1, {onComplete: callback});
           });
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(1);
           const unsubscribe = jest.spyOn(
-            // $FlowFixMe[method-unbinding]
             environment.execute.mock.subscriptions[0],
             'unsubscribe',
           );
@@ -2979,15 +2956,12 @@ describe('useBlockingPaginationFragment', () => {
               hasPrevious: false,
             },
           ]);
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(0);
           await act(async () => {
             loadNext(1, {onComplete: callback});
           });
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(1);
           const unsubscribe = jest.spyOn(
-            // $FlowFixMe[method-unbinding]
             environment.execute.mock.subscriptions[0],
             'unsubscribe',
           );
@@ -3097,15 +3071,12 @@ describe('useBlockingPaginationFragment', () => {
               hasPrevious: false,
             },
           ]);
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(0);
           await act(async () => {
             loadNext(1, {onComplete: callback});
           });
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(1);
           const unsubscribe = jest.spyOn(
-            // $FlowFixMe[method-unbinding]
             environment.execute.mock.subscriptions[0],
             'unsubscribe',
           );
@@ -3156,15 +3127,12 @@ describe('useBlockingPaginationFragment', () => {
           ]);
 
           let disposable;
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(0);
           await act(async () => {
             disposable = loadNext(1, {onComplete: callback});
           });
-          // $FlowFixMe[method-unbinding]
           expect(environment.execute.mock.subscriptions.length).toBe(1);
           const unsubscribe = jest.spyOn(
-            // $FlowFixMe[method-unbinding]
             environment.execute.mock.subscriptions[0],
             'unsubscribe',
           );
@@ -3751,7 +3719,6 @@ describe('useBlockingPaginationFragment', () => {
       // The bulk of refetch behavior is covered in useRefetchableFragmentNode-test,
       // so this suite covers the pagination-related test cases.
       function expectRefetchRequestIsInFlight(expected: any) {
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.executeWithSource).toBeCalledTimes(
           expected.requestCount,
         );
@@ -3791,9 +3758,7 @@ describe('useBlockingPaginationFragment', () => {
 
         // Assert query is retained by loadQuery
         // and tentatively retained while component is suspended
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(
           expected.refetchQuery ?? paginationQuery,
         );
@@ -3907,9 +3872,7 @@ describe('useBlockingPaginationFragment', () => {
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
       });
 
@@ -4021,9 +3984,7 @@ describe('useBlockingPaginationFragment', () => {
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
       });
 
@@ -4201,9 +4162,7 @@ describe('useBlockingPaginationFragment', () => {
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
       });
 
@@ -4315,13 +4274,10 @@ describe('useBlockingPaginationFragment', () => {
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
 
         // Paginate after refetching
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.execute.mockClear();
         await act(async () => {
           loadNext(1);

@@ -122,9 +122,7 @@ afterAll(() => {
 describe('usePreloadedQuery', () => {
   beforeEach(() => {
     dataSource = undefined;
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     fetch = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       Observable.create(sink => {
         dataSource = sink;
       }),
@@ -1043,9 +1041,7 @@ describe('usePreloadedQuery', () => {
     describe('when environments do not match', () => {
       it('should fetch the data at render time, even if the query has already resolved', () => {
         let altDataSource;
-        // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
         const altFetch = jest.fn((_query, _variables, _cacheConfig) =>
-          // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
           Observable.create(sink => {
             altDataSource = sink;
           }),

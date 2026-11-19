@@ -56,14 +56,12 @@ describe('MatchContainer', () => {
     jest.resetModules();
 
     loader = jest.fn<[unknown], component(...any)>();
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     UserComponent = jest.fn(props => (
       <div>
         <h1>User</h1>
         <pre>{JSON.stringify(props, null, 2)}</pre>
       </div>
     ));
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     ActorComponent = jest.fn(props => (
       <div>
         <h1>Actor</h1>

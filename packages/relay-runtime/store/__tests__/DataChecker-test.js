@@ -2130,7 +2130,6 @@ describe('check()', () => {
           createNormalizationSelector(UserFragment as $FlowFixMe, 'user1', {}),
           [
             // $FlowFixMe[invalid-tuple-arity] Error found while enabling LTI on this file
-            // $FlowFixMe[incompatible-type]
             {
               handle,
               kind: 'pluralLinked',
@@ -2475,7 +2474,6 @@ describe('check()', () => {
       beforeEach(() => {
         sampleData = {
           ...sampleData,
-          // $FlowFixMe[prop-missing]
           'client:4': {
             __id: 'client:4',
             __typename: 'Photo',
@@ -2588,7 +2586,6 @@ describe('check()', () => {
       });
 
       it('returns null invalidation epoch when stale record is unreachable', () => {
-        // $FlowFixMe[prop-missing]
         sampleData = {
           // Root record is missing, so none of the descendants are reachable
           '1': {
@@ -2606,7 +2603,6 @@ describe('check()', () => {
               __refs: [],
             },
           },
-          // $FlowFixMe[prop-missing]
           'client:4': {
             __id: 'client:4',
             __typename: 'Photo',

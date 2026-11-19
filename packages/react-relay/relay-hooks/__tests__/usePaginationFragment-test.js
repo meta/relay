@@ -129,8 +129,6 @@ class ErrorBoundary extends React.Component<any, any> {
 }
 
 hook usePaginationFragment(fragmentNode: any, fragmentRef: any) {
-  /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-   * enabling Flow LTI mode */
   const {data, ...result} = usePaginationFragmentImpl(
     fragmentNode,
     fragmentRef,
@@ -248,7 +246,6 @@ function createMockEnvironment() {
     network: Network.create(fetchFn),
     store,
   });
-  // $FlowFixMe[method-unbinding]
   const originalRetain = environment.retain;
   // $FlowFixMe[cannot-write]
   environment.retain = jest.fn((...args: any) =>
@@ -263,8 +260,6 @@ beforeEach(() => {
   // Set up mocks
   jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
   jest.mock('warning');
-  /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-   * enabling Flow LTI mode */
   renderSpy = jest.fn<_, unknown>();
   // Set up environment and base data
   [environment, fetch] = createMockEnvironment();
@@ -571,7 +566,6 @@ beforeEach(() => {
       () => ({
         [FRAGMENT_OWNER_KEY]: owner.request,
         [FRAGMENTS_KEY]: {
-          // $FlowFixMe[invalid-computed-prop] Error found while enabling LTI on this file
           [fragment.name]: {},
         },
         [ID_KEY]: owner.request.variables.id ?? owner.request.variables.nodeID,
@@ -880,7 +874,6 @@ describe.each([
 
     beforeEach(() => {
       release = jest.fn<ReadonlyArray<unknown>, unknown>();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockImplementation((...args) => {
         return {
           dispose: release,
@@ -999,7 +992,6 @@ describe.each([
             'Relay: Unexpected fetch while using a null fragment ref',
           ),
         ).toEqual(true);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(fetch).toHaveBeenCalledTimes(0);
       });
 
@@ -1154,7 +1146,6 @@ describe.each([
             node: {
               __typename: 'User',
               friends: {
-                // $FlowFixMe[missing-empty-array-annot]
                 edges: [],
                 pageInfo: {
                   endCursor: null,
@@ -3717,9 +3708,7 @@ describe.each([
 
         // Assert query is retained by loadQuery and
         // tentatively retained while component is suspended
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(
           expected.refetchQuery ?? paginationQuery,
         );
@@ -3839,9 +3828,7 @@ describe.each([
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
       });
 
@@ -3959,9 +3946,7 @@ describe.each([
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
       });
 
@@ -4145,9 +4130,7 @@ describe.each([
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
       });
 
@@ -4265,9 +4248,7 @@ describe.each([
 
         // Assert refetch query was retained by loadQuery and the component
         expect(release).not.toBeCalled();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain).toBeCalledTimes(2);
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         expect(environment.retain.mock.calls[0][0]).toEqual(paginationQuery);
 
         // Paginate after refetching
@@ -4529,7 +4510,6 @@ describe.each([
           }
         `;
 
-        // $FlowFixMe[prop-missing]
         // $FlowFixMe[incompatible-type]
         gqlFragment = graphql`
           fragment usePaginationFragmentTestStoryFragment on NonNodeStory

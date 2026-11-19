@@ -22,7 +22,6 @@ function hasSignificantOverlappingIDs(
   seenRecords: DataIDSet,
   updatedRecordIDs: DataIDSet,
 ): boolean {
-  // $FlowFixMe[incompatible-use]: Set is an iterable type, accessing its iterator is allowed.
   const iterator = seenRecords[ITERATOR_KEY]();
   let next = iterator.next();
   while (next.done !== true) {

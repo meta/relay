@@ -35,7 +35,6 @@ class FakeJSResource<T> {
 
     this.getModuleId = jest.fn(() => 'TheModuleID');
     this.getModuleIfRequired = jest.fn(() => this._resource);
-    // $FlowFixMe[incompatible-type]
     this.load = jest.fn(() => {
       return new Promise(resolve => {
         this._resolve = resolve;
@@ -239,8 +238,6 @@ test('it should return the module from an entry point that just returns the modu
 describe('with respect to loadQuery', () => {
   let mockLoadedQuery;
   const loadQuery = jest
-    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-     * enabling Flow LTI mode */
     .fn<_, {dispose: JestMockFn<ReadonlyArray<unknown>, unknown>}>()
     .mockImplementation(() => {
       return mockLoadedQuery;

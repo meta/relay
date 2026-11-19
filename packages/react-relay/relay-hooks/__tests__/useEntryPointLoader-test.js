@@ -41,8 +41,6 @@ let Container;
 let defaultEntryPoint: any;
 
 const loadEntryPoint = jest
-  /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-   * enabling Flow LTI mode */
   .fn<_, {dispose: JestMockFn<ReadonlyArray<unknown>, unknown>}>()
   .mockImplementation(() => {
     dispose = jest.fn();

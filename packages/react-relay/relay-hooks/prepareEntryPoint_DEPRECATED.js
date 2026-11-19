@@ -61,7 +61,6 @@ function prepareEntryPoint<
         environmentProviderOptions,
       );
 
-      // $FlowFixMe[incompatible-type]
       // $FlowFixMe[cannot-write]
       preloadedQueries[queryPropName] = preloadQuery<OperationType, unknown>(
         environment,

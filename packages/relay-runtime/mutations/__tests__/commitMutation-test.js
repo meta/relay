@@ -160,7 +160,6 @@ describe('Configs: NODE_DELETE', () => {
     expect(callback.mock.calls.length).toBe(1);
     expect(optimisticUpdater).toBeCalled();
     callback.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, {
       data: {
@@ -307,7 +306,6 @@ describe('Configs: RANGE_DELETE', () => {
     expect(callback.mock.calls.length).toBe(1);
     expect(optimisticUpdater).toBeCalled();
     callback.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, {
       data: {
@@ -434,7 +432,6 @@ describe('Configs: RANGE_DELETE', () => {
     expect(callback.mock.calls.length).toBe(1);
     expect(optimisticUpdater).toBeCalled();
     callback.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, {
       data: {
@@ -606,8 +603,6 @@ describe('Configs: RANGE_ADD', () => {
       optimisticResponse,
       optimisticUpdater,
       updater,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -616,7 +611,6 @@ describe('Configs: RANGE_ADD', () => {
     expect(callback.mock.calls.length).toBe(1);
     expect(optimisticUpdater).toBeCalled();
     callback.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, data);
     jest.runAllTimers();
@@ -663,8 +657,6 @@ describe('Configs: RANGE_ADD', () => {
     commitMutation(environment, {
       configs,
       mutation,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -688,7 +680,6 @@ describe('Configs: RANGE_ADD', () => {
         },
       },
     };
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, serverResponse);
     jest.runAllTimers();
@@ -752,8 +743,6 @@ describe('Configs: RANGE_ADD', () => {
     commitMutation(environment, {
       configs,
       mutation,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -839,8 +828,6 @@ describe('Configs: RANGE_ADD', () => {
       optimisticResponse,
       optimisticUpdater,
       updater,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -849,7 +836,6 @@ describe('Configs: RANGE_ADD', () => {
     expect(callback.mock.calls.length).toBe(1);
     expect(optimisticUpdater).toBeCalled();
     callback.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, data);
     jest.runAllTimers();
@@ -908,8 +894,6 @@ describe('Configs: RANGE_ADD', () => {
       optimisticResponse,
       optimisticUpdater,
       updater,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -918,7 +902,6 @@ describe('Configs: RANGE_ADD', () => {
     expect(callback.mock.calls.length).toBe(1);
     expect(optimisticUpdater).toBeCalled();
     callback.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, data);
     jest.runAllTimers();
@@ -964,8 +947,6 @@ describe('Configs: RANGE_ADD', () => {
     commitMutation(environment, {
       mutation,
       updater,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -1001,7 +982,6 @@ describe('Configs: RANGE_ADD', () => {
 
     environment.subscribe(snapshot, callback);
 
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, serverResponse);
     jest.runAllTimers();
@@ -1059,8 +1039,6 @@ describe('Configs: RANGE_ADD', () => {
     commitMutation(environment, {
       mutation,
       updater,
-      /* $FlowFixMe[prop-missing] error exposed when improving flow typing of
-       * commitMutation */
       /* $FlowFixMe[incompatible-type] error exposed when improving flow typing
        * of commitMutation */
       variables,
@@ -1154,9 +1132,7 @@ describe('Required mutation roots', () => {
   let dataSource;
   let environment;
   beforeEach(() => {
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     const fetch = jest.fn((_query, _variables, _cacheConfig) => {
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       return RelayObservable.create(sink => {
         dataSource = sink;
       });
@@ -1238,16 +1214,10 @@ describe('commitMutation()', () => {
       },
     };
 
-    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-     * enabling Flow LTI mode */
     onCompleted = jest.fn<_, void>();
     onError = jest.fn<[Error], void>();
-    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-     * enabling Flow LTI mode */
     onNext = jest.fn();
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     const fetch = jest.fn((_query, _variables, _cacheConfig) => {
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       return RelayObservable.create(sink => {
         dataSource = sink;
       });
@@ -1561,11 +1531,8 @@ describe('commitMutation() cacheConfig', () => {
     };
 
     cacheConfig = undefined;
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     const fetch = jest.fn((_query, _variables, _cacheConfig) => {
       cacheConfig = _cacheConfig;
-      /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-       * enabling Flow LTI mode */
       return RelayObservable.create(() => {});
     });
     const source = RelayRecordSource.create({});

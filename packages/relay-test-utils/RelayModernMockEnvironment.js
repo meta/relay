@@ -457,13 +457,9 @@ function createMockEnvironment(
   const createExecuteProxy = (
     env: IEnvironment,
     fn:
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       | IEnvironment['execute']
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       | IEnvironment['executeSubscription']
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       | IEnvironment['executeWithSource']
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       | IEnvironment['executeMutation'],
   ) => {
     return (...argumentsList: $FlowFixMe) => {
@@ -474,14 +470,12 @@ function createMockEnvironment(
   };
 
   // $FlowExpectedError[cannot-write]
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
    * unsoundness in flow */
   environment.execute = createExecuteProxy(environment, environment.execute);
   // $FlowExpectedError[cannot-write]
   environment.executeSubscription = createExecuteProxy(
     environment,
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
      * unsoundness in flow */
     environment.executeSubscription,
@@ -489,7 +483,6 @@ function createMockEnvironment(
   // $FlowExpectedError[cannot-write]
   environment.executeWithSource = createExecuteProxy(
     environment,
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
      * unsoundness in flow */
     environment.executeWithSource,
@@ -497,13 +490,11 @@ function createMockEnvironment(
   // $FlowExpectedError[cannot-write]
   environment.executeMutation = createExecuteProxy(
     environment,
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
      * unsoundness in flow */
     environment.executeMutation,
   );
 
-  // $FlowFixMe[incompatible-type]
   /* $FlowFixMe[invalid-compare] Error discovered during Constant Condition
    * roll out. See https://fburl.com/workplace/4oq3zi07. */
   if (global?.process?.env?.NODE_ENV === 'test') {
@@ -560,41 +551,25 @@ function createMockEnvironment(
 
   // $FlowExpectedError[cannot-write]
   environment.mockClear = () => {
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.applyUpdate.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.commitPayload.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.getStore.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.lookup.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.check.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.subscribe.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.retain.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.execute.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.executeMutation.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.executeSubscription.mockClear();
 
     // $FlowExpectedError[prop-missing]
     store.getSource().clear?.();
 
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     store.getSource.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     store.lookup.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     store.notify.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     store.publish.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     store.retain.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     store.subscribe.mockClear();
 
     cache.clear();

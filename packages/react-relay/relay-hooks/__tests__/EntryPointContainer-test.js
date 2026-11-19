@@ -90,7 +90,6 @@ class FakeJSResource<T> {
 
     this.getModuleId = jest.fn(() => 'TheModuleID');
     this.getModuleIfRequired = jest.fn(() => this._resource);
-    // $FlowFixMe[incompatible-type]
     this.load = jest.fn(() => {
       return new Promise(resolve => {
         this._resolve = resolve;
@@ -108,9 +107,7 @@ class FakeJSResource<T> {
 }
 
 beforeEach(() => {
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   fetch = jest.fn((_query, _variables, _cacheConfig) =>
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     Observable.create(sink => {
       dataSource = sink;
     }),
@@ -201,7 +198,6 @@ it('suspends while the query and component are pending', async () => {
     renderer = ReactTestingLibrary.render(
       <RelayEnvironmentProvider environment={environment}>
         <React.Suspense fallback="Fallback">
-          {/* $FlowFixMe[incompatible-type] */}
           <EntryPointContainer
             entryPointReference={entryPointReference}
             props={{}}
@@ -261,7 +257,6 @@ it.skip('suspends then updates when the query and component load', async () => {
     renderer = ReactTestingLibrary.render(
       <RelayEnvironmentProvider environment={environment}>
         <React.Suspense fallback="Fallback">
-          {/* $FlowFixMe[incompatible-type] */}
           <EntryPointContainer
             entryPointReference={entryPointReference}
             props={{}}
@@ -346,7 +341,6 @@ it('renders synchronously when the component has already loaded and the data arr
     renderer = ReactTestingLibrary.render(
       <RelayEnvironmentProvider environment={environment}>
         <React.Suspense fallback="Fallback">
-          {/* $FlowFixMe[incompatible-type] */}
           <EntryPointContainer
             entryPointReference={entryPointReference}
             props={{}}
@@ -362,7 +356,6 @@ it('renders synchronously when the component has already loaded and the data arr
 });
 
 it.skip('warns if the entryPointReference has already been disposed', async () => {
-  // $FlowFixMe[incompatible-type]
   entryPointReference = loadEntryPoint(
     {
       getEnvironment: () => environment,
@@ -375,7 +368,6 @@ it.skip('warns if the entryPointReference has already been disposed', async () =
       ReactTestingLibrary.render(
         <RelayEnvironmentProvider environment={environment}>
           <React.Suspense fallback="Fallback">
-            {/* $FlowFixMe[incompatible-type] */}
             <EntryPointContainer
               entryPointReference={entryPointReference}
               props={{}}

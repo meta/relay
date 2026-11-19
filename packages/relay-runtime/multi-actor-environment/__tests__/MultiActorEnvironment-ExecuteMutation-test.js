@@ -106,9 +106,7 @@ describe('executeMutation()', () => {
     operation = createOperationDescriptor(CreateCommentMutation, variables);
     queryOperation = createOperationDescriptor(CommentQuery, queryVariables);
 
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     fetch = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       RelayObservable.create(sink => {
         subject = sink;
       }),

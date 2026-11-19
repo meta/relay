@@ -709,9 +709,7 @@ class LiveResolverCache implements ResolverCache {
       const recordID: string = recordsToVisit.pop();
       visited.add(recordID);
 
-      // $FlowFixMe[incompatible-type]
       updatedDataIDs.add(recordID);
-      // $FlowFixMe[incompatible-type]
       const fragmentSet = this._recordIDToResolverIDs.get(recordID);
       if (fragmentSet == null) {
         continue;
@@ -827,7 +825,6 @@ class LiveResolverCache implements ResolverCache {
           // normalize does not mutate values, but it's impractical to type this
           // argument as readonly. For now we'll excuse ourselves and pass a
           // read only type
-          // $FlowFixMe[incompatible-variance]
           value,
           normalizationOptions,
           undefined,

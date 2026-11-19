@@ -16,7 +16,6 @@ import type {FetchFunction} from 'relay-runtime';
 const serverPreloadQuery = require('../rsc/serverPreloadQuery');
 const {Environment, Network, RecordSource, Store} = require('relay-runtime');
 
-// $FlowFixMe[unclear-type] test fixture for opaque Query type
 function createTestConcreteRequest(name: string, fields: Array<string>): any {
   const selections = fields.map(f => ({
     alias: null,

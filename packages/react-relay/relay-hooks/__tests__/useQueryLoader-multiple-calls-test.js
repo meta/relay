@@ -71,13 +71,11 @@ beforeEach(() => {
 
   PreloadableQueryRegistry.clear();
 
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   fetch = jest.fn((_query, _variables, _cacheConfig) => {
     // $FlowFixMe[missing-local-annot] Error found while enabling LTI on this file
     const observable = Observable.create(_sink => {
       sink = _sink;
     });
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const originalSubscribe: (
       observer: Observer<unknown> | Sink<unknown>,
     ) => Subscription = observable.subscribe.bind(observable);
@@ -96,7 +94,6 @@ beforeEach(() => {
   environment = createMockEnvironment({network: Network.create(fetch)});
 
   const originalExecuteWithSource =
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.executeWithSource.getMockImplementation();
   executeObservable = undefined;
 

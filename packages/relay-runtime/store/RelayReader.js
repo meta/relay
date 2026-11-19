@@ -339,7 +339,6 @@ class RelayReader {
         this._markDataAsMissing('<record>');
       }
       this._fieldGranularNotificationDataID = prevFieldGranularDataID;
-      // $FlowFixMe[incompatible-type]
       return record;
     }
     const data = prevData || {};
@@ -2269,7 +2268,6 @@ class RelayReaderOptimized {
         this._markDataAsMissing('<record>');
       }
       this._fieldGranularNotificationDataID = prevFieldGranularDataID;
-      // $FlowFixMe[incompatible-type]
       return record;
     }
     const data = prevData || {};

@@ -38,7 +38,6 @@ function trackRetentionForEnvironment(environment: IEnvironment): {
   });
 
   // $FlowFixMe[cannot-write] safe to do for mocking
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   environment.retain = jest.fn(operation => {
     const id = operation.request.identifier;
     const existing = retainCountsByOperation.get(id) ?? 0;

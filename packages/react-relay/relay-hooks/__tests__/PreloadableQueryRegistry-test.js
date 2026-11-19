@@ -86,7 +86,6 @@ describe('PreloadableQueryRegistry', () => {
       const callback = jest.fn<[ConcreteRequest], void>();
       const id1 = generateUniqueId();
       const c1 = makeConcreteRequest();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       const {dispose} = PreloadableQueryRegistry.onLoad(id1, callback);
       expect(callback).not.toHaveBeenCalled();
       /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
@@ -101,7 +100,6 @@ describe('PreloadableQueryRegistry', () => {
       const cb2 = jest.fn<[ConcreteRequest], void>();
       const id1 = generateUniqueId();
       const c1 = makeConcreteRequest();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       const {dispose} = PreloadableQueryRegistry.onLoad(id1, cb1);
       PreloadableQueryRegistry.onLoad(id1, cb2);
       expect(cb1).not.toHaveBeenCalled();

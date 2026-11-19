@@ -86,7 +86,6 @@ component Container(
 
   hasNextSpy?.(hasNext);
   isLoadingNextSpy?.(isLoadingNext);
-  // $FlowFixMe[incompatible-use]
   return `${edges.map(edge => edge.node.name).join(',')}/${availableSize}`;
 }
 

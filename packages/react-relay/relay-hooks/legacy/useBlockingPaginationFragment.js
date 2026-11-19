@@ -146,7 +146,6 @@ hook useBlockingPaginationFragment<
     (variables: TVariables, options: void | Options) => {
       disposeFetchNext();
       disposeFetchPrevious();
-      // $FlowFixMe[incompatible-variance]
       // $FlowFixMe[incompatible-type]
       return refetch(variables, {...options, __environment: undefined});
     },
