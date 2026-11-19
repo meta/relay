@@ -28,7 +28,11 @@ import type {
 } from 'relay-runtime';
 import type {Record} from 'relay-runtime/store/RelayStoreTypes';
 
-const {getHandoffOperation, getRelayHandoff} = require('./RelayHandoff');
+const {
+  getHandoffOperation,
+  getRelayHandoff,
+  someModuleImport,
+} = require('./RelayHandoff');
 const {setHandoffHydrationLookup} = require('./RelayHandoffSeam');
 const React = require('react');
 const {
@@ -47,6 +51,7 @@ const {
   Record: RelayModernRecord,
   RecordSource,
   Store,
+  getModuleOperationKey,
 } = require('relay-runtime');
 
 // Versions of React without insertion effects have no Activity either, so a
@@ -100,6 +105,10 @@ type HandoffRoot = {
   // Garbage collection of the root's operation reads its `@module` data with
   // them as well as the Store's operation loader, and so does `hasData`.
   readonly modules: Map<unknown, NormalizationSplitOperation>,
+  // The record fields that hold the operation providers of the root's
+  // provider-backed `@module` branches. As for any query, the Store's
+  // operation loader retains such data once it has the module.
+  readonly operationKeys: ReadonlySet<string>,
   // Why its server query failed, if it did; reads of the root throw it.
   error: ?Error,
   // Notifies the Store's subscribers of records published during render
@@ -198,6 +207,7 @@ function getRoot(
   if (root == null) {
     root = {
       active: false,
+      operationKeys: getOperationKeys(handoff.fragment),
       connections: new Set(),
       delivered: false,
       edges: new Set(),
@@ -220,6 +230,41 @@ function getRoot(
     handoffsByOwner.set(root.operation.request, handoff);
   }
   return root;
+}
+
+function getOperationKeys(
+  node: NormalizationSplitOperation,
+): ReadonlySet<string> {
+  const keys = new Set<string>();
+  someModuleImport(node.selections, moduleImport => {
+    if (moduleImport.operationModuleProvider != null) {
+      keys.add(getModuleOperationKey(moduleImport.documentName));
+    }
+    return false;
+  });
+  return keys;
+}
+
+// The Store retains a provider-backed module's data once its operation loader
+// has the module (see `RelayReferenceMarker`); until the load settles,
+// garbage collection waits, so that the data the handoff publishes stays.
+function loadModule(
+  environment: IEnvironment,
+  root: HandoffRoot,
+  key: string,
+  value: unknown,
+): void {
+  if (!root.operationKeys.has(key) || typeof value !== 'function') {
+    return;
+  }
+  const store = environment.getStore();
+  const operationLoader = store.getOperationLoader();
+  if (operationLoader != null && operationLoader.get(value) == null) {
+    const hold = store.holdGC();
+    void new Promise<unknown>(resolve => resolve(operationLoader.load(value)))
+      .finally(() => hold.dispose())
+      .catch(() => {});
+  }
 }
 
 function toPayload(
@@ -278,6 +323,7 @@ function toPayload(
     const writes: {[storageKey: string]: HandoffWrite} = {};
     Object.keys(record).forEach(key => {
       let value = record[key];
+      loadModule(environment, root, key, value);
       const listKey = `${dataID}\n${key}`;
       // The list this root's handoff sent before, and what it sends now.
       const serverList = root.serverLists.get(listKey);

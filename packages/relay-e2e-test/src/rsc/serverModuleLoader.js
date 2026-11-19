@@ -61,7 +61,10 @@ function compile(source, filename, cache) {
     return fs.readFileSync(cached, 'utf-8');
   }
   const {transformSource} = require('../../jest-transform');
-  const {code} = transformSource(source, filename, {commonjs: true});
+  const {code} = transformSource(source, filename, {
+    commonjs: true,
+    requireImports: true,
+  });
   if (cached != null) {
     fs.mkdirSync(CACHE_DIR, {recursive: true});
     fs.writeFileSync(`${cached}.${process.pid}`, code);

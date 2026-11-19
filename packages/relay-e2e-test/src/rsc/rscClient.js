@@ -33,6 +33,7 @@ const {
   RecordSource,
   Store,
 } = require('relay-runtime');
+const vm = require('vm');
 
 const HOST_PROCESS = path.join(__dirname, 'referenceHost.server.js');
 const READY_TIMEOUT_MS = 20000;
@@ -187,6 +188,10 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
 
   const clientModules = new Map();
   const evaluatedModules = new Set();
+  const loadedModules = () =>
+    [...new Set([...clientModules.keys(), ...evaluatedModules])].sort();
+  // The expressions `eval` steps evaluated, with their results.
+  const evaluations = [];
   activeSession = {
     async loadClientModule(id) {
       if (!clientModules.has(id)) {
@@ -212,6 +217,17 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
     evaluatedModules.add(`fixture:${file}`);
   };
 
+  // The normalizations of `@module` selections, which module providers load.
+  // The browser imports them as it does client modules.
+  const operations = new Map();
+  const operationLoader = {
+    get: reference => operations.get(reference) ?? null,
+    async load(reference) {
+      const {default: operation} = await reference();
+      operations.set(reference, operation);
+      return operation;
+    },
+  };
   const environment = new Environment({
     network: Network.create((params, variables) =>
       Observable.create(sink => {
@@ -227,7 +243,8 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
           .finally(entry.end);
       }),
     ),
-    store: new Store(new RecordSource()),
+    operationLoader,
+    store: new Store(new RecordSource(), {operationLoader}),
   });
   // Client components read the fragment references server components hand
   // them: the app's opt-in, where it creates the Environment.
@@ -409,6 +426,13 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
       countRequests: request =>
         wireLog.filter(entry => `${entry.method} ${entry.pathname}` === request)
           .length,
+      async evaluate(expression) {
+        const result = await vm.runInNewContext(expression, {
+          document,
+          modules: loadedModules(),
+        });
+        evaluations.push(`${expression}\n${JSON.stringify(result, null, 2)}`);
+      },
       navigate(search) {
         if (router.navigate == null) {
           throw new Error('relay-e2e-test: the page is not hydrated yet.');
@@ -454,9 +478,7 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
       if (transportErrors.length > 0) {
         throw new Error(`A page request failed: ${transportErrors[0]}`);
       }
-      const browserModules = [
-        ...new Set([...clientModules.keys(), ...evaluatedModules]),
-      ].sort();
+      const browserModules = loadedModules();
       const sections = [];
       if (serverConsole.length > 0) {
         sections.push(['Server Console', '', serverConsole.join('\n')]);
@@ -470,6 +492,9 @@ function createRscSession({fixtureDir, host, flushOnShell}) {
       sections.push(['Network', '', network.join('\n')]);
       if (browserModules.length > 0) {
         sections.push(['Browser Modules', '', browserModules.join('\n')]);
+      }
+      if (evaluations.length > 0) {
+        sections.push(['Evaluated', '', evaluations.join('\n\n')]);
       }
       if (ssrHtml != null) {
         // React's development build puts error stacks, with the fixture's

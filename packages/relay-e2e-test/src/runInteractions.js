@@ -21,6 +21,7 @@ type Step = {
 export type RscSteps = {
   countFlightRows: () => Promise<{rows: number, outlined: number}>,
   countRequests: (request: string) => number,
+  evaluate: (expression: string) => Promise<void>,
   navigate: (search: string) => void,
   readWire: () => Promise<string>,
   releaseGate: (name: string) => Promise<void>,
@@ -37,7 +38,10 @@ const USAGE = `Expected step syntax:
   navigate "?id=2"           — render the page for new search params, in a transition
   release "gate"             — open the gate server code awaits with waitForGate("gate")
   wire-excludes "Text"       — assert the browser has not received "Text", once every
-                               response so far is complete
+                               response so far is complete: for server-only data
+  eval "expression"          — evaluate a JavaScript expression in the browser, with
+                               document and modules (the modules it has loaded) in
+                               scope, and add its result to the snapshot
   requests "POST /graphql" 0 — assert how many such requests the browser has sent
   outlined-rows 0            — assert how many outlined rows the latest page's Flight
                                response has, once it is complete (see countFlightRows
@@ -177,6 +181,7 @@ const RSC_ACTIONS = [
   'navigate',
   'release',
   'wire-excludes',
+  'eval',
   'requests',
   'outlined-rows',
 ];
@@ -223,6 +228,10 @@ async function runRscStep(line: string, rsc: ?RscSteps): Promise<boolean> {
       if (forms.some(form => wire.includes(form))) {
         throw new Error(`Step "${line}" failed: "${text}" reached the browser.`);
       }
+      break;
+    }
+    case 'eval': {
+      await rsc.evaluate(expectQuoted(argument, 'expression', line));
       break;
     }
     case 'requests': {

@@ -1,0 +1,63 @@
+//- src/ServerUser.js
+
+// A `@no_inline` client fragment with `@match`: the `@server` request's
+// normalization spreads the fragment's normalization operation. The request's
+// handoff entry imports the fragment's generated `$moduleProviders.client`
+// exports, and the split operation keeps its own providers inline.
+graphql`query ServerUserQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "clientCard")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User @no_inline {
+  nameRenderer @match {
+    ...ClientCard_plainRenderer @module(name: "./PlainRenderer")
+  }
+}`
+
+graphql`fragment ClientCard_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "flow",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer | MarkdownUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}
+
+type MarkdownUserNameRenderer {
+  markdown: String
+  js(module: String!, id: String): JSDependency
+}
+
+scalar JSDependency

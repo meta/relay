@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use common::SourceLocationKey;
 use content::generate_fragment;
+use content::generate_module_providers;
 use content::generate_operation;
 use content::generate_resolvers_schema_module_content;
 use content::generate_split_operation;
@@ -67,6 +68,12 @@ pub enum ArtifactContent {
         no_optional_fields_in_raw_response_type: bool,
     },
     ResolversSchema,
+    /// A `'use client'` module that exports the module providers of a client
+    /// fragment's `@module` branches: each export's name and expression.
+    ModuleProviders {
+        exports: Vec<(String, String)>,
+        imports_js_resource: bool,
+    },
     Generic {
         content: Vec<u8>,
     },
@@ -180,6 +187,11 @@ impl ArtifactContent {
                 generate_resolvers_schema_module_content(config, project_config, printer, schema)
                     .unwrap()
             }
+            ArtifactContent::ModuleProviders {
+                exports,
+                imports_js_resource,
+            } => generate_module_providers(config, project_config, exports, *imports_js_resource)
+                .unwrap(),
             ArtifactContent::Generic { content } => content.clone(),
         }
     }

@@ -18,6 +18,10 @@ import type {
   OperationDescriptor,
   Variables,
 } from 'relay-runtime';
+import type {
+  NormalizationModuleImport,
+  NormalizationSelection,
+} from 'relay-runtime/util/NormalizationNode';
 
 const {createOperationDescriptor} = require('relay-runtime');
 
@@ -83,6 +87,40 @@ function getRelayHandoff(fragmentRef: unknown): unknown {
   return handoff;
 }
 
+// Whether selections include an `@module` selection that passes `test`.
+function someModuleImport(
+  selections: ReadonlyArray<NormalizationSelection>,
+  test: (moduleImport: NormalizationModuleImport) => boolean,
+): boolean {
+  return selections.some(selection => {
+    switch (selection.kind) {
+      case 'ModuleImport':
+        return test(selection);
+      case 'FragmentSpread':
+        return someModuleImport(selection.fragment.selections, test);
+      case 'ActorChange':
+      case 'ClientEdgeToClientObject':
+      case 'ClientEdgeToServerObject':
+        return someModuleImport([selection.linkedField], test);
+      case 'ClientExtension':
+      case 'Condition':
+      case 'Defer':
+      case 'InlineFragment':
+      case 'LinkedField':
+      case 'Stream':
+        return someModuleImport(selection.selections, test);
+      case 'RelayResolver':
+      case 'RelayLiveResolver':
+        return (
+          selection.fragment != null &&
+          someModuleImport([selection.fragment], test)
+        );
+      default:
+        return false;
+    }
+  });
+}
+
 /**
  * The operation of a client fragment root: the fragment's normalization,
  * keyed by the handoff `id`, executed from the handed-off record. The client
@@ -136,4 +174,4 @@ function getHandoffOperation(handoff: {
   );
 }
 
-module.exports = {getHandoffOperation, getRelayHandoff};
+module.exports = {getHandoffOperation, getRelayHandoff, someModuleImport};

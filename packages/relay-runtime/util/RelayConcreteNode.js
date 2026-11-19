@@ -49,6 +49,9 @@ export type ServerHandoff = {
   readonly clientFragments?: ReadonlyArray<{
     readonly fragment: ReaderFragment,
     readonly normalization: NormalizationSplitOperation,
+    // The exports of the generated `'use client'` module with the providers
+    // of `normalization`'s provider-backed `@module` branches.
+    readonly moduleProviders?: {readonly [name: string]: unknown},
     readonly rootVariables?: ReadonlyArray<string>,
   }>,
   ...

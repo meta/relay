@@ -1297,7 +1297,7 @@ describe('RelayServerHandoff', () => {
     }
   });
 
-  it('rejects @module data loaded by module providers', async () => {
+  it('rejects @module data whose module providers no providers module exports', async () => {
     const PlainNormalization = require('./__generated__/RelayServerHandoffTestPlainUserNameRenderer_name$normalization.graphql');
     // The query as the compiler emits it without Haste: the `@module`
     // selection names its modules by provider functions.
@@ -1321,7 +1321,7 @@ describe('RelayServerHandoff', () => {
     sinks[0].next(moduleResponse);
     sinks[0].complete();
     await expect(result).rejects.toThrow(
-      'loaded by module providers. Handing it to a client component is not supported yet.',
+      'providers no generated providers module exports',
     );
   });
 

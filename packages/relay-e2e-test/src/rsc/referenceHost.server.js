@@ -79,10 +79,21 @@ async function startRscServer({fixtureDir, host}) {
   const {gratsNetwork} = require(path.join(fixtureDir, 'GratsNetwork.ts'));
   const runID = path.basename(fixtureDir);
 
+  // The normalizations of `@module` selections, which module providers load.
+  const providerModules = new Map();
+  const operationLoader = {
+    get: reference => providerModules.get(reference) ?? null,
+    async load(reference) {
+      const operation = interopDefault(await reference());
+      providerModules.set(reference, operation);
+      return operation;
+    },
+  };
   const createEnvironment = () =>
     new Environment({
       isServer: true,
       network: gratsNetwork,
+      operationLoader,
       store: new Store(new RecordSource()),
     });
   // `nextjs` creates one server environment and lets React.cache scope its
@@ -217,6 +228,17 @@ async function startSsrServer({fixtureDir, flushOnShell, rscOrigin}) {
     ),
   };
 
+  // The normalizations of `@module` selections, which module providers load.
+  const providerModules = new Map();
+  const operationLoader = {
+    get: reference => providerModules.get(reference) ?? null,
+    async load(reference) {
+      const operation = interopDefault(await reference());
+      providerModules.set(reference, operation);
+      return operation;
+    },
+  };
+
   // A Relay Environment per request. Any operation it sends is logged, so a
   // fixture's snapshot shows a server-side render that fetched.
   function createEnvironment() {
@@ -233,7 +255,8 @@ async function startSsrServer({fixtureDir, flushOnShell, rscOrigin}) {
     const environment = new Environment({
       isServer: true,
       network: Network.create(fetchFn),
-      store: new Store(new RecordSource()),
+      operationLoader,
+      store: new Store(new RecordSource(), {operationLoader}),
     });
     // Client components read the fragment references server components hand
     // them: the app's opt-in, where it creates the Environment.

@@ -27,13 +27,9 @@ import type {
   Variables,
 } from 'relay-runtime';
 import type {Record} from 'relay-runtime/store/RelayStoreTypes';
-import type {
-  NormalizationModuleImport,
-  NormalizationSelectableNode,
-  NormalizationSelection,
-} from 'relay-runtime/util/NormalizationNode';
+import type {NormalizationSelectableNode} from 'relay-runtime/util/NormalizationNode';
 
-const {getHandoffOperation} = require('./RelayHandoff');
+const {getHandoffOperation, someModuleImport} = require('./RelayHandoff');
 const invariant = require('invariant');
 const {
   __internal: {generateTypeID, isTypeID, markReferences},
@@ -47,6 +43,8 @@ const {
 
 type ClientFragment = {
   readonly normalization: NormalizationSplitOperation,
+  // The exports of its generated providers module (see `_toWire`).
+  readonly providers: ?{readonly [name: string]: unknown},
   readonly rootVariables: ReadonlyArray<string>,
 };
 
@@ -55,8 +53,18 @@ type Visit = {
   readonly variables: Variables,
 };
 
+// A handoff as the server sends it. Its `fragment` names module providers
+// by client references, which React Flight sends as the providers they
+// reference: the client receives the normalization (`RelayHandoff`).
+type SentHandoff = {
+  ...RelayHandoff,
+  readonly fragment: unknown,
+};
+
 type Root = {
-  handoff: ?RelayHandoff,
+  handoff: ?SentHandoff,
+  // Its handoff's `id`.
+  readonly id: string,
   readonly dataID: DataID,
   readonly node: NormalizationSplitOperation,
   readonly variables: Variables,
@@ -140,33 +148,31 @@ function getRefs(value: unknown): ?ReadonlyArray<unknown> {
     : null;
 }
 
-// Whether selections include an `@module` selection that passes `test`.
-function someModuleImport(
-  selections: ReadonlyArray<NormalizationSelection>,
-  test: (moduleImport: NormalizationModuleImport) => boolean,
-): boolean {
-  return selections.some(selection => {
-    switch (selection.kind) {
-      case 'ModuleImport':
-        return test(selection);
-      case 'FragmentSpread':
-        return someModuleImport(selection.fragment.selections, test);
-      case 'ActorChange':
-      case 'ClientEdgeToClientObject':
-      case 'ClientEdgeToServerObject':
-        return someModuleImport([selection.linkedField], test);
-      case 'ClientExtension':
-      case 'Condition':
-      case 'Defer':
-      case 'InlineFragment':
-      case 'LinkedField':
-      case 'Stream':
-        return someModuleImport(selection.selections, test);
-      default:
-        return false;
-    }
+// A copy of a normalization in which each provider function `references`
+// names is replaced by its client reference.
+function withProviderReferences(
+  value: unknown,
+  references: ReadonlyMap<unknown, unknown>,
+): unknown {
+  if (Array.isArray(value)) {
+    const items = value.map(item => withProviderReferences(item, references));
+    return items.some((item, index) => item !== value[index]) ? items : value;
+  }
+  if (value == null || typeof value !== 'object') {
+    return references.has(value) ? references.get(value) : value;
+  }
+  const copy: {[key: string]: unknown} = {};
+  let changed = false;
+  Object.keys(value).forEach(key => {
+    copy[key] = withProviderReferences(value[key], references);
+    changed = changed || copy[key] !== value[key];
   });
+  return changed ? copy : value;
 }
+
+// The normalization of each client fragment as handoffs send it.
+const wireNormalizations: WeakMap<NormalizationSplitOperation, unknown> =
+  new WeakMap();
 
 // The length of `before` if `after` only appended to it. For the list an
 // `@stream` item was appended to, checking the old list's ends is enough, so
@@ -276,6 +282,9 @@ class RelayServerHandoff {
   _updated: Set<DataID> = new Set();
   // The `@module` operation references the operation loader is loading.
   _loadingModules: Set<unknown> = new Set();
+  // The client reference for each `@module` provider function of the
+  // request's normalization and of its client fragments' (see `_toWire`).
+  _providerReferences: Map<unknown, unknown> = new Map();
   _syncForced: boolean = false;
   _observer: ?Disposable = null;
   _syncScheduled: boolean = false;
@@ -298,10 +307,15 @@ class RelayServerHandoff {
     this._clientFragments = new Map();
     (operation.request.node.serverHandoff?.clientFragments ?? []).forEach(
       entry => {
+        const providers = entry.moduleProviders;
         this._clientFragments.set(entry.fragment.name, {
           normalization: entry.normalization,
+          providers,
           rootVariables: entry.rootVariables ?? [],
         });
+        if (providers != null) {
+          this._addProviderReferences(entry.normalization, providers);
+        }
       },
     );
     const store = environment.getStore();
@@ -425,11 +439,14 @@ class RelayServerHandoff {
         const sequence = ++this._writeOrder.sequence;
         const modules = this._modulesFor(root, named);
         if (records != null || modules != null) {
+          // Mapped before the root's `next` is replaced, so that a throw
+          // fails the pending one.
+          const wire = this._toWire(records ?? {});
           const settle = root.settleNext;
           const next = pending(root);
           settle?.({
             next,
-            records: records ?? {},
+            records: wire,
             sequence,
             ...(modules != null ? {modules} : null),
           });
@@ -477,7 +494,7 @@ class RelayServerHandoff {
     this._roots.forEach(root => {
       const handoff = root.handoff;
       const missing =
-        handoff == null || everyRoot ? error : this._checkComplete(handoff);
+        handoff == null || everyRoot ? error : this._checkComplete(root);
       root.settleNext?.(missing != null ? (error ?? missing) : null);
       root.settleNext = null;
     });
@@ -496,13 +513,8 @@ class RelayServerHandoff {
     );
   }
 
-  _checkComplete(handoff: {
-    readonly id: string,
-    readonly dataID: DataID,
-    readonly fragment: NormalizationSplitOperation,
-    readonly variables: Variables,
-    ...
-  }): ?Error {
+  _checkComplete(root: Root): ?Error {
+    const {dataID, id, node, variables} = root;
     // Checked with the operation loader that normalized the data, which the
     // Store may have been created without.
     const operationLoader = this._getOperationLoader();
@@ -510,7 +522,9 @@ class RelayServerHandoff {
     try {
       status = this._environment
         .getStore()
-        .check(getHandoffOperation(handoff), {operationLoader}).status;
+        .check(getHandoffOperation({dataID, fragment: node, id, variables}), {
+          operationLoader,
+        }).status;
     } catch (error: unknown) {
       // A root whose data cannot be checked fails rather than counting as
       // complete.
@@ -519,7 +533,7 @@ class RelayServerHandoff {
     return status === 'available'
       ? null
       : new Error(
-          `Relay: The server query completed without the data of \`${handoff.fragment.name}\`.`,
+          `Relay: The server query completed without the data of \`${node.name}\`.`,
         );
   }
 
@@ -527,6 +541,34 @@ class RelayServerHandoff {
     return (
       this._environment.getOperationLoader?.() ??
       this._environment.getStore().getOperationLoader()
+    );
+  }
+
+  // The client fragment's providers module exports the component and
+  // operation providers of each of its `@module` branches, by the branch's
+  // document and fragment. The request's normalization wrote its own
+  // provider functions into the records, and the split operation holds its
+  // own.
+  _addProviderReferences(
+    normalization: NormalizationSplitOperation,
+    providers: {readonly [name: string]: unknown},
+  ): void {
+    [
+      this._operation.request.node.operation.selections,
+      normalization.selections,
+    ].forEach(selections =>
+      someModuleImport(selections, moduleImport => {
+        const branch = `${moduleImport.documentName}$${moduleImport.fragmentName}`;
+        [
+          [moduleImport.componentModuleProvider, `component$${branch}`],
+          [moduleImport.operationModuleProvider, `operation$${branch}`],
+        ].forEach(([provider, key]) => {
+          if (provider != null && Object.hasOwn(providers, key)) {
+            this._providerReferences.set(provider, providers[key]);
+          }
+        });
+        return false;
+      }),
     );
   }
 
@@ -555,8 +597,13 @@ class RelayServerHandoff {
       } else if (!this._loadingModules.has(reference)) {
         root.pendingModules.delete(reference);
         root.sentModules.add(reference);
+        // The client loads a module that providers load with its own
+        // artifacts.
+        if (typeof reference !== 'string') {
+          return;
+        }
         found = true;
-        modules[String(reference)] =
+        modules[reference] =
           node.kind === 'Request'
             ? {
                 argumentDefinitions: node.operation.argumentDefinitions,
@@ -597,7 +644,7 @@ class RelayServerHandoff {
     );
   }
 
-  _handoffFor(dataID: DataID, name: string, args: unknown): RelayHandoff {
+  _handoffFor(dataID: DataID, name: string, args: unknown): SentHandoff {
     const clientFragment = this._clientFragments.get(name);
     if (clientFragment == null) {
       throw new Error(`Relay: Unknown client fragment \`${name}\`.`);
@@ -626,23 +673,25 @@ class RelayServerHandoff {
     let root = this._roots.get(key);
     if (root == null) {
       // With module providers (the compiler's default without Haste), the
-      // records name their `@module` component and normalization by
-      // functions, which cannot be sent to a client component.
+      // split operation holds functions, which cannot be sent to a client
+      // component: each must have a client reference.
       if (
         someModuleImport(
           normalization.selections,
-          moduleImport =>
-            moduleImport.componentModuleProvider != null ||
-            moduleImport.operationModuleProvider != null,
+          ({componentModuleProvider, operationModuleProvider}) =>
+            (componentModuleProvider != null &&
+              !this._providerReferences.has(componentModuleProvider)) ||
+            (operationModuleProvider != null &&
+              !this._providerReferences.has(operationModuleProvider)),
         )
       ) {
         throw new Error(
-          `Relay: \`${name}\` selects \`@module\` data whose modules are ` +
-            'loaded by module providers. Handing it to a client component ' +
-            'is not supported yet.',
+          `Relay: \`${name}\` selects \`@module\` data whose module ` +
+            'providers no generated providers module exports (one inside a ' +
+            'module or a `@no_inline` fragment cannot be handed off yet).',
         );
       }
-      root = this._createRoot(dataID, normalization, variables);
+      root = this._createRoot(dataID, clientFragment, variables);
       this._roots.set(key, root);
     }
     const handoff = root.handoff;
@@ -652,14 +701,16 @@ class RelayServerHandoff {
 
   _createRoot(
     dataID: DataID,
-    node: NormalizationSplitOperation,
+    {normalization: node, providers}: ClientFragment,
     variables: Variables,
   ): Root {
+    const id = this._sessionID + ':' + String(this._roots.size);
     const root: Root = {
       aliases: new Map(),
       connectionEdges: new Map(),
       dataID,
       handoff: null,
+      id,
       node,
       pendingModules: new Set(),
       sent: new Map(),
@@ -672,12 +723,9 @@ class RelayServerHandoff {
     const records = this._project(root, null, null, named) ?? {};
     const sequence = ++this._writeOrder.sequence;
     const modules = this._modulesFor(root, named);
-    const id = this._sessionID + ':' + String(this._roots.size);
     // A root created after the request ended (e.g. by data read once it
     // completed) gets the same verdict as the roots that existed then.
-    const missing = this._done
-      ? this._checkComplete({dataID, fragment: node, id, variables})
-      : null;
+    const missing = this._done ? this._checkComplete(root) : null;
     const error = missing != null ? (this._error ?? missing) : null;
     let next: Promise<?RelayHandoffChunk>;
     if (error != null) {
@@ -690,16 +738,55 @@ class RelayServerHandoff {
     }
     root.handoff = {
       dataID,
-      fragment: node,
+      fragment: providers == null ? node : this._wireNormalization(node),
       id,
       next,
-      records,
+      records: this._toWire(records),
       ...(modules != null ? {modules} : null),
       sequence,
       serverStore: this._writeOrder.id,
       variables,
     };
     return root;
+  }
+
+  _wireNormalization(node: NormalizationSplitOperation): unknown {
+    let wire = wireNormalizations.get(node);
+    if (wire === undefined) {
+      wire = withProviderReferences(node, this._providerReferences);
+      wireNormalizations.set(node, wire);
+    }
+    return wire;
+  }
+
+  // Provider functions cannot go to a client component: a record's `@module`
+  // fields hold the client references of the providers instead, which the
+  // client receives as the providers.
+  _toWire(records: RelayHandoffRecords): RelayHandoffRecords {
+    const wire: {[dataID: DataID]: {readonly [key: string]: unknown}} = {
+      ...records,
+    };
+    Object.keys(records).forEach(dataID => {
+      const record = records[dataID];
+      Object.keys(record).forEach(key => {
+        const value = record[key];
+        if (typeof value !== 'function') {
+          return;
+        }
+        if (!this._providerReferences.has(value)) {
+          throw new Error(
+            `Relay: No client fragment of the server query exports the ` +
+              `\`@module\` provider in \`${key}\` (one inside a module or a ` +
+              '`@no_inline` fragment cannot be handed off yet).',
+          );
+        }
+        wire[dataID] = {
+          ...wire[dataID],
+          [key]: this._providerReferences.get(value),
+        };
+      });
+    });
+    return wire;
   }
 
   _project(

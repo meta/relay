@@ -1,0 +1,97 @@
+//- src/ServerUser.js
+
+// `@match` in handed-off client fragments, with the default module providers
+// of a CommonJS project. The client fragments' split operations get a
+// `moduleProviders` index, and so does the `@server` request, whose
+// normalization inlines them; module normalizations without `@module` of
+// their own do not.
+graphql`query ServerUserQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "clientCard")
+    ...ClientResolverCard_user @alias(as: "clientResolverCard")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  nameRenderer @match {
+    ...ClientCard_plainRenderer @module(name: "./PlainRenderer")
+    ...ClientCard_markdownRenderer @module(name: "./PlainRenderer")
+  }
+}`
+
+graphql`fragment ClientCard_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+graphql`fragment ClientCard_markdownRenderer on MarkdownUserNameRenderer {
+  markdown
+}`
+
+//- src/ClientResolverCard.js
+
+// An ordinary Relay Resolver whose root fragment selects `@module` data,
+// read by a handed-off client fragment.
+graphql`fragment ClientResolverCard_user on User {
+  rendererText
+}`
+
+/**
+ * @relayField User.rendererText: String
+ * @rootFragment RendererText_user
+ */
+export function rendererText() {}
+
+graphql`fragment RendererText_user on User {
+  ...RendererTextInline_user
+}`
+
+graphql`fragment RendererTextInline_user on User @inline {
+  resolverRenderer: nameRenderer @match {
+    ...RendererText_plainRenderer @module(name: "./PlainRenderer")
+  }
+}`
+
+graphql`fragment RendererText_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "flow",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer | MarkdownUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}
+
+type MarkdownUserNameRenderer {
+  markdown: String
+  js(module: String!, id: String): JSDependency
+}
+
+scalar JSDependency

@@ -606,7 +606,11 @@ fn apply_normalization_transforms(
 
     // Before `inline_fragments`, which inlines client boundaries.
     program = log_event.time("generate_server_operation_handoffs", || {
-        generate_server_operation_handoffs(&program, &fragments_program)
+        generate_server_operation_handoffs(
+            &program,
+            &fragments_program,
+            &project_config.effective_module_import_config(),
+        )
     })?;
 
     program = log_event.time("inline_fragments", || {

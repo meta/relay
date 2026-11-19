@@ -156,6 +156,51 @@ pub fn generate_preloadable_query_parameters(
     content_sections.into_signed_bytes()
 }
 
+pub fn generate_module_providers(
+    config: &Config,
+    project_config: &ProjectConfig,
+    exports: &[(String, String)],
+    imports_js_resource: bool,
+) -> Result<Vec<u8>, FmtError> {
+    let mut content_sections = ContentSections::default();
+    content_sections.push(ContentSection::Docblock(generate_docblock_section(
+        config,
+        project_config,
+        vec![],
+    )?));
+    content_sections.push(ContentSection::Generic(generate_disable_lint_section(
+        &project_config.typegen_config.language,
+    )?));
+    let mut section = GenericSection::default();
+    writeln!(section, "'use client';")?;
+    content_sections.push(ContentSection::Generic(section));
+    let mut section = GenericSection::default();
+    let typegen_config = &project_config.typegen_config;
+    if typegen_config.eager_es_modules || typegen_config.language == TypegenLanguage::TypeScript {
+        if imports_js_resource {
+            writeln!(section, "import JSResource from 'JSResource';")?;
+        }
+        for (name, expression) in exports {
+            writeln!(section, "export const {name} = {expression};")?;
+        }
+    } else {
+        if imports_js_resource {
+            writeln!(section, "const JSResource = require('JSResource');")?;
+        }
+        writeln!(
+            section,
+            "var providers/*: {{readonly [name: string]: unknown}}*/ = {{"
+        )?;
+        for (name, expression) in exports {
+            writeln!(section, "  {name}: {expression},")?;
+        }
+        writeln!(section, "}};")?;
+        writeln!(section, "module.exports = providers;")?;
+    }
+    content_sections.push(ContentSection::Generic(section));
+    content_sections.into_signed_bytes()
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn generate_updatable_query(
     config: &Config,

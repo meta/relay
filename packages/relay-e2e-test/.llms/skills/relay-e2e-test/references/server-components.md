@@ -91,11 +91,12 @@ On top of `click`, `type`, and `wait` (which polls for 5 seconds here, rather th
 |---|---|
 | `navigate "?id=2"` | Render the page for new search params, in a transition |
 | `release "name"` | Open a gate |
-| `wire-excludes "text"` | Assert the browser has not received `text`, also JSON- or HTML-escaped: use it for server-only fields, arguments, and variables |
+| `wire-excludes "text"` | Assert the browser has not received `text`, also JSON- or HTML-escaped: use it only for server-only data (fields, arguments, and variables), which can reach the browser without showing in the page |
+| `eval "expression"` | Evaluate a JavaScript expression in the browser, with `document` and `modules` (the names `## Browser Modules` lists, so far) in scope, and add it and its result to `## Evaluated`: e.g. `modules.filter(name => name.includes('Renderer'))`, or what the page shows |
 | `requests "POST /graphql" 0` | Assert how many such requests the browser has sent, e.g. none while hydrating |
 | `outlined-rows 0` | Assert how many outlined rows the latest page's Flight response has |
 
-`wire-excludes` waits for every response so far to complete, and `outlined-rows` for the latest page's, so place them after the `release` steps their responses wait on.
+`wire-excludes` waits for every response so far to complete, and `outlined-rows` for the latest page's, so place them after the `release` steps their responses wait on. `eval` evaluates its expression when the step runs, so place it after the `wait` steps for what it reads.
 
 The wire is every byte the browser received: the document, the decoded Flight stream inside it, later Flight responses, and GraphQL responses. The RSC process runs React's development build, whose Flight output also carries debug information, including the props each Server Component received; `wire-excludes` sees those bytes too.
 
@@ -110,6 +111,7 @@ In addition to `## Type Errors`, `## Console` (the browser realm's console), and
 | `## Server Console` | Output of the RSC (`rsc:`) and SSR (`ssr:`) processes, without file paths or stack frames; omitted when empty. A server render that sent a GraphQL request logs `ssr: POST /graphql <Name>` |
 | `## Network` | Every request the browser made: `METHOD /path label -> status content-type` |
 | `## Browser Modules` | Every fixture module the browser evaluated, and every module it loaded for a client reference; omitted when none |
+| `## Evaluated` | Each `eval` step's expression and its result, as JSON, in step order; omitted when none |
 | `## SSR HTML` | The HTML of the initial page load, before hydration |
 
 ## Debugging

@@ -72,6 +72,7 @@ use relay_transforms::RequiredMetadataDirective;
 use relay_transforms::ResolverOutputTypeInfo;
 use relay_transforms::RscSeamMetadata;
 use relay_transforms::SERVER_DIRECTIVE;
+use relay_transforms::ServerOperationClientFragment;
 use relay_transforms::ServerOperationHandoffMetadata;
 use relay_transforms::StreamDirective;
 use relay_transforms::TYPE_DISCRIMINATOR_DIRECTIVE_NAME;
@@ -1843,7 +1844,9 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
     /// Builds a server query's `serverHandoff`: `clientFragments` lists each
     /// client fragment it hands off, with its Reader fragment, its
     /// `$normalization` split operation and the operation variables it reads,
-    /// and `rsc` lists the Relay RSC Resolver fields it selects.
+    /// and `rsc` lists the Relay RSC Resolver fields it selects. A client
+    /// fragment with provider-backed `@module` branches also gets
+    /// `moduleProviders`, the exports of its generated providers module.
     fn build_server_handoff(&mut self, operation: &OperationDefinition) -> Option<Primitive> {
         let handoff = ServerOperationHandoffMetadata::find(&operation.directives)?;
         let client_fragments = handoff
@@ -1862,6 +1865,12 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
                     normalization: normalization,
                     fragment: fragment,
                 };
+                if !client_fragment.module_providers.is_empty() {
+                    fields.push(ObjectEntry {
+                        key: CODEGEN_CONSTANTS.module_providers,
+                        value: self.build_module_providers_dependency(client_fragment),
+                    });
+                }
                 if !client_fragment.root_variables.is_empty() {
                     let root_variables = client_fragment
                         .root_variables
@@ -1885,6 +1894,44 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
             fields.push(self.build_rsc_descriptors(&handoff.rsc_seams));
         }
         Some(Primitive::Key(self.object(fields)))
+    }
+
+    /// The exports of the generated `'use client'` module with the providers
+    /// of a client fragment's provider-backed `@module` branches (see
+    /// `generate_module_providers`), by `ModuleProviderBranch::provider_key`.
+    fn build_module_providers_dependency(
+        &mut self,
+        client_fragment: &ServerOperationClientFragment,
+    ) -> Primitive {
+        let name = client_fragment.fragment.0;
+        let path = self.project_config.js_module_import_identifier(
+            &self
+                .project_config
+                .artifact_path_for_definition(self.definition_source_location),
+            &self.project_config.path_for_language_specific_artifact(
+                client_fragment.fragment_location.source_location(),
+                format!("{name}$moduleProviders.client"),
+            ),
+        );
+        let entries = client_fragment
+            .module_providers
+            .iter()
+            .flat_map(|branch| ["component", "operation"].map(|kind| (kind, branch)))
+            .map(|(kind, branch)| {
+                let export = branch.export_name(kind).intern();
+                ObjectEntry {
+                    key: branch.provider_key(kind).intern(),
+                    value: Primitive::JSModuleDependency(JSModuleDependency {
+                        path,
+                        import_name: ModuleImportName::Named {
+                            name: export,
+                            import_as: Some(format!("{name}$moduleProviders${export}").intern()),
+                        },
+                    }),
+                }
+            })
+            .collect();
+        Primitive::Key(self.object(entries))
     }
 
     fn build_graphql_artifact_dependency(
@@ -3029,69 +3076,6 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         }
     }
 
-    fn resolve_module_import_name(
-        &self,
-        module_name: StringKey,
-        module_source_location: common::SourceLocationKey,
-        provider: ModuleProvider,
-    ) -> StringKey {
-        if !matches!(provider, ModuleProvider::Custom { .. }) {
-            return module_name;
-        }
-        let module_name_str = module_name.lookup();
-        let is_relative = module_name_str.starts_with("./") || module_name_str.starts_with("../");
-
-        if matches!(self.project_config.js_module_format, JsModuleFormat::Haste) || !is_relative {
-            module_name
-        } else {
-            assert!(
-                !module_source_location.is_generated(),
-                "Cannot resolve relative @module path '{}' from a generated source location",
-                module_name_str
-            );
-            let mut source_dir = PathBuf::from(module_source_location.path());
-            source_dir.pop();
-            let module_path = normalize_path(&source_dir.join(PathBuf::from(module_name_str)));
-
-            self.project_config.js_module_import_identifier(
-                &self
-                    .project_config
-                    .artifact_path_for_definition(self.definition_source_location),
-                &module_path,
-            )
-        }
-    }
-
-    fn resolve_normalization_import(
-        &self,
-        fragment_name: FragmentDefinitionName,
-        fragment_source_location: common::SourceLocationKey,
-        provider: ModuleProvider,
-    ) -> StringKey {
-        if !matches!(provider, ModuleProvider::Custom { .. })
-            || matches!(self.project_config.js_module_format, JsModuleFormat::Haste)
-        {
-            return get_normalization_fragment_filename(fragment_name);
-        }
-        assert!(
-            !fragment_source_location.is_generated(),
-            "Cannot resolve normalization import path for fragment '{}' from a generated source location",
-            fragment_name
-        );
-        let normalization_filename = format!(
-            "{}.graphql",
-            get_normalization_operation_name(fragment_name.0)
-        );
-        let artifact_path = self
-            .project_config
-            .artifact_path_for_definition(self.definition_source_location);
-        let norm_artifact_path = self
-            .project_config
-            .path_for_language_specific_artifact(fragment_source_location, normalization_filename);
-        self.project_config
-            .js_module_import_identifier(&artifact_path, &norm_artifact_path)
-    }
-
     fn build_module_import_selections(
         &mut self,
         module_metadata: &ModuleMetadata,
@@ -3138,7 +3122,11 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
                         .effective_module_import_config()
                         .dynamic_module_provider
                 {
-                    let resolved_component_module = self.resolve_module_import_name(
+                    let resolved_component_module = resolve_module_import_name(
+                        self.project_config,
+                        &self
+                            .project_config
+                            .artifact_path_for_definition(self.definition_source_location),
                         module_metadata.module_name,
                         module_metadata.module_source_location,
                         dynamic_module_provider,
@@ -3165,12 +3153,19 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
                         Some(operation_module_provider) => operation_module_provider,
                         None => dynamic_module_provider,
                     };
-                    let resolved_component_module = self.resolve_module_import_name(
+                    let artifact_path = self
+                        .project_config
+                        .artifact_path_for_definition(self.definition_source_location);
+                    let resolved_component_module = resolve_module_import_name(
+                        self.project_config,
+                        &artifact_path,
                         module_metadata.module_name,
                         module_metadata.module_source_location,
                         dynamic_module_provider,
                     );
-                    let resolved_operation_module = self.resolve_normalization_import(
+                    let resolved_operation_module = resolve_normalization_import(
+                        self.project_config,
+                        &artifact_path,
                         fragment_name,
                         module_metadata.fragment_source_location.source_location(),
                         operation_module_provider,
@@ -3500,6 +3495,65 @@ fn build_alias(alias: Option<StringKey>, name: StringKey) -> ObjectEntry {
         key: CODEGEN_CONSTANTS.alias,
         value: alias,
     }
+}
+
+/// The component module of a `@module` selection, as the artifact at
+/// `artifact_path` names it in its `componentModuleProvider`.
+pub fn resolve_module_import_name(
+    project_config: &ProjectConfig,
+    artifact_path: &PathBuf,
+    module_name: StringKey,
+    module_source_location: common::SourceLocationKey,
+    provider: ModuleProvider,
+) -> StringKey {
+    if !matches!(provider, ModuleProvider::Custom { .. }) {
+        return module_name;
+    }
+    let module_name_str = module_name.lookup();
+    let is_relative = module_name_str.starts_with("./") || module_name_str.starts_with("../");
+
+    if matches!(project_config.js_module_format, JsModuleFormat::Haste) || !is_relative {
+        module_name
+    } else {
+        assert!(
+            !module_source_location.is_generated(),
+            "Cannot resolve relative @module path '{}' from a generated source location",
+            module_name_str
+        );
+        let mut source_dir = PathBuf::from(module_source_location.path());
+        source_dir.pop();
+        let module_path = normalize_path(&source_dir.join(PathBuf::from(module_name_str)));
+
+        project_config.js_module_import_identifier(artifact_path, &module_path)
+    }
+}
+
+/// The normalization of a `@module` fragment, as the artifact at
+/// `artifact_path` names it in its `operationModuleProvider`.
+pub fn resolve_normalization_import(
+    project_config: &ProjectConfig,
+    artifact_path: &PathBuf,
+    fragment_name: FragmentDefinitionName,
+    fragment_source_location: common::SourceLocationKey,
+    provider: ModuleProvider,
+) -> StringKey {
+    if !matches!(provider, ModuleProvider::Custom { .. })
+        || matches!(project_config.js_module_format, JsModuleFormat::Haste)
+    {
+        return get_normalization_fragment_filename(fragment_name);
+    }
+    assert!(
+        !fragment_source_location.is_generated(),
+        "Cannot resolve normalization import path for fragment '{}' from a generated source location",
+        fragment_name
+    );
+    let normalization_filename = format!(
+        "{}.graphql",
+        get_normalization_operation_name(fragment_name.0)
+    );
+    let norm_artifact_path = project_config
+        .path_for_language_specific_artifact(fragment_source_location, normalization_filename);
+    project_config.js_module_import_identifier(artifact_path, &norm_artifact_path)
 }
 
 /// Collapse `.` and `..` segments in a path without touching the filesystem.

@@ -11,12 +11,14 @@ use common::Diagnostic;
 use common::DiagnosticsResult;
 use common::Location;
 use common::NamedItem;
+use common::SourceLocationKey;
 use graphql_ir::Condition;
 use graphql_ir::ConditionValue;
 use graphql_ir::Directive;
 use graphql_ir::FragmentDefinition;
 use graphql_ir::FragmentDefinitionName;
 use graphql_ir::FragmentSpread;
+use graphql_ir::InlineFragment;
 use graphql_ir::OperationDefinition;
 use graphql_ir::OperationDefinitionName;
 use graphql_ir::Program;
@@ -26,11 +28,15 @@ use graphql_ir::VariableDefinition;
 use graphql_ir::VariableName;
 use graphql_ir::Visitor;
 use graphql_ir::associated_data_impl;
+use intern::string_key::StringKey;
+use relay_config::ModuleImportConfig;
+use relay_config::Surface;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use thiserror::Error;
 
 use crate::ClientComponentBoundaryMetadata;
+use crate::ModuleMetadata;
 use crate::NoInlineFragmentSpreadMetadata;
 use crate::RelayResolverMetadata;
 use crate::RscSeamMetadata;
@@ -59,6 +65,43 @@ pub struct ServerOperationClientFragment {
     /// A runtime that executes the boundary on its own needs these values
     /// and no other operation variables.
     pub root_variables: Vec<VariableName>,
+    /// The provider-backed `@module` branches of the boundary's
+    /// normalization. Their providers are functions, so the handoff names
+    /// them by the exports of a generated `'use client'` module.
+    pub module_providers: Vec<ModuleProviderBranch>,
+}
+
+/// A provider-backed `@module` branch: the `@match` document it belongs to,
+/// the fragment its operation provider loads, and the component module its
+/// component provider loads. Two `@match` fields can spread one fragment with
+/// different components, so a branch is its document and fragment together.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ModuleProviderBranch {
+    pub document_name: StringKey,
+    pub fragment_name: FragmentDefinitionName,
+    pub fragment_location: Location,
+    pub module_name: StringKey,
+    pub module_source_location: SourceLocationKey,
+}
+
+impl ModuleProviderBranch {
+    /// The key of the branch's `component` or `operation` provider in a
+    /// handoff's `moduleProviders`.
+    pub fn provider_key(&self, kind: &str) -> String {
+        format!("{kind}${}${}", self.document_name, self.fragment_name)
+    }
+
+    /// The name the generated providers module exports the provider as: its
+    /// key, with any character a JavaScript identifier cannot hold replaced.
+    pub fn export_name(&self, kind: &str) -> String {
+        self.provider_key(kind)
+            .chars()
+            .map(|c| match c {
+                'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '$' => c,
+                _ => '_',
+            })
+            .collect()
+    }
 }
 
 /// Records on every explicit server query what it hands off to the client
@@ -67,6 +110,7 @@ pub struct ServerOperationClientFragment {
 pub(crate) fn generate_server_operation_handoffs(
     program: &Program,
     fragments_program: &Program,
+    module_import_config: &ModuleImportConfig,
 ) -> DiagnosticsResult<Program> {
     let mut server_operations: Vec<_> = program
         .operations()
@@ -95,6 +139,23 @@ pub(crate) fn generate_server_operation_handoffs(
         for client_fragment in &mut collector.client_fragments {
             client_fragment.root_variables =
                 boundary_root_variables(program, fragments_program, &operation, client_fragment);
+            let mut branches: Vec<_> = module_branches(
+                program,
+                client_fragment.client_normalization_operation,
+                module_import_config,
+            )
+            .into_iter()
+            .map(|module| ModuleProviderBranch {
+                document_name: module.key,
+                fragment_name: module.fragment_name,
+                fragment_location: module.fragment_source_location,
+                module_name: module.module_name,
+                module_source_location: module.module_source_location,
+            })
+            .collect();
+            branches.sort_unstable();
+            branches.dedup();
+            client_fragment.module_providers = branches;
         }
         handoffs.insert(
             operation.name.item,
@@ -110,11 +171,69 @@ pub(crate) fn generate_server_operation_handoffs(
     }
 
     for operation in &mut next_program.operations {
-        if let Some(handoff) = handoffs.remove(&operation.name.item) {
+        let name = operation.name.item;
+        if let Some(handoff) = handoffs.remove(&name) {
             Arc::make_mut(operation).directives.push(handoff.into());
         }
     }
     Ok(next_program)
+}
+
+/// The `@module` selections with module providers in an artifact's
+/// normalization, which inlines every fragment it spreads but a `@no_inline`
+/// one (its own artifact) and an RSC field's root fragment.
+fn module_branches(
+    program: &Program,
+    name: OperationDefinitionName,
+    config: &ModuleImportConfig,
+) -> Vec<ModuleMetadata> {
+    let Some(operation) = program.operation(name) else {
+        return Vec::new();
+    };
+    let mut finder = BranchFinder {
+        program,
+        config,
+        visited_fragments: FxHashSet::default(),
+        branches: Vec::new(),
+    };
+    finder.visit_selections(&operation.selections);
+    finder.branches
+}
+
+struct BranchFinder<'program> {
+    program: &'program Program,
+    config: &'program ModuleImportConfig,
+    visited_fragments: FxHashSet<FragmentDefinitionName>,
+    branches: Vec<ModuleMetadata>,
+}
+
+impl Visitor for BranchFinder<'_> {
+    const NAME: &'static str = "BranchFinder";
+    const VISIT_ARGUMENTS: bool = false;
+    const VISIT_DIRECTIVES: bool = false;
+
+    // A module's own selections are in its normalization's artifact.
+    fn visit_inline_fragment(&mut self, fragment: &InlineFragment) {
+        let Some(module) = ModuleMetadata::find(&fragment.directives) else {
+            return self.default_visit_inline_fragment(fragment);
+        };
+        // As codegen decides whether a `ModuleImport` gets providers.
+        if self.config.dynamic_module_provider.is_some()
+            && (self.config.surface != Some(Surface::Resolvers) || module.read_time_resolvers)
+        {
+            self.branches.push(module.clone());
+        }
+    }
+
+    fn visit_fragment_spread(&mut self, spread: &FragmentSpread) {
+        if NoInlineFragmentSpreadMetadata::find(&spread.directives).is_none()
+            && RscSeamMetadata::find(&spread.directives).is_none()
+            && self.visited_fragments.insert(spread.fragment.item)
+            && let Some(fragment) = self.program.fragment(spread.fragment.item)
+        {
+            self.visit_selections(&fragment.selections);
+        }
+    }
 }
 
 struct HandoffCollector<'program> {
@@ -160,6 +279,7 @@ impl Visitor for HandoffCollector<'_> {
                 client_normalization_operation: boundary.normalization_operation,
                 fragment_location: boundary.fragment_location,
                 root_variables: Vec::new(),
+                module_providers: Vec::new(),
             });
             return;
         }

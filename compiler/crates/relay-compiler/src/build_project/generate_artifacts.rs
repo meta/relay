@@ -12,6 +12,7 @@ use common::NamedItem;
 use common::SourceLocationKey;
 use fnv::FnvHashMap;
 use graphql_ir::FragmentDefinition;
+use graphql_ir::FragmentDefinitionName;
 use graphql_ir::OperationDefinition;
 use graphql_ir::OperationDefinitionName;
 use graphql_text_printer::PrinterOptions;
@@ -22,6 +23,10 @@ use intern::string_key::StringKey;
 use rayon::prelude::*;
 use relay_codegen::EXEC_TIME_RESOLVERS;
 use relay_codegen::QueryID;
+use relay_codegen::print_module_provider;
+use relay_codegen::resolve_module_import_name;
+use relay_codegen::resolve_normalization_import;
+use relay_config::ModuleProvider;
 use relay_config::ResolversSchemaModuleConfig;
 use relay_transforms::ArtifactSourceKeyData;
 use relay_transforms::ClientEdgeGeneratedQueryMetadataDirective;
@@ -29,6 +34,8 @@ use relay_transforms::PrefetchablePaginationEdgesFragmentMetadata;
 use relay_transforms::Programs;
 use relay_transforms::RawResponseGenerationMode;
 use relay_transforms::RefetchableDerivedFromMetadata;
+use relay_transforms::ServerOperationClientFragment;
+use relay_transforms::ServerOperationHandoffMetadata;
 use relay_transforms::SplitOperationMetadata;
 use relay_transforms::UPDATABLE_DIRECTIVE;
 
@@ -227,7 +234,98 @@ pub fn generate_artifacts(
                 _ => vec![],
             }
         )
+        .chain(generate_module_providers(project_config, programs))
         .collect()
+}
+
+/// For each client fragment a `@server` operation hands off whose
+/// normalization has provider-backed `@module` branches, a `'use client'`
+/// module that exports those providers. The provider functions in the
+/// handoff's records and split operation cannot cross to the browser; the
+/// server sends this module's client references in their place.
+fn generate_module_providers(project_config: &ProjectConfig, programs: &Programs) -> Vec<Artifact> {
+    let mut fragments: FnvHashMap<
+        FragmentDefinitionName,
+        (&ServerOperationClientFragment, Vec<ArtifactSourceKey>),
+    > = Default::default();
+    for operation in programs.normalization.operations() {
+        let Some(handoff) = ServerOperationHandoffMetadata::find(&operation.directives) else {
+            continue;
+        };
+        for client_fragment in &handoff.client_fragments {
+            if client_fragment.module_providers.is_empty() {
+                continue;
+            }
+            fragments
+                .entry(client_fragment.fragment)
+                .or_insert_with(|| (client_fragment, vec![]))
+                .1
+                .push(ArtifactSourceKey::ExecutableDefinition(
+                    operation.name.item.into(),
+                ));
+        }
+    }
+    let config = project_config.effective_module_import_config();
+    let Some(component_provider) = config.dynamic_module_provider else {
+        return vec![];
+    };
+    let operation_provider = config
+        .operation_module_provider
+        .unwrap_or(component_provider);
+    let mut artifacts: Vec<Artifact> = fragments
+        .into_iter()
+        .map(|(name, (client_fragment, artifact_source_keys))| {
+            let source_file = client_fragment.fragment_location.source_location();
+            let path = project_config.path_for_language_specific_artifact(
+                source_file,
+                format!("{}$moduleProviders.client", name.0),
+            );
+            let mut imports_js_resource = false;
+            let mut exports = vec![];
+            for branch in &client_fragment.module_providers {
+                let component = resolve_module_import_name(
+                    project_config,
+                    &path,
+                    branch.module_name,
+                    branch.module_source_location,
+                    component_provider,
+                );
+                let operation = resolve_normalization_import(
+                    project_config,
+                    &path,
+                    branch.fragment_name,
+                    branch.fragment_location.source_location(),
+                    operation_provider,
+                );
+                for (kind, provider, module) in [
+                    ("component", component_provider, component),
+                    ("operation", operation_provider, operation),
+                ] {
+                    let expression = match provider {
+                        ModuleProvider::JSResource => {
+                            imports_js_resource = true;
+                            format!("() => JSResource('m#{module}')")
+                        }
+                        ModuleProvider::Custom { statement } => {
+                            print_module_provider(project_config, statement, module)
+                        }
+                    };
+                    exports.push((branch.export_name(kind), expression));
+                }
+            }
+            Artifact {
+                artifact_source_keys,
+                path,
+                content: ArtifactContent::ModuleProviders {
+                    exports,
+                    imports_js_resource,
+                },
+                source_file,
+            }
+        })
+        .collect();
+    artifacts.sort_by(|a, b| a.path.cmp(&b.path));
+    artifacts
 }
 
 fn generate_normalization_artifact(

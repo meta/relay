@@ -137,6 +137,7 @@ pub use client_extensions::client_extensions;
 pub use client_extensions_abstract_types::ClientExtensionAbstractTypeMetadataDirective;
 pub use client_extensions_abstract_types::client_extensions_abstract_types;
 pub(crate) use client_implementor_cases::ClientImplementorCaseDirective;
+pub use client_normalization::ModuleProviderBranch;
 pub use client_normalization::ServerOperationClientFragment;
 pub use client_normalization::ServerOperationHandoffMetadata;
 pub(crate) use client_normalization::generate_server_operation_handoffs;

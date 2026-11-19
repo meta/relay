@@ -111,7 +111,7 @@ module.exports = {
    * (src/rsc/serverModuleLoader.js), always with `commonjs`, so every realm
    * runs identically transformed code.
    */
-  transformSource(src, filename, {commonjs, evaluationHook}) {
+  transformSource(src, filename, {commonjs, evaluationHook, requireImports}) {
     const isTypeScript = /\.tsx?$/.test(filename);
     const isRelaySource = /\/packages\/(relay-runtime|react-relay)\//.test(
       filename,
@@ -145,6 +145,22 @@ module.exports = {
         },
       },
     ]);
+
+    if (requireImports) {
+      // The Server Component processes load modules with `require`, so a
+      // dynamic `import()` (e.g. a `@module` provider) does too.
+      plugins.push(({template}) => ({
+        visitor: {
+          CallExpression(callPath) {
+            if (callPath.node.callee.type === 'Import') {
+              callPath.replaceWith(
+                template.expression.ast`Promise.resolve().then(() => require(${callPath.node.arguments[0]}))`,
+              );
+            }
+          },
+        },
+      }));
+    }
 
     if (commonjs) {
       plugins.push(modulesCommonjs);
