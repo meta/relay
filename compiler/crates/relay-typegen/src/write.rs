@@ -244,9 +244,15 @@ pub(crate) fn write_rsc_resolver_signature_type_assertion(
         writer,
         "type {RSC_SIGNATURE_ASSERT_TYPE_NAME}<T extends {RSC_EXPECTED_COMPONENT_TYPE_NAME}, Args extends [any], RequiredProps extends keyof Args[0], RequiredArgs extends keyof Args[0][\"args\"], CallableProps extends Args[0]> = T;"
     )?;
+    // A component of a field without runtime arguments may leave out `args`.
+    let required_props = if has_runtime_arguments {
+        format!("keyof {RSC_EXPECTED_PROPS_TYPE_NAME}")
+    } else {
+        format!("\"{fragment_prop_name}\"")
+    };
     writeln!(
         writer,
-        "export type {RSC_SIGNATURE_CHECK_TYPE_NAME} = {RSC_SIGNATURE_ASSERT_TYPE_NAME}<{RSC_COMPONENT_TYPE_NAME}, Parameters<{RSC_COMPONENT_TYPE_NAME}>, keyof {RSC_EXPECTED_PROPS_TYPE_NAME}, {RSC_EXPECTED_ARG_NAMES_TYPE_NAME}, {RSC_EXPECTED_PROPS_TYPE_NAME}>;"
+        "export type {RSC_SIGNATURE_CHECK_TYPE_NAME} = {RSC_SIGNATURE_ASSERT_TYPE_NAME}<{RSC_COMPONENT_TYPE_NAME}, Parameters<{RSC_COMPONENT_TYPE_NAME}>, {required_props}, {RSC_EXPECTED_ARG_NAMES_TYPE_NAME}, {RSC_EXPECTED_PROPS_TYPE_NAME}>;"
     )?;
     Ok(())
 }
