@@ -140,6 +140,17 @@ describe('useBlockingPaginationFragment with useTransition', () => {
     ) {
       assertYieldsWereCleared();
       Scheduler.unstable_flushNumberOfYields(expectedYields.length);
+      expectYieldedFragmentResults(expectedYields);
+    }
+
+    function expectYieldedFragmentResults(
+      expectedYields: ReadonlyArray<{
+        data: $FlowFixMe,
+        isPendingNext: boolean,
+        hasNext: boolean,
+        hasPrevious: boolean,
+      }>,
+    ) {
       const actualYields = Scheduler.unstable_clearLog();
       expect(actualYields.length).toEqual(expectedYields.length);
       expectedYields.forEach((expected, idx) =>
@@ -447,17 +458,21 @@ describe('useBlockingPaginationFragment with useTransition', () => {
         ...
       }): $FlowFixMe => {
         const {isConcurrent = true, ...props} = args ?? {};
-        return TestRenderer.create(
-          <ErrorBoundary fallback={({error}) => `Error: ${error.message}`}>
-            <React.Suspense fallback={<Fallback />}>
-              <ContextProvider>
-                <Container owner={query} {...props} />
-              </ContextProvider>
-            </React.Suspense>
-          </ErrorBoundary>,
-          // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
-          {unstable_isConcurrent: isConcurrent},
-        );
+        let renderer;
+        TestRenderer.act(() => {
+          renderer = TestRenderer.create(
+            <ErrorBoundary fallback={({error}) => `Error: ${error.message}`}>
+              <React.Suspense fallback={<Fallback />}>
+                <ContextProvider>
+                  <Container owner={query} {...props} />
+                </ContextProvider>
+              </React.Suspense>
+            </ErrorBoundary>,
+            // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
+            {unstable_isConcurrent: isConcurrent},
+          );
+        });
+        return renderer;
       };
 
       initialUser = {
@@ -497,7 +512,7 @@ describe('useBlockingPaginationFragment with useTransition', () => {
       it('loads and renders next items in connection', () => {
         const callback = jest.fn<ReadonlyArray<unknown>, unknown>();
         const renderer = renderFragment();
-        expectFragmentResults([
+        expectYieldedFragmentResults([
           {
             data: initialUser,
             hasNext: true,
@@ -601,7 +616,7 @@ describe('useBlockingPaginationFragment with useTransition', () => {
       it('renders pending flag correctly if pagination update is interrupted before it commits (unsuspends)', () => {
         const callback = jest.fn<ReadonlyArray<unknown>, unknown>();
         const renderer = renderFragment();
-        expectFragmentResults([
+        expectYieldedFragmentResults([
           {
             data: initialUser,
             hasNext: true,
@@ -753,7 +768,7 @@ describe('useBlockingPaginationFragment with useTransition', () => {
         };
 
         const renderer = renderFragment({owner: queryWithoutID, userRef});
-        expectFragmentResults([
+        expectYieldedFragmentResults([
           {
             data: expectedUser,
             hasNext: true,
@@ -857,7 +872,7 @@ describe('useBlockingPaginationFragment with useTransition', () => {
       it('calls callback with error when error occurs during fetch', () => {
         const callback = jest.fn<ReadonlyArray<unknown>, unknown>();
         const renderer = renderFragment();
-        expectFragmentResults([
+        expectYieldedFragmentResults([
           {
             data: initialUser,
             hasNext: true,
@@ -899,7 +914,7 @@ describe('useBlockingPaginationFragment with useTransition', () => {
       it('preserves pagination request if re-rendered with same fragment ref', () => {
         const callback = jest.fn<ReadonlyArray<unknown>, unknown>();
         const renderer = renderFragment();
-        expectFragmentResults([
+        expectYieldedFragmentResults([
           {
             data: initialUser,
             hasNext: true,
@@ -1090,7 +1105,7 @@ describe('useBlockingPaginationFragment with useTransition', () => {
       // TODO: T150701964
       xit('loads more items correctly after refetching', () => {
         const renderer = renderFragment();
-        expectFragmentResults([
+        expectYieldedFragmentResults([
           {
             data: initialUser,
             hasNext: true,

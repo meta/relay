@@ -23,6 +23,7 @@ import type {
 import type {OperationDescriptor, RelayContext} from 'relay-runtime';
 import type {Fragment} from 'relay-runtime/util/RelayRuntimeTypes';
 
+const {act: actInternal} = require('../../jest-react');
 const useFragmentNode_LEGACY = require('../legacy/useFragmentNode');
 const useFragmentInternal_CURRENT = require('../useFragmentInternal_CURRENT');
 const useFragmentInternal_EXPERIMENTAL = require('../useFragmentInternal_EXPERIMENTAL');
@@ -166,6 +167,7 @@ describe.each([
     let setEnvironment;
     let setSingularOwner;
     let renderSingularFragment;
+    let createSingularFragmentElement;
     let renderPluralFragment;
     let forceSingularUpdate;
     let commitSpy;
@@ -413,14 +415,22 @@ describe.each([
         );
       };
 
+      createSingularFragmentElement = () => (
+        <React.Suspense fallback="Singular Fallback">
+          <ContextProvider>
+            <SingularContainer owner={singularQuery} />
+          </ContextProvider>
+        </React.Suspense>
+      );
+
       renderSingularFragment = (props?: {
         owner?: $FlowFixMe,
         userRef?: $FlowFixMe,
-        noAct?: boolean,
         ...
       }) => {
-        if (props?.noAct === true) {
-          return ReactTestRenderer.create(
+        let instance;
+        ReactTestRenderer.act(() => {
+          instance = ReactTestRenderer.create(
             <React.Suspense fallback="Singular Fallback">
               <ContextProvider>
                 <SingularContainer owner={singularQuery} {...props} />
@@ -431,23 +441,8 @@ describe.each([
               unstable_isConcurrent: true,
             },
           );
-        } else {
-          let instance;
-          ReactTestRenderer.act(() => {
-            instance = ReactTestRenderer.create(
-              <React.Suspense fallback="Singular Fallback">
-                <ContextProvider>
-                  <SingularContainer owner={singularQuery} {...props} />
-                </ContextProvider>
-              </React.Suspense>,
-              // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
-              {
-                unstable_isConcurrent: true,
-              },
-            );
-          });
-          return instance;
-        }
+        });
+        return instance;
       };
 
       renderPluralFragment = (
@@ -1646,35 +1641,43 @@ describe.each([
       // $FlowFixMe[incompatible-type]
       SingularRenderer = YieldyUserComponent;
 
-      renderSingularFragment({noAct: true});
-
-      // Flush some of the changes, but don't commit
-      expectSchedulerToFlushAndYieldThrough([
-        'Hey user,',
-        'no uri',
-        ['with id ', '1', '!'],
-      ]);
-
-      // Trigger an update while render is in progress
-      environment.commitPayload(singularQuery, {
-        node: {
-          __typename: 'User',
-          id: '1',
-          name: 'Alice',
-          // Update profile_picture value
-          profile_picture: {
-            uri: 'uri16',
+      actInternal(() => {
+        ReactTestRenderer.create(
+          createSingularFragmentElement(),
+          // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
+          {
+            unstable_isConcurrent: true,
           },
-          username: null,
-        },
-      });
+        );
 
-      // Assert the component renders the updated data
-      expectSchedulerToFlushAndYield([
-        'Hey user,',
-        'uri16',
-        ['with id ', '1', '!'],
-      ]);
+        // Flush some of the changes, but don't commit
+        expectSchedulerToFlushAndYieldThrough([
+          'Hey user,',
+          'no uri',
+          ['with id ', '1', '!'],
+        ]);
+
+        // Trigger an update while render is in progress
+        environment.commitPayload(singularQuery, {
+          node: {
+            __typename: 'User',
+            id: '1',
+            name: 'Alice',
+            // Update profile_picture value
+            profile_picture: {
+              uri: 'uri16',
+            },
+            username: null,
+          },
+        });
+
+        // Assert the component renders the updated data
+        expectSchedulerToFlushAndYield([
+          'Hey user,',
+          'uri16',
+          ['with id ', '1', '!'],
+        ]);
+      });
 
       // We should have observed two commits: one with the original data
       // and one with the updated data:

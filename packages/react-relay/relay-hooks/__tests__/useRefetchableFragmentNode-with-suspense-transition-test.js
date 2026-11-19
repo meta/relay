@@ -109,6 +109,15 @@ describe('useRefetchableFragmentNode with useTransition', () => {
     ) {
       assertYieldsWereCleared();
       Scheduler.unstable_flushAllWithoutAsserting();
+      expectYieldedFragmentResults(expectedYields);
+    }
+
+    function expectYieldedFragmentResults(
+      expectedYields: ReadonlyArray<{
+        data: $FlowFixMe,
+        isPending: boolean,
+      }>,
+    ) {
       const actualYields = Scheduler.unstable_clearLog();
       expect(actualYields.length).toEqual(expectedYields.length);
       expectedYields.forEach((expected, idx) =>
@@ -311,15 +320,19 @@ describe('useRefetchableFragmentNode with useTransition', () => {
         ...
       }): $FlowFixMe => {
         const {isConcurrent = true, ...props} = args ?? {};
-        return TestRenderer.create(
-          <React.Suspense fallback={<Fallback />}>
-            <ContextProvider>
-              <Container owner={query} {...props} />
-            </ContextProvider>
-          </React.Suspense>,
-          // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
-          {unstable_isConcurrent: isConcurrent},
-        );
+        let renderer;
+        TestRenderer.act(() => {
+          renderer = TestRenderer.create(
+            <React.Suspense fallback={<Fallback />}>
+              <ContextProvider>
+                <Container owner={query} {...props} />
+              </ContextProvider>
+            </React.Suspense>,
+            // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
+            {unstable_isConcurrent: isConcurrent},
+          );
+        });
+        return renderer;
       };
     });
 
@@ -338,7 +351,7 @@ describe('useRefetchableFragmentNode with useTransition', () => {
           profile_picture: null,
           ...createFragmentRef('1', query),
         };
-        expectFragmentResults([{data: initialUser, isPending: false}]);
+        expectYieldedFragmentResults([{data: initialUser, isPending: false}]);
 
         refetch({id: '4'});
 
@@ -421,7 +434,7 @@ describe('useRefetchableFragmentNode with useTransition', () => {
             profile_picture: null,
             ...createFragmentRef('1', query),
           };
-          expectFragmentResults([{data: initialUser, isPending: false}]);
+          expectYieldedFragmentResults([{data: initialUser, isPending: false}]);
 
           refetch(
             {id: '2'},
@@ -552,7 +565,7 @@ describe('useRefetchableFragmentNode with useTransition', () => {
             profile_picture: null,
             ...createFragmentRef('1', query),
           };
-          expectFragmentResults([{data: initialUser, isPending: false}]);
+          expectYieldedFragmentResults([{data: initialUser, isPending: false}]);
 
           refetch(
             {id: '2'},
@@ -694,7 +707,7 @@ describe('useRefetchableFragmentNode with useTransition', () => {
             profile_picture: null,
             ...createFragmentRef('1', query),
           };
-          expectFragmentResults([{data: initialUser, isPending: false}]);
+          expectYieldedFragmentResults([{data: initialUser, isPending: false}]);
 
           refetch(
             {id: '2'},

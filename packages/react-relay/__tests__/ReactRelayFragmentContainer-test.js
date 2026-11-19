@@ -10,7 +10,7 @@
 
 'use strict';
 
-const {act: internalAct} = require('../jest-react');
+const {act: actInternal} = require('../jest-react');
 const ReactRelayContext = require('../ReactRelayContext');
 const ReactRelayFragmentContainer = require('../ReactRelayFragmentContainer');
 const React = require('react');
@@ -756,7 +756,7 @@ describe('ReactRelayFragmentContainer', () => {
       const userPointer = environment.lookup(ownerUser1.fragment, ownerUser1)
         .data.node;
 
-      internalAct(() => {
+      actInternal(() => {
         ReactTestRenderer.create(
           <ContextSetter environment={environment}>
             <TestYieldyContainer user={userPointer} />

@@ -169,15 +169,19 @@ describe('useRefetchableFragment', () => {
       ...
     }) => {
       const {isConcurrent = false, ...props} = args ?? {};
-      return TestRenderer.create(
-        <React.Suspense fallback="Fallback">
-          <ContextProvider>
-            <Container owner={query} {...props} />
-          </ContextProvider>
-        </React.Suspense>,
-        // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
-        {unstable_isConcurrent: isConcurrent},
-      );
+      let renderer;
+      TestRenderer.act(() => {
+        renderer = TestRenderer.create(
+          <React.Suspense fallback="Fallback">
+            <ContextProvider>
+              <Container owner={query} {...props} />
+            </ContextProvider>
+          </React.Suspense>,
+          // $FlowFixMe[incompatible-type] - error revealed when flow-typing ReactTestRenderer
+          {unstable_isConcurrent: isConcurrent},
+        );
+      });
+      return renderer;
     };
   });
 

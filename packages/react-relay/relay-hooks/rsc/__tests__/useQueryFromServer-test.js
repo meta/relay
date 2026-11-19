@@ -117,17 +117,20 @@ describe('useQueryFromServer with a @connection', () => {
         .join(',');
     }
 
-    const renderer = TestRenderer.create(
-      <RelayEnvironmentProvider environment={environment}>
-        <React.Suspense fallback="Loading">
-          <Comments />
-        </React.Suspense>
-      </RelayEnvironmentProvider>,
-    );
+    let renderer;
+    await TestRenderer.act(async () => {
+      renderer = TestRenderer.create(
+        <RelayEnvironmentProvider environment={environment}>
+          <React.Suspense fallback="Loading">
+            <Comments />
+          </React.Suspense>
+        </RelayEnvironmentProvider>,
+      );
+    });
     // Let `use(queryRef._response)` settle and the tree re-render.
     await TestRenderer.act(async () => {});
 
-    expect(renderer.toJSON()).toEqual('node-1');
+    expect(renderer?.toJSON()).toEqual('node-1');
   });
 
   it('issues no network request, the response having already been supplied', async () => {
@@ -174,13 +177,15 @@ describe('useQueryFromServer with a @connection', () => {
         .join(',');
     }
 
-    TestRenderer.create(
-      <RelayEnvironmentProvider environment={environment}>
-        <React.Suspense fallback="Loading">
-          <Comments />
-        </React.Suspense>
-      </RelayEnvironmentProvider>,
-    );
+    await TestRenderer.act(async () => {
+      TestRenderer.create(
+        <RelayEnvironmentProvider environment={environment}>
+          <React.Suspense fallback="Loading">
+            <Comments />
+          </React.Suspense>
+        </RelayEnvironmentProvider>,
+      );
+    });
     await TestRenderer.act(async () => {});
 
     expect(fetch).toBeCalledTimes(0);
@@ -232,13 +237,15 @@ describe('useQueryFromServer with a @connection', () => {
         .join(',');
     }
 
-    TestRenderer.create(
-      <RelayEnvironmentProvider environment={environment}>
-        <React.Suspense fallback="Loading">
-          <Comments />
-        </React.Suspense>
-      </RelayEnvironmentProvider>,
-    );
+    await TestRenderer.act(async () => {
+      TestRenderer.create(
+        <RelayEnvironmentProvider environment={environment}>
+          <React.Suspense fallback="Loading">
+            <Comments />
+          </React.Suspense>
+        </RelayEnvironmentProvider>,
+      );
+    });
     await TestRenderer.act(async () => {});
 
     // Nothing else drives this environment -- no fetch, no mutation -- so the
@@ -295,15 +302,17 @@ describe('useQueryFromServer with a @connection', () => {
     // StrictMode renders twice and commits the second, which takes the
     // already-published path and produces no continuation of its own. One
     // carried from render to effect would be lost; one keyed on the ref is not.
-    TestRenderer.create(
-      <React.StrictMode>
-        <RelayEnvironmentProvider environment={environment}>
-          <React.Suspense fallback="Loading">
-            <Comments />
-          </React.Suspense>
-        </RelayEnvironmentProvider>
-      </React.StrictMode>,
-    );
+    await TestRenderer.act(async () => {
+      TestRenderer.create(
+        <React.StrictMode>
+          <RelayEnvironmentProvider environment={environment}>
+            <React.Suspense fallback="Loading">
+              <Comments />
+            </React.Suspense>
+          </RelayEnvironmentProvider>
+        </React.StrictMode>,
+      );
+    });
     await TestRenderer.act(async () => {});
 
     expect(notify).toBeCalledTimes(1);
@@ -345,16 +354,19 @@ describe('useQueryFromServer publishing into a live store', () => {
       return data.me?.name ?? 'no name';
     }
 
-    const renderer = TestRenderer.create(
-      <RelayEnvironmentProvider environment={environment}>
-        <React.Suspense fallback="Loading">
-          <Name />
-        </React.Suspense>
-      </RelayEnvironmentProvider>,
-    );
+    let renderer;
+    await TestRenderer.act(async () => {
+      renderer = TestRenderer.create(
+        <RelayEnvironmentProvider environment={environment}>
+          <React.Suspense fallback="Loading">
+            <Name />
+          </React.Suspense>
+        </RelayEnvironmentProvider>,
+      );
+    });
     await TestRenderer.act(async () => {});
 
-    expect(renderer.toJSON()).toEqual('Zuck');
+    expect(renderer?.toJSON()).toEqual('Zuck');
 
     // The mutation settles and its optimistic layer is thrown away.
     await TestRenderer.act(async () => {
@@ -399,13 +411,16 @@ describe('useQueryFromServer publishing into a live store', () => {
       return data.me?.name ?? 'no name';
     }
 
-    const renderer = TestRenderer.create(
-      <RelayEnvironmentProvider environment={environment}>
-        <React.Suspense fallback="Loading">
-          <Name />
-        </React.Suspense>
-      </RelayEnvironmentProvider>,
-    );
+    let renderer;
+    await TestRenderer.act(async () => {
+      renderer = TestRenderer.create(
+        <RelayEnvironmentProvider environment={environment}>
+          <React.Suspense fallback="Loading">
+            <Name />
+          </React.Suspense>
+        </RelayEnvironmentProvider>,
+      );
+    });
     await TestRenderer.act(async () => {});
 
     // `usePreloadedQuery` checks the store later in the same render, before any
@@ -413,7 +428,7 @@ describe('useQueryFromServer publishing into a live store', () => {
     // store has been invalidated, so recording it at publish rather than at the
     // notify is what keeps this from suspending on a fetch for data it just
     // published.
-    expect(renderer.toJSON()).toEqual('Zuck');
+    expect(renderer?.toJSON()).toEqual('Zuck');
     expect(fetchCount).toBe(0);
   });
 
@@ -448,15 +463,18 @@ describe('useQueryFromServer publishing into a live store', () => {
     }
 
     async function renderUnder(environment: Environment) {
-      const renderer = TestRenderer.create(
-        <RelayEnvironmentProvider environment={environment}>
-          <React.Suspense fallback="Loading">
-            <Name />
-          </React.Suspense>
-        </RelayEnvironmentProvider>,
-      );
+      let renderer;
+      await TestRenderer.act(async () => {
+        renderer = TestRenderer.create(
+          <RelayEnvironmentProvider environment={environment}>
+            <React.Suspense fallback="Loading">
+              <Name />
+            </React.Suspense>
+          </RelayEnvironmentProvider>,
+        );
+      });
       await TestRenderer.act(async () => {});
-      await TestRenderer.act(async () => renderer.unmount());
+      await TestRenderer.act(async () => renderer?.unmount());
     }
 
     const first = makeEnvironment();
@@ -514,18 +532,21 @@ describe('useQueryFromServer publishing into a live store', () => {
       return data.me?.name ?? 'no name';
     }
 
-    const renderer = TestRenderer.create(
-      <RelayEnvironmentProvider environment={environment}>
-        <React.Suspense fallback="Loading">
-          <Subscriber />
-          <Name />
-        </React.Suspense>
-      </RelayEnvironmentProvider>,
-    );
+    let renderer;
+    await TestRenderer.act(async () => {
+      renderer = TestRenderer.create(
+        <RelayEnvironmentProvider environment={environment}>
+          <React.Suspense fallback="Loading">
+            <Subscriber />
+            <Name />
+          </React.Suspense>
+        </RelayEnvironmentProvider>,
+      );
+    });
     await TestRenderer.act(async () => {});
 
     // The layout effect discharges the deferred notify once the commit lands,
     // so the subscriber re-reads and the two components agree.
-    expect(renderer.toJSON()).toEqual(['Zuck', 'Zuck']);
+    expect(renderer?.toJSON()).toEqual(['Zuck', 'Zuck']);
   });
 });
