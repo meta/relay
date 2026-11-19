@@ -111,15 +111,25 @@ function recycleNodesIntoImplOptimized<T>(
     // recycled into.
     let canMutateNext: ?boolean = null;
     let wasEqual = true;
-    for (let ii = 0; ii < nextArray.length; ii++) {
+    // Items past the end of prevArray have nothing to recycle: they stay as
+    // they are, and the array isn't recycled because the lengths differ.
+    // Unlike Array.prototype.reduce, this doesn't read prevArray there, where
+    // only its prototype or a Proxy can supply items.
+    const length =
+      prevArray.length < nextArray.length ? prevArray.length : nextArray.length;
+    for (let ii = 0; ii < length; ii++) {
       // Skip holes, as Array.prototype.reduce does.
       if (!(ii in nextArray)) {
         continue;
       }
       const prevValue = prevArray[ii];
       const nextItem = nextArray[ii];
-      if (isRecycledAsIs(prevValue, nextItem)) {
-        wasEqual = wasEqual && nextItem === prevValue;
+      if (nextItem === prevValue) {
+        continue;
+      }
+      // A changed scalar stays as it is.
+      if (typeof nextItem !== 'object' || nextItem === null) {
+        wasEqual = false;
         continue;
       }
       if (canMutateNext == null) {
@@ -151,8 +161,11 @@ function recycleNodesIntoImplOptimized<T>(
       nextKeyCount++;
       const prevValue = prevObject[key];
       const nextItem = nextObject[key];
-      if (isRecycledAsIs(prevValue, nextItem)) {
-        wasEqual = wasEqual && nextItem === prevValue;
+      if (nextItem === prevValue) {
+        continue;
+      }
+      if (typeof nextItem !== 'object' || nextItem === null) {
+        wasEqual = false;
         continue;
       }
       if (canMutateNext == null) {
@@ -194,16 +207,6 @@ function countKeys(object: {...}): number {
     count++;
   }
   return count;
-}
-
-// Whether recycleNodesIntoImplOptimized() returns `nextValue` as is: for
-// scalars and identical values.
-function isRecycledAsIs(prevValue: unknown, nextValue: unknown): boolean {
-  return (
-    prevValue === nextValue ||
-    typeof nextValue !== 'object' ||
-    nextValue === null
-  );
 }
 
 module.exports = recycleNodesInto;

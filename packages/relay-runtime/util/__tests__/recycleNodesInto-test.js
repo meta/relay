@@ -281,6 +281,26 @@ describe('recycleNodesInto', () => {
       expect(recycled[1]).toEqual({bar: 2});
     });
 
+    it('reads items past the end of `prevData` with the notify flag off only', () => {
+      // A documented difference of ENABLE_PERF_NOTIFY: it doesn't read items
+      // at or past the end of `prevData`, which only its prototype or a Proxy
+      // can supply (the reader never creates such arrays).
+      const inheritedItem = {bar: 2};
+      const prototype = Object.create(Array.prototype);
+      prototype[1] = inheritedItem;
+      const prevData = [{foo: 1}];
+      Object.setPrototypeOf(prevData, prototype);
+      const nextItem = {bar: 2};
+      const nextData = [{foo: 1}, nextItem];
+      const recycled = recycleNodesInto(prevData, nextData);
+
+      expect(recycled).toBe(nextData);
+      expect(recycled[0]).toBe(prevData[0]);
+      expect(recycled[1]).toBe(
+        RelayFeatureFlags.ENABLE_PERF_NOTIFY ? nextItem : inheritedItem,
+      );
+    });
+
     it('recycles equal objects from an array with more siblings', () => {
       const prevData = [{foo: 1}, {bar: 2}];
       const nextData = [{foo: 1}];
