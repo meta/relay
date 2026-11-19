@@ -298,8 +298,7 @@ hook usePrefetchableForwardPaginationFragment_EXPERIMENTAL<
               onComplete: prefetchingOnComplete,
               UNSTABLE_extraVariables:
                 typeof prefetchingUNSTABLE_extraVariables === 'function'
-                  ? // $FlowFixMe[incompatible-type]
-                    prefetchingUNSTABLE_extraVariables({
+                  ? prefetchingUNSTABLE_extraVariables({
                       hasNext,
                       // $FlowFixMe[incompatible-type]
                       data: fragmentData,
@@ -384,8 +383,7 @@ hook usePrefetchableForwardPaginationFragment_EXPERIMENTAL<
           onComplete,
           UNSTABLE_extraVariables:
             typeof prefetchingUNSTABLE_extraVariables === 'function'
-              ? // $FlowFixMe[incompatible-type]
-                prefetchingUNSTABLE_extraVariables({
+              ? prefetchingUNSTABLE_extraVariables({
                   hasNext,
                   // $FlowFixMe[incompatible-type]
                   data: fragmentData,

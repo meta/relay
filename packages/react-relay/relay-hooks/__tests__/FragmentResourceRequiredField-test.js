@@ -146,7 +146,6 @@ test('Throws if a @required(action: THROW) field is present and then goes missin
     alternate_name: 'Zuckster',
   });
 
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.subscribe).toHaveBeenCalledTimes(0);
   const disposable = FragmentResource.subscribe(result, callback);
 

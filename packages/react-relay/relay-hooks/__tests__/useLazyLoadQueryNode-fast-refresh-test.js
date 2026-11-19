@@ -57,9 +57,7 @@ function expectToHaveFetched(
     transactionId?: ?string,
   },
 ) {
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute.mock.calls[0][0].operation).toMatchObject({
     fragment: expect.anything(),
     root: expect.anything(),
@@ -146,7 +144,6 @@ describe('useLazyLoadQueryNode-fast-refresh', () => {
     expect(instance?.container.textContent).toEqual('Fallback');
     expectToHaveFetched(environment, query, {});
     expect(renderFn).not.toBeCalled();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.retain).toHaveBeenCalledTimes(1);
 
     await act(() =>
@@ -166,7 +163,6 @@ describe('useLazyLoadQueryNode-fast-refresh', () => {
     // $FlowFixMe[invalid-tuple-arity] Error found while enabling LTI on this file
     await expectToBeRendered(renderFn, data);
 
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     environment.execute.mockClear();
     renderFn.mockClear();
     function V2(props: any) {

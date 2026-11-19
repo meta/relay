@@ -351,7 +351,6 @@ function loadQuery<
         fetchPolicy === 'store-only' || shouldCheckAvailabilityOnLoad
           ? null
           : makeNetworkRequest(params, null);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
        * unsoundness in flow */
       ({dispose: cancelOnLoadCallback} = PreloadableQueryRegistry.onLoad(

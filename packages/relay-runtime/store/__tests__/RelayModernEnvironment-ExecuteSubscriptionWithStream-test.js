@@ -113,14 +113,10 @@ describe('executeSubscrption() with @stream', () => {
     error = jest.fn<[Error], unknown>();
     next = jest.fn<[GraphQLResponse], unknown>();
     callbacks = {complete, error, next};
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     fetchFn = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       RelayObservable.create(sink => {}),
     );
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     subscribeFn = jest.fn((_query, _variables, _cacheConfig) =>
-      // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
       RelayObservable.create(sink => {
         dataSource = sink;
       }),

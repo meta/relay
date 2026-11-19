@@ -99,7 +99,6 @@ class FakeJSResource<T> {
 
     this.getModuleId = jest.fn(() => 'TheModuleID');
     this.getModuleIfRequired = jest.fn(() => this._resource);
-    // $FlowFixMe[incompatible-type]
     this.load = jest.fn(() => {
       return new Promise(resolve => {
         this._resolve = resolve;
@@ -119,9 +118,7 @@ class FakeJSResource<T> {
 beforeEach(() => {
   PreloadableQueryRegistry.clear();
 
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   fetch = jest.fn((_query, _variables, _cacheConfig) =>
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     Observable.create(sink => {
       dataSource = sink;
     }),
@@ -137,7 +134,6 @@ beforeEach(() => {
     params: query.params,
   };
   entryPoint = {
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     getPreloadProps: jest.fn(entryPointParams => {
       return {
         queries: {
@@ -172,7 +168,6 @@ it.skip('suspends while the query and component are pending', async () => {
   await act(() => jest.runAllImmediates());
   expect(renderer?.container.textContent).toEqual('Fallback');
   expect(fetch).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
 });
 
@@ -197,7 +192,6 @@ it.skip('suspends while the component is loading', async () => {
   });
   await act(() => jest.runAllImmediates());
   expect(renderer?.container.textContent).toEqual('Fallback');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
 });
 
@@ -224,7 +218,6 @@ it('suspends while the query is loading', async () => {
   });
   await act(() => jest.runAllImmediates());
   expect(renderer?.container.textContent).toEqual('Fallback');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(0);
   expect(fetch).toBeCalledTimes(1);
 });
@@ -247,9 +240,7 @@ it.skip('suspends then updates when the query and component load', async () => {
   });
   await act(() => jest.runAllImmediates());
   expect(renderer?.container.textContent).toEqual('Fallback');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(2);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
 
   let receivedProps = null;
@@ -263,9 +254,7 @@ it.skip('suspends then updates when the query and component load', async () => {
   dataSource.next(response);
   dataSource.complete();
   await act(() => jest.runAllImmediates());
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(4);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(1);
   expect(receivedProps).not.toBe(null);
   expect(receivedProps?.props).toBe(otherProps);
@@ -305,16 +294,13 @@ it('renders synchronously when the query and component are already loaded', asyn
     );
   });
   expect(renderer?.container.textContent).toEqual('Zuck');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(2);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(0);
   expect(receivedProps).not.toBe(null);
   expect(receivedProps?.props).toBe(otherProps);
 });
 
 it('re-renders without reloading when non-prefetch props change', async () => {
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   const Component = jest.fn(props => {
     const data = usePreloadedQuery(query, props.queries.prefetched);
     return data.node?.name;
@@ -362,7 +348,6 @@ it('re-renders without reloading when non-prefetch props change', async () => {
 });
 
 it.skip('re-renders and reloads when prefetch params change', async () => {
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   const Component = jest.fn(props => {
     const data = usePreloadedQuery(query, props.queries.prefetched);
     return data.node?.name;
@@ -464,9 +449,7 @@ it('fetches and renders synchronously when the query data is cached, then update
   });
   invariant(renderer != null, 'should have been rendered');
   expect(renderer.container.textContent).toEqual('Zuck');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(2);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(0);
   expect(receivedProps).not.toBe(null);
   expect(receivedProps?.props).toBe(otherProps);
@@ -534,9 +517,7 @@ it('renders synchronously when the query data and ast are cached, without fetchi
   });
   invariant(renderer != null, 'should have been rendered');
   expect(renderer.container.textContent).toEqual('Zuck');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.getModuleIfRequired).toBeCalledTimes(2);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(entryPoint.root.load).toBeCalledTimes(0);
   expect(receivedProps).not.toBe(null);
   expect(receivedProps?.props).toBe(otherProps);
@@ -547,7 +528,6 @@ it('renders synchronously when the query data and ast are cached, without fetchi
 
 it('should use environment from `getEnvironment` prop to fetch a query', async () => {
   entryPoint = {
-    // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
     getPreloadProps: jest.fn(entryPointParams => {
       return {
         queries: {

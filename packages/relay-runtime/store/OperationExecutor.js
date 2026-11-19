@@ -423,13 +423,8 @@ class Executor<TMutation extends MutationParameters> {
       // commits directly to the store, bypassing normalizeResponse(). An
       // array of them is published together.
       const first = Array.isArray(response) ? response[0] : response;
-      if (
-        first != null &&
-        // $FlowFixMe[prop-missing] isPreNormalized exists on RelayResponsePayload branch
-        first.isPreNormalized === true
-      ) {
+      if (first != null && first.isPreNormalized === true) {
         this._handlePreNormalizedPayloads(
-          // $FlowFixMe[incompatible-type] narrowed by isPreNormalized check
           Array.isArray(response) ? response : [response],
         );
         return;

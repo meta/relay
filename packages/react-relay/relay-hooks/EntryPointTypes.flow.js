@@ -232,7 +232,6 @@ export type ThinQueryParams<
   environmentProviderOptions?: ?TEnvironmentProviderOptions,
   options?: ?PreloadOptions,
   parameters: PreloadableConcreteRequest<TQuery>,
-  // $FlowFixMe[incompatible-use]
   variables: TQuery['variables'],
 }>;
 
@@ -254,10 +253,7 @@ export type ExtractQueryTypeHelper<TEnvironmentProviderOptions> = <
 // up the union type would cause us to lose track of TQuery.
 type ExtractThinQueryParams<T, TEnvironmentProviderOptions> = [
   readonly t: T,
-] extends [
-  // $FlowFixMe[incompatible-type]
-  readonly t: PreloadedQuery<infer TQuery extends OperationType>,
-]
+] extends [readonly t: PreloadedQuery<infer TQuery extends OperationType>]
   ? ThinQueryParams<TQuery, TEnvironmentProviderOptions>
   : [readonly t: T] extends [
         readonly t: PreloadedQuery<infer TQuery extends OperationType> | void,

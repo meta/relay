@@ -73,9 +73,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         error = jest.fn<[Error], unknown>();
         next = jest.fn<[GraphQLResponse], unknown>();
         callbacks = {complete, error, next};
-        // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
         fetch = jest.fn((_query, _variables, _cacheConfig) =>
-          // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
           RelayObservable.create(sink => {
             subject = sink;
           }),
@@ -95,7 +93,6 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
                 network: RelayNetwork.create(fetch),
                 store,
               });
-        // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
         fetchSourceMock = jest.fn(sink =>
           // $FlowFixMe[invalid-tuple-arity] Error found while enabling LTI on this file
           fetch(

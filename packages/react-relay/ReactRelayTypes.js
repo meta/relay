@@ -108,7 +108,6 @@ type LooseOmitRelayProps<Props extends {...}, K extends keyof any> = Pick<
  * `props.relay` and returns the props of the container.
  */
 // prettier-ignore
-// $FlowFixMe[extra-type-arg] xplat redux flow type error
 export type $RelayProps<Props extends {...}, _RelayPropT = RelayProp> = MapRelayProps<
   LooseOmitRelayProps<Props, 'relay'>,
 >;

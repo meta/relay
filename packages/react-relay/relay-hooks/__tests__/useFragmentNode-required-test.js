@@ -58,8 +58,6 @@ beforeEach(() => {
   jest.resetModules();
   jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
   jest.mock('warning');
-  /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-   * enabling Flow LTI mode */
   renderSpy = jest.fn<_, unknown>();
 
   // Set up environment and base data

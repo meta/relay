@@ -98,7 +98,6 @@ hook useRefetchableFragment<
     useDebugValue({fragment: fragmentNode.name, data: fragmentData});
   }
   // $FlowFixMe[incompatible-type]
-  // $FlowFixMe[prop-missing]
   return [fragmentData, refetch];
 }
 

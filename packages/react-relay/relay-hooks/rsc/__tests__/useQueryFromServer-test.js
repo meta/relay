@@ -103,7 +103,6 @@ describe('useQueryFromServer with a @connection', () => {
 
     const environment = new Environment({
       // Never emits, so a fetch would leave the tree suspended forever.
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.create<GraphQLResponse>(() => {}),
       ),
@@ -194,7 +193,6 @@ describe('useQueryFromServer with a @connection', () => {
   it('flushes the deferred notify once the render has committed', async () => {
     const queryRef = serverPreloadQuery(
       new Environment({
-        // $FlowFixMe[invalid-tuple-arity]
         network: Network.create(() =>
           Observable.from({
             data: {
@@ -222,7 +220,6 @@ describe('useQueryFromServer with a @connection', () => {
     );
 
     const environment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.create<GraphQLResponse>(() => {}),
       ),
@@ -256,7 +253,6 @@ describe('useQueryFromServer with a @connection', () => {
   it('flushes when the attempt that published is not the attempt that commits', async () => {
     const queryRef = serverPreloadQuery(
       new Environment({
-        // $FlowFixMe[invalid-tuple-arity]
         network: Network.create(() =>
           Observable.from({
             data: {
@@ -284,7 +280,6 @@ describe('useQueryFromServer with a @connection', () => {
     );
 
     const environment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.create<GraphQLResponse>(() => {}),
       ),
@@ -322,7 +317,6 @@ describe('useQueryFromServer with a @connection', () => {
 describe('useQueryFromServer publishing into a live store', () => {
   it('keeps the payload when an optimistic update is reverted', async () => {
     const serverEnvironment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.from({
           data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
@@ -334,7 +328,6 @@ describe('useQueryFromServer publishing into a live store', () => {
     const queryRef = serverPreloadQuery(serverEnvironment, PlainQuery, {});
 
     const environment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.create<GraphQLResponse>(() => {}),
       ),
@@ -381,7 +374,6 @@ describe('useQueryFromServer publishing into a live store', () => {
 
   it('satisfies its own render even when the store has been invalidated', async () => {
     const serverEnvironment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.from({
           data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
@@ -394,7 +386,6 @@ describe('useQueryFromServer publishing into a live store', () => {
 
     let fetchCount = 0;
     const environment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() => {
         fetchCount++;
         // Never emits, so a fetch would leave the tree suspended forever.
@@ -434,7 +425,6 @@ describe('useQueryFromServer publishing into a live store', () => {
 
   it('publishes into each environment a ref is rendered under', async () => {
     const serverEnvironment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.from({
           data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
@@ -449,7 +439,6 @@ describe('useQueryFromServer publishing into a live store', () => {
 
     function makeEnvironment() {
       return new Environment({
-        // $FlowFixMe[invalid-tuple-arity]
         network: Network.create(() =>
           Observable.create<GraphQLResponse>(() => {}),
         ),
@@ -492,7 +481,6 @@ describe('useQueryFromServer publishing into a live store', () => {
 
   it('a mounted subscriber sees the data the hook published', async () => {
     const serverEnvironment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.from({
           data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
@@ -504,7 +492,6 @@ describe('useQueryFromServer publishing into a live store', () => {
     const queryRef = serverPreloadQuery(serverEnvironment, PlainQuery, {});
 
     const environment = new Environment({
-      // $FlowFixMe[invalid-tuple-arity]
       network: Network.create(() =>
         Observable.create<GraphQLResponse>(() => {}),
       ),

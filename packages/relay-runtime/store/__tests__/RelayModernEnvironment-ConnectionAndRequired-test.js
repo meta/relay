@@ -84,9 +84,7 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         const error = jest.fn<[Error], unknown>();
         const next = jest.fn<[GraphQLResponse], unknown>();
         callbacks = {complete, error, next};
-        // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
         const fetch = jest.fn((_query, _variables, _cacheConfig) => {
-          // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
           return RelayObservable.create(sink => {
             dataSource = sink;
           });

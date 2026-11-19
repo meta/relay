@@ -628,7 +628,6 @@ hook useFragmentInternal_EXPERIMENTAL(
       // suspending read, and the intermediate array is the expensive part.
       let described = '';
       for (let i = 0; i < promises.length; i++) {
-        // $FlowFixMe[prop-missing] Expando to annotate Promises.
         const liveStateName: ?string = promises[i].displayName;
         if (liveStateName != null && liveStateName !== '') {
           described =

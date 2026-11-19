@@ -99,7 +99,6 @@ describe('subscribe()', () => {
       ),
     );
     const callback = jest.fn<[Snapshot], void>();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const {dispose} = environment.subscribe(snapshot, callback);
     /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
      * unsoundness in flow */

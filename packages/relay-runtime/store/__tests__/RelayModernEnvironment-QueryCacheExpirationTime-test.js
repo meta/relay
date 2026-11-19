@@ -78,7 +78,6 @@ describe('query cache expiration time', () => {
           name: 'Zuck',
         },
       });
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       const {dispose} = environment.retain(operationDescriptor);
       const snapshot = environment.lookup(
         createReaderSelector(
@@ -126,7 +125,6 @@ describe('query cache expiration time', () => {
           name: 'Zuck',
         },
       });
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       const {dispose} = environment.retain(operationDescriptor);
       const snapshot = environment.lookup(
         createReaderSelector(
@@ -169,7 +167,6 @@ describe('query cache expiration time', () => {
           name: 'Zuck',
         },
       });
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       const {dispose} = environment.retain(operationDescriptor);
       const originalFetchTime = fetchTime;
 

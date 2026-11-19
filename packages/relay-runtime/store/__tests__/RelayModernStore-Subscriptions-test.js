@@ -539,7 +539,6 @@ function cloneEventWithSets(event: LogEvent) {
           );
           const snapshot = store.lookup(selector);
           const callback = jest.fn<[Snapshot], void>();
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           const {dispose} = store.subscribe(snapshot, callback);
           // Publish a change to profilePicture.uri
           const nextSource = getRecordSourceImplementation({

@@ -141,7 +141,6 @@ if (__DEV__) {
   ): ?{[key: string]: unknown} => {
     const record = source.get(dataID);
     if (record == null) {
-      // $FlowFixMe[incompatible-type]
       return record;
     }
     return new Proxy(
@@ -158,7 +157,6 @@ if (__DEV__) {
               return getWrappedRecord(source, value.__ref);
             }
             if (Array.isArray(value.__refs)) {
-              // $FlowFixMe[incompatible-type]
               return value.__refs.map((ref: string) =>
                 getWrappedRecord(source, ref),
               );

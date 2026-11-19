@@ -49,7 +49,6 @@ hook useSubscription<TVariables extends Variables, TData, TRawResponse>(
   > = requestSubscriptionFn ?? (requestSubscription as $FlowFixMe);
   const environment = useRelayEnvironment();
   useEffect(() => {
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const {dispose} = actualRequestSubscription(environment, config);
     /* $FlowFixMe[incompatible-type] Error exposed after fixing this typing
      * unsoundness in flow */

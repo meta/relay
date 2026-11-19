@@ -101,7 +101,6 @@ function buildReactRelayContainer<TBase extends component(...empty)>(
     ForwardContainer.displayName = containerName;
   }
 
-  // $FlowFixMe[incompatible-type]
   return ForwardContainer;
 }
 

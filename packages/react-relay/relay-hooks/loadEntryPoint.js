@@ -62,7 +62,6 @@ function loadEntryPoint<
       const {environmentProviderOptions, options, parameters, variables} =
         query;
 
-      // $FlowFixMe[prop-missing] Exists for types that wrap EntryPoint
       if (options?.includeIf === false) {
         // don't preload this query since the includeIf is false
         return;
@@ -72,7 +71,6 @@ function loadEntryPoint<
         environmentProviderOptions,
       );
 
-      // $FlowFixMe[underconstrained-implicit-instantiation]
       // $FlowFixMe[cannot-write]
       preloadedQueries[queryPropName] = loadQuery(
         environment,

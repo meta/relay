@@ -184,13 +184,11 @@ describe('fetchQuery', () => {
         unsubscribedObserver2 = true;
       },
     };
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.execute).toHaveBeenCalledTimes(0);
 
     const subscription1 = fetchQuery(environment, query).subscribe(observer1);
     const subscription2 = fetchQuery(environment, query).subscribe(observer2);
 
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.execute).toHaveBeenCalledTimes(1);
 
     environment.mock.nextValue(gqlQuery, response);
@@ -218,7 +216,6 @@ describe('fetchQuery', () => {
       environment.mock.isLoading(gqlQuery, query.request.variables),
     ).toEqual(false);
 
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.execute).toHaveBeenCalledTimes(1);
   });
 
@@ -297,9 +294,7 @@ describe('fetchQuery', () => {
       expect(
         environment2.mock.isLoading(gqlQuery, query.request.variables),
       ).toEqual(false);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment.execute).toHaveBeenCalledTimes(1);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment2.execute).toHaveBeenCalledTimes(1);
     });
 
@@ -329,7 +324,6 @@ describe('fetchQuery', () => {
       expect(
         environment.mock.isLoading(gqlQuery, query.request.variables),
       ).toEqual(false);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment.execute).toHaveBeenCalledTimes(1);
       expect(calledObserver1).toEqual(true);
       expect(calledObserver2).toEqual(true);
@@ -368,7 +362,6 @@ describe('fetchQuery', () => {
       environment.mock.complete(gqlQuery);
       subscription1.unsubscribe();
       subscription2.unsubscribe();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment.execute).toHaveBeenCalledTimes(1);
 
       // Assert both observers got the payload

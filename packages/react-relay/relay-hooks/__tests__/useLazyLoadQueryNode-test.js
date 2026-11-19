@@ -74,9 +74,7 @@ function expectToHaveFetched(
   environment: RelayMockEnvironment,
   query: OperationDescriptor,
 ) {
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute).toBeCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute.mock.calls[0][0].operation).toMatchObject({
     fragment: expect.anything(),
     request: {
@@ -188,10 +186,8 @@ beforeEach(() => {
     store: new Store(new RecordSource(), {gcReleaseBufferSize: 0}),
   });
   release = jest.fn<[unknown], unknown>();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const originalRetain = environment.retain.bind(environment);
   // $FlowFixMe[cannot-write]
-  // $FlowFixMe[missing-local-annot] error found when enabling Flow LTI mode
   environment.retain = jest.fn((...args) => {
     const originalDisposable = originalRetain(...args);
     return {
@@ -229,7 +225,6 @@ it('fetches and renders the query data', () => {
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   ReactTestRenderer.act(() => {
@@ -256,7 +251,6 @@ it('subscribes to query fragment results and preserves object identity', () => {
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   environment.mock.resolve(gqlQuery, {
@@ -306,7 +300,6 @@ it('fetches and renders correctly even if fetched query data still has missing d
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   expectWarningWillFire(
@@ -346,7 +339,6 @@ it('fetches and renders correctly if component unmounts before it can commit', (
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   ReactTestRenderer.act(() => {
@@ -370,9 +362,7 @@ it('fetches and renders correctly if component unmounts before it can commit', (
   });
 
   renderFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.retain.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
 
   instance = render(environment, <Container variables={variables} />);
@@ -380,7 +370,6 @@ it('fetches and renders correctly if component unmounts before it can commit', (
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   ReactTestRenderer.act(() => {
@@ -421,9 +410,7 @@ it('fetches and renders correctly when switching between queries', () => {
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
   renderFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.retain.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
 
   // Switch to the second query
@@ -436,12 +423,9 @@ it('fetches and renders correctly when switching between queries', () => {
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, nextQuery);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
   renderFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.retain.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
 
   // Switch back to the first query, it shouldn't request again
@@ -450,10 +434,8 @@ it('fetches and renders correctly when switching between queries', () => {
   });
 
   expect(instance?.toJSON()).toEqual('Fallback');
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute).toBeCalledTimes(0);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(0);
 
   const payload = {
@@ -492,9 +474,7 @@ it('fetches and renders correctly when re-mounting the same query (even if GC ru
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
   renderFn.mockClear();
 
@@ -514,7 +494,6 @@ it('fetches and renders correctly when re-mounting the same query (even if GC ru
   const data = environment.lookup(query.fragment).data;
   // $FlowFixMe[incompatible-type] Error found while enabling LTI on this file
   expectToBeRendered(renderFn, data);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
   renderFn.mockClear();
 
@@ -527,17 +506,14 @@ it('fetches and renders correctly when re-mounting the same query (even if GC ru
 
   // Assert that GC doesn't run since the query doesn't
   // incorrectly get fully released (which would trigger GC)
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(store.scheduleGC).toHaveBeenCalledTimes(0);
 
   // Assert that a new request was not started
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute).toHaveBeenCalledTimes(0);
 
   // Expect to still be able to render the same data
   // $FlowFixMe[incompatible-type] Error found while enabling LTI on this file
   expectToBeRendered(renderFn, data);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 });
 
@@ -551,9 +527,7 @@ it('disposes the temporary retain when the component is re-rendered and switches
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
   renderFn.mockClear();
 
@@ -573,7 +547,6 @@ it('disposes the temporary retain when the component is re-rendered and switches
   const data = environment.lookup(query.fragment).data;
   // $FlowFixMe[incompatible-type] Error found while enabling LTI on this file
   expectToBeRendered(renderFn, data);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
   renderFn.mockClear();
 
@@ -590,7 +563,6 @@ it('disposes the temporary retain when the component is re-rendered and switches
     setProps({extraData: 1, variables: {id: '2'}});
   });
 
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.execute).toHaveBeenCalledTimes(1);
   ReactTestRenderer.act(() => {
     environment.mock.resolve(gqlQuery, {
@@ -628,7 +600,6 @@ it('does not cancel ongoing network request when component unmounts while suspen
 
   expect(instance?.toJSON()).toEqual('Bob');
   renderFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
 
   // Suspend on the first query
@@ -639,12 +610,9 @@ it('does not cancel ongoing network request when component unmounts while suspen
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(2);
   renderFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.retain.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   environment.execute.mockClear();
   expect(environment.mock.isLoading(query.request.node, variables, {})).toEqual(
     true,
@@ -669,7 +637,6 @@ it('does not cancel ongoing network request when component unmounts after commit
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
 
   // Resolve a payload but don't complete the network request
@@ -711,7 +678,6 @@ it('does not cancel network request when temporarily retained component that nev
   expect(instance?.toJSON()).toEqual('Fallback');
   expectToHaveFetched(environment, query);
   expect(renderFn).not.toBeCalled();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.retain).toHaveBeenCalledTimes(1);
   ReactTestRenderer.act(() => {
     instance?.unmount();
@@ -898,7 +864,6 @@ describe('partial rendering', () => {
     expect(instance?.toJSON()).toEqual('Fallback around fragment');
     expectToHaveFetched(environment, onlyFragsQuery);
     expect(renderFn).not.toBeCalled();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.retain).toHaveBeenCalledTimes(1);
 
     environment.mock.resolve(gqlOnlyFragmentsQuery, {

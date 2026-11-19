@@ -137,14 +137,12 @@ describe('RelayResponseNormalizer', () => {
           __refs: [edgeID1, null, edgeID2],
         },
       },
-      // $FlowFixMe[invalid-computed-prop]
       [edgeID1]: {
         __id: edgeID1,
         __typename: 'FriendsEdge',
         cursor: 'cursor:2',
         node: {__ref: '2'},
       },
-      // $FlowFixMe[invalid-computed-prop]
       [edgeID2]: {
         __id: edgeID2,
         __typename: 'FriendsEdge',
@@ -3938,21 +3936,18 @@ describe('RelayResponseNormalizer', () => {
             __refs: [edge0ID, edge1ID, edge2ID],
           },
         },
-        // $FlowFixMe[invalid-computed-prop]
         [edge0ID]: {
           __id: edge0ID,
           __typename: 'FriendsEdge',
           cursor: 'cursor:2',
           node: {__ref: '2'},
         },
-        // $FlowFixMe[invalid-computed-prop]
         [edge1ID]: {
           __id: edge1ID,
           __typename: 'FriendsEdge',
           cursor: 'cursor:3',
           node: {__ref: '3'},
         },
-        // $FlowFixMe[invalid-computed-prop]
         [edge2ID]: {
           __id: edge2ID,
           __typename: 'FriendsEdge',

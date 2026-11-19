@@ -62,7 +62,6 @@ let CommentCreateMutation;
 beforeEach(() => {
   environment = createMockEnvironment();
 
-  // $FlowExpectedError[cannot-resolve-module]
   CommentCreateMutation = graphql`
     mutation useMutationActionTest1Mutation($input: CommentCreateInput) {
       commentCreate(input: $input) {
@@ -130,7 +129,6 @@ it('resolves with response data on success', async () => {
   await ReactTestingLibrary.act(async () => {
     // $FlowExpectedError[incompatible-type]
     const promise = commitAction(variables);
-    // $FlowExpectedError[method-unbinding]
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, data);
     result = await promise;
@@ -156,7 +154,6 @@ it('resolves with response when server returns field errors', async () => {
   await ReactTestingLibrary.act(async () => {
     // $FlowExpectedError[incompatible-type]
     const promise = commitAction(variables);
-    // $FlowExpectedError[method-unbinding]
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, {
       data: data.data as PayloadData,
@@ -185,7 +182,6 @@ it('rejects when the network errors', async () => {
   await ReactTestingLibrary.act(async () => {
     // $FlowExpectedError[incompatible-type]
     const promise = commitAction(variables);
-    // $FlowExpectedError[method-unbinding]
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.reject(operation, new Error('network failure'));
     try {
@@ -204,9 +200,7 @@ it('calls executeMutation on the environment', async () => {
   await ReactTestingLibrary.act(async () => {
     // $FlowExpectedError[incompatible-type]
     const promise = commitAction(variables);
-    // $FlowExpectedError[method-unbinding]
     expect(environment.executeMutation).toBeCalledTimes(1);
-    // $FlowExpectedError[method-unbinding]
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     environment.mock.resolve(operation, data);
     await promise;
@@ -219,16 +213,12 @@ it('can commit multiple mutations concurrently', async () => {
   await ReactTestingLibrary.act(async () => {
     // $FlowExpectedError[incompatible-type]
     const promise1 = commitAction(variables);
-    // $FlowExpectedError[incompatible-type]
     const promise2 = commitAction({
       input: {feedbackId: '<id-2>'},
     });
-    // $FlowExpectedError[method-unbinding]
     expect(environment.executeMutation).toBeCalledTimes(2);
 
-    // $FlowExpectedError[method-unbinding]
     const operation1 = environment.executeMutation.mock.calls[0][0].operation;
-    // $FlowExpectedError[method-unbinding]
     const operation2 = environment.executeMutation.mock.calls[1][0].operation;
     environment.mock.resolve(operation1, data);
     environment.mock.resolve(operation2, {
@@ -263,11 +253,8 @@ it('uses the current environment after environment change', async () => {
   await ReactTestingLibrary.act(async () => {
     // $FlowExpectedError[incompatible-type]
     const promise = commitAction(variables);
-    // $FlowExpectedError[method-unbinding]
     expect(environment.executeMutation).toBeCalledTimes(0);
-    // $FlowExpectedError[method-unbinding]
     expect(newEnv.executeMutation).toBeCalledTimes(1);
-    // $FlowExpectedError[method-unbinding]
     const operation = newEnv.executeMutation.mock.calls[0][0].operation;
     newEnv.mock.resolve(operation, data);
     await promise;
@@ -282,7 +269,6 @@ describe('unmount', () => {
     await ReactTestingLibrary.act(async () => {
       // $FlowExpectedError[incompatible-type]
       const p = commitAction(variables);
-      // $FlowExpectedError[method-unbinding]
       const operation = environment.executeMutation.mock.calls[0][0].operation;
       environment.mock.resolve(operation, data);
       result = await p;

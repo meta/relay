@@ -28,7 +28,6 @@ type ValidationContext = {
   extraDiff: any,
   moduleImportPaths: Set<string>,
 };
-// $FlowFixMe[method-unbinding] added when improving typing for this parameters
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 let validateMutation:

@@ -165,7 +165,6 @@ it('returns correct in-flight state when the mutation is inflight and completes'
   expect(isInFlightFn).toBeCalledWith(true);
 
   isInFlightFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation = environment.executeMutation.mock.calls[0][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation, data),
@@ -179,7 +178,6 @@ it('returns correct in-flight state when commit called inside render', async () 
   expect(isInFlightFn).toBeCalledTimes(2);
   expect(isInFlightFn).toHaveBeenNthCalledWith(2, true);
   isInFlightFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation = environment.executeMutation.mock.calls[0][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation, data),
@@ -221,7 +219,6 @@ it('returns correct in-flight state when the mutation is disposed', async () => 
 it('returns in-flight state that tracks all in-flight mutations', async () => {
   await render(environment, CommentCreateMutation);
   await commit({variables});
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.executeMutation).toBeCalledTimes(1);
   expect(isInFlightFn).toBeCalledWith(true);
 
@@ -232,7 +229,6 @@ it('returns in-flight state that tracks all in-flight mutations', async () => {
       },
     },
   });
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.executeMutation).toBeCalledTimes(2);
 
   await commit({
@@ -242,11 +238,9 @@ it('returns in-flight state that tracks all in-flight mutations', async () => {
       },
     },
   });
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   expect(environment.executeMutation).toBeCalledTimes(3);
 
   isInFlightFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation = environment.executeMutation.mock.calls[0][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation, data),
@@ -255,7 +249,6 @@ it('returns in-flight state that tracks all in-flight mutations', async () => {
 
   isInFlightFn.mockClear();
 
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation2 = environment.executeMutation.mock.calls[1][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation2, {
@@ -278,7 +271,6 @@ it('returns in-flight state that tracks all in-flight mutations', async () => {
   expect(isInFlightFn).toBeCalledTimes(0);
 
   isInFlightFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation3 = environment.executeMutation.mock.calls[2][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation3, {
@@ -325,7 +317,6 @@ it('returns in-flight state that tracks all current mutations when disposed or e
   isInFlightFn.mockClear();
   await ReactTestingLibrary.act(() => disposable1.dispose());
   expect(isInFlightFn).toBeCalledTimes(0);
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation3 = environment.executeMutation.mock.calls[2][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.reject(operation3, new Error('test')),
@@ -341,7 +332,6 @@ it('calls onCompleted when mutation responses contains server errors', async () 
   const onCompleted = jest.fn<ReadonlyArray<unknown>, unknown>();
   await render(environment, CommentCreateMutation);
   await commit({onCompleted, onError, variables});
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation = environment.executeMutation.mock.calls[0][0].operation;
 
   isInFlightFn.mockClear();
@@ -390,7 +380,6 @@ it('calls onError when mutation errors in commitMutation', async () => {
   await commit({onCompleted, onError, updater: throwingUpdater, variables});
 
   isInFlightFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation = environment.executeMutation.mock.calls[0][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation, data),
@@ -408,7 +397,6 @@ it('calls onComplete when mutation successfully resolved', async () => {
   await commit({onCompleted, onError, variables});
 
   isInFlightFn.mockClear();
-  // $FlowFixMe[method-unbinding] added when improving typing for this parameters
   const operation = environment.executeMutation.mock.calls[0][0].operation;
   await ReactTestingLibrary.act(() =>
     environment.mock.resolve(operation, data),
@@ -470,7 +458,6 @@ describe('change useMutation input', () => {
     expect(isInFlightFn).toHaveBeenNthCalledWith(2, false);
 
     isInFlightFn.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     await ReactTestingLibrary.act(() =>
       environment.mock.resolve(operation, data),
@@ -482,12 +469,10 @@ describe('change useMutation input', () => {
     await render(environment, CommentCreateMutation);
     isInFlightFn.mockClear();
     await commit({variables});
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.executeMutation).toBeCalledTimes(1);
 
     await ReactTestingLibrary.act(() => setEnvironment(newEnv));
     await commit({variables});
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(newEnv.executeMutation).toBeCalledTimes(1);
   });
 
@@ -501,7 +486,6 @@ describe('change useMutation input', () => {
     expect(isInFlightFn).toHaveBeenNthCalledWith(2, false);
 
     isInFlightFn.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     await ReactTestingLibrary.act(() =>
       environment.mock.resolve(operation, data),
@@ -519,17 +503,14 @@ describe('change useMutation input', () => {
       CommentCreateMutation2,
       variables,
     );
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     expect(environment.executeMutation).toBeCalledTimes(2);
     expect(
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.executeMutation.mock.calls[1][0].operation.request,
     ).toEqual(secondOperation.request);
 
     isInFlightFn.mockClear();
     await ReactTestingLibrary.act(() => {
       environment.mock.resolve(
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.executeMutation.mock.calls[0][0].operation,
         data,
       );
@@ -565,7 +546,6 @@ describe('unmount', () => {
     });
 
     isInFlightFn.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     await ReactTestingLibrary.act(() =>
       environment.mock.resolve(operation, data),
@@ -581,7 +561,6 @@ describe('unmount', () => {
     await ReactTestingLibrary.act(() => {
       instance.unmount();
     });
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     await ReactTestingLibrary.act(() =>
       environment.mock.resolve(operation, data),
@@ -660,7 +639,6 @@ describe('<Activity> compatibility', () => {
     });
 
     // Mutation completes while hidden
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     await ReactTestingLibrary.act(() =>
       environment.mock.resolve(operation, data),
@@ -699,7 +677,6 @@ describe('<Activity> compatibility', () => {
 
     // Now resolve the mutation
     isInFlightFn.mockClear();
-    // $FlowFixMe[method-unbinding] added when improving typing for this parameters
     const operation = environment.executeMutation.mock.calls[0][0].operation;
     await ReactTestingLibrary.act(() =>
       environment.mock.resolve(operation, data),

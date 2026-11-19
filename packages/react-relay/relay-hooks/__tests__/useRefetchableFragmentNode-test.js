@@ -190,8 +190,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
     jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
     jest.mock('warning');
     jest.mock('scheduler', () => require('../../__tests__/mockScheduler'));
-    /* $FlowFixMe[underconstrained-implicit-instantiation] error found when
-     * enabling Flow LTI mode */
     commitSpy = jest.fn<_, unknown>();
 
     fetchPolicy = 'store-or-network';
@@ -336,7 +334,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
         () => ({
           [FRAGMENT_OWNER_KEY]: owner.request,
           [FRAGMENTS_KEY]: {
-            // $FlowFixMe[invalid-computed-prop] Error found while enabling LTI on this file
             [fragment.name]: {},
           },
           [ID_KEY]:
@@ -558,7 +555,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
       expected: any,
       requestEnvironment: RelayMockEnvironment = environment,
     ) {
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(requestEnvironment.executeWithSource).toBeCalledTimes(
         expected.requestCount,
       );
@@ -595,9 +591,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
 
       // Assert query is retained by loadQuery and
       // temporarily retained while component is suspended
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(env.retain).toBeCalledTimes(2);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(env.retain.mock.calls[0][0]).toEqual(
         expected.refetchQuery ?? refetchQuery,
       );
@@ -630,7 +624,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
           'Relay: Unexpected call to `refetch` on unmounted component',
         ),
       ).toEqual(true);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment.executeWithSource).toHaveBeenCalledTimes(0);
     });
 
@@ -653,7 +646,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
           'Relay: Unexpected call to `refetch` while using a null fragment ref',
         ),
       ).toEqual(true);
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       expect(environment.executeWithSource).toHaveBeenCalledTimes(1);
     });
 
@@ -1410,9 +1402,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
       );
 
       commitSpy.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.executeWithSource.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockClear();
       release.mockClear();
 
@@ -1483,9 +1473,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
       );
 
       commitSpy.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.executeWithSource.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockClear();
       release.mockClear();
 
@@ -1539,9 +1527,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
       );
 
       commitSpy.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.executeWithSource.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockClear();
       release.mockClear();
 
@@ -1610,9 +1596,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
       );
 
       commitSpy.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.executeWithSource.mockClear();
-      // $FlowFixMe[method-unbinding] added when improving typing for this parameters
       environment.retain.mockClear();
       release.mockClear();
 
@@ -1702,9 +1686,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
 
         const doAndAssertRefetch = (fragmentResults: Array<{data: any}>) => {
           commitSpy.mockClear();
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           environment.executeWithSource.mockClear();
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           environment.retain.mockClear();
 
           TestRenderer.act(() => {
@@ -1779,9 +1761,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
         });
 
         // Call refetch a second time
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.executeWithSource.mockClear();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.retain.mockClear();
         const refetchVariables2 = {id: '4', scale: 16};
         const refetchQuery2 = createOperationDescriptor(
@@ -1887,9 +1867,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
         });
 
         // Call refetch a second time
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.executeWithSource.mockClear();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.retain.mockClear();
         const refetchVariables2 = {id: '4', scale: 16};
         const refetchQuery2 = createOperationDescriptor(
@@ -2014,9 +1992,7 @@ describe('useRefetchableFragmentInternal (%s)', () => {
         });
 
         // Call refetch a second time
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.executeWithSource.mockClear();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.retain.mockClear();
         const refetchVariables2 = {id: '4', scale: 16};
         const refetchQuery2 = createOperationDescriptor(
@@ -2041,7 +2017,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
         });
 
         // Switch back to initial refetch
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.retain.mockClear();
         TestRenderer.act(() => {
           refetch(
@@ -2145,7 +2120,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
         expectFragmentResults([{data: refetchingUser}]);
 
         // Call refetch a second time
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.executeWithSource.mockClear();
         const refetchVariables2 = {id: '4', scale: 16};
         TestRenderer.act(() => {
@@ -3093,7 +3067,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
             refetchQuery,
             refetchVariables,
           });
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           environment.executeWithSource.mockClear();
 
           // Mock network response
@@ -3123,7 +3096,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
             ...createFragmentRef('4', refetchQuery),
           };
           expectFragmentResults([{data: refetchedUser}]);
-          // $FlowFixMe[method-unbinding] added when improving typing for this parameters
           environment.retain.mockClear();
           release.mockClear();
 
@@ -3517,7 +3489,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
 
     describe('refetching @fetchable types', () => {
       beforeEach(() => {
-        // $FlowFixMe[prop-missing]
         // $FlowFixMe[incompatible-type]
         gqlFragment = graphql`
           fragment useRefetchableFragmentNodeTest1Fragment on NonNodeStory
@@ -4068,7 +4039,6 @@ describe('useRefetchableFragmentInternal (%s)', () => {
 
         // Refetch on another enironment afterwards should work
         commitSpy.mockClear();
-        // $FlowFixMe[method-unbinding] added when improving typing for this parameters
         environment.executeWithSource.mockClear();
         const anotherNewEnvironment = createMockEnvironment();
         TestRenderer.act(() => jest.runAllImmediates());

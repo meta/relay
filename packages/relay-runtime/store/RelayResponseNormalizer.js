@@ -280,7 +280,6 @@ class RelayResponseNormalizer {
         }
         case 'TypeDiscriminator': {
           const {abstractKey} = selection;
-          // $FlowFixMe[method-unbinding] - data could be prototype less
           /* $FlowFixMe[invalid-this-arg] Error exposed after fixing this
            * typing unsoundness in flow */
           const implementsInterface = Object.prototype.hasOwnProperty.call(
@@ -418,7 +417,6 @@ class RelayResponseNormalizer {
         this._traverseSelections(selection, record, data);
       }
     } else {
-      // $FlowFixMe[method-unbinding] - data could be prototype less
       /* $FlowFixMe[invalid-this-arg] Error exposed after fixing this typing
        * unsoundness in flow */
       const implementsInterface = Object.prototype.hasOwnProperty.call(
@@ -850,9 +848,7 @@ class RelayResponseNormalizer {
     );
     const nextID =
       this._getDataId(
-        // $FlowFixMe[incompatible-variance]
         fieldValue,
-        // $FlowFixMe[incompatible-variance]
         field.concreteType ?? this._getRecordType(fieldValue),
       ) ||
       // Reuse previously generated client IDs
@@ -871,14 +867,12 @@ class RelayResponseNormalizer {
     RelayModernRecord.setLinkedRecordID(record, storageKey, nextID);
     let nextRecord = this._recordSource.get(nextID);
     if (!nextRecord) {
-      // $FlowFixMe[incompatible-variance]
       const typeName = field.concreteType || this._getRecordType(fieldValue);
       nextRecord = RelayModernRecord.create(nextID, typeName);
       this._recordSource.set(nextID, nextRecord);
     } else {
       this._validateRecordType(nextRecord, field, fieldValue);
     }
-    // $FlowFixMe[incompatible-variance]
     this._traverseSelections(field, nextRecord, fieldValue);
   }
 
@@ -916,9 +910,7 @@ class RelayResponseNormalizer {
       );
       const nextID =
         this._getDataId(
-          // $FlowFixMe[incompatible-variance]
           item,
-          // $FlowFixMe[incompatible-variance]
           field.concreteType ?? this._getRecordType(item),
         ) ||
         (prevIDs && prevIDs[nextIndex]) || // Reuse previously generated client IDs:
@@ -937,7 +929,6 @@ class RelayResponseNormalizer {
       nextIDs.push(nextID);
       let nextRecord = this._recordSource.get(nextID);
       if (!nextRecord) {
-        // $FlowFixMe[incompatible-variance]
         const typeName = field.concreteType || this._getRecordType(item);
         nextRecord = RelayModernRecord.create(nextID, typeName);
         this._recordSource.set(nextID, nextRecord);
@@ -951,7 +942,6 @@ class RelayResponseNormalizer {
           storageKey,
         );
       }
-      // $FlowFixMe[incompatible-variance]
       this._traverseSelections(field, nextRecord, item);
       this._errorTrie = oldErrorTrie;
       this._path.pop();
