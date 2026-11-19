@@ -11,6 +11,7 @@
 
 'use strict';
 
+import type {QueryResult} from '../QueryResource';
 import type {
   RelayHandoff,
   RelayHandoffChunk,
@@ -18,7 +19,6 @@ import type {
 } from './RelayHandoff';
 import type {
   DataID,
-  Disposable,
   GraphQLResponseWithData,
   IEnvironment,
   NormalizationSplitOperation,
@@ -28,6 +28,7 @@ import type {
 } from 'relay-runtime';
 import type {Record} from 'relay-runtime/store/RelayStoreTypes';
 
+const {getQueryResourceForEnvironment} = require('../QueryResource');
 const {
   getHandoffOperation,
   getRelayHandoff,
@@ -84,14 +85,8 @@ type HandoffRoot = {
   // The server's ConnectionHandler connections and edges (see `toPayload`).
   readonly connections: Set<string>,
   readonly edges: Set<string>,
-  // Whether its records were published into this Environment before; a
-  // later execution (e.g. a remount after GC) only fills missing fields.
-  published: boolean,
   // Whether an execution is publishing its records now.
   active: boolean,
-  // Retains of readers that unmounted while an execution was publishing: its
-  // later chunks extend those records, so they are released when it ends.
-  readonly releaseOnEnd: Array<Disposable>,
   // Bumped to execute the root again once its records were collected.
   generation: number,
   // The generation a render last executed.
@@ -99,7 +94,8 @@ type HandoffRoot = {
   // Whether its handoff completed: the server checked that the root's data
   // was complete (see RelayServerHandoff).
   delivered: boolean,
-  // The records its handoff published.
+  // The records its handoff published. A root executes again only once
+  // some were collected, and then only fills missing fields.
   readonly recordIDs: Set<DataID>,
   // The `@module` normalizations the server sent, by operation reference.
   // Garbage collection of the root's operation reads its `@module` data with
@@ -114,7 +110,6 @@ type HandoffRoot = {
   // Notifies the Store's subscribers of records published during render
   // (see `executeHandoff`); the reader's layout effect calls it.
   notify: ?() => void,
-  readonly refs: WeakMap<{...}, {...}>,
 };
 
 // Each record a handoff wrote carries, under this key, the request the
@@ -168,13 +163,14 @@ function getHandoffWrites(
 }
 
 // What this module keeps for an Environment: the root of each handoff its
-// readers read, the owned copy of each plural reference (see `withOwner`),
-// and how many of the server's items each list has, so that each streamed
-// item is appended once, even when two roots deliver it (e.g. a later
-// request's handoff wrote the whole list before this one's stream ended).
+// readers read, the owned copy of each reference, or list of references,
+// they read (see `withOwner`), and how many of the server's items each list
+// has, so that each streamed item is appended once, even when two roots
+// deliver it (e.g. a later request's handoff wrote the whole list before this
+// one's stream ended).
 type HandoffState = {
   readonly roots: WeakMap<RelayHandoff, HandoffRoot>,
-  readonly ownedLists: WeakMap<ReadonlyArray<unknown>, ReadonlyArray<unknown>>,
+  readonly owned: WeakMap<{...} | ReadonlyArray<unknown>, unknown>,
   readonly serverLengths: Map<string, number>,
 };
 
@@ -189,7 +185,7 @@ function getState(environment: IEnvironment): HandoffState {
   let state = states.get(environment);
   if (state == null) {
     state = {
-      ownedLists: new WeakMap(),
+      owned: new WeakMap(),
       roots: new WeakMap(),
       serverLengths: new Map(),
     };
@@ -219,10 +215,7 @@ function getRoot(
       modules: new Map(),
       notify: null,
       operation: getHandoffOperation(handoff),
-      published: false,
       recordIDs: new Set(),
-      releaseOnEnd: [],
-      refs: new WeakMap(),
       serverLists: new Map(),
       serverStore: handoff.serverStore,
     };
@@ -437,10 +430,9 @@ function executeHandoff(
       operation: root.operation,
       source: Observable.create(sink => {
         let active = true;
-        // Executing a root again (e.g. after its records were collected)
-        // replays old data, so it must not overwrite newer fields.
-        const created = root.published ? new Set<DataID>() : null;
-        root.published = true;
+        // Executing a root again (once its records were collected) replays
+        // old data, so it must not overwrite newer fields.
+        const created = root.recordIDs.size > 0 ? new Set<DataID>() : null;
         // Notifying subscribers during render would update other components
         // while this one renders, so what is published before the
         // subscription returns notifies later.
@@ -587,12 +579,15 @@ function executeHandoff(
         // Active only once its first publish succeeded: a source that throws
         // returns no cleanup to end the execution.
         root.active = true;
+        // As Relay's executor retains an operation whose payloads are still
+        // arriving: later chunks extend the root's records.
+        const executionRetain = environment.retain(root.operation);
         follow(handoff.next);
         deferNotify = null;
         return () => {
           active = false;
           root.active = false;
-          root.releaseOnEnd.splice(0).forEach(retain => retain.dispose());
+          executionRetain.dispose();
         };
       }),
     }),
@@ -750,31 +745,26 @@ function getHandoffs(
 
 // The reference a fragment reads from: owned by its root's request.
 function withOwner(environment: IEnvironment, fragmentRef: unknown): unknown {
-  if (Array.isArray(fragmentRef)) {
-    const {ownedLists} = getState(environment);
-    let owned = ownedLists.get(fragmentRef);
-    if (owned == null) {
-      owned = fragmentRef.map(item => withOwner(environment, item));
-      ownedLists.set(fragmentRef, owned);
-    }
-    return owned;
-  }
-  const handoff = getRelayHandoff(fragmentRef);
-  if (
-    handoff == null ||
-    fragmentRef == null ||
-    typeof fragmentRef !== 'object'
-  ) {
+  if (fragmentRef == null || typeof fragmentRef !== 'object') {
     return fragmentRef;
   }
-  const root = getRoot(environment, handoff);
-  let owned = root.refs.get(fragmentRef);
-  if (owned == null) {
-    const {__handoff: _handoff, ...ref} = fragmentRef;
-    owned = {...ref, __fragmentOwner: root.operation.request};
-    root.refs.set(fragmentRef, owned);
+  const {owned} = getState(environment);
+  let copy = owned.get(fragmentRef);
+  if (copy === undefined) {
+    if (Array.isArray(fragmentRef)) {
+      copy = fragmentRef.map((item: unknown) => withOwner(environment, item));
+    } else {
+      const handoff = getRelayHandoff(fragmentRef);
+      if (handoff == null) {
+        return fragmentRef;
+      }
+      const {__handoff: _handoff, ...ref} = fragmentRef;
+      const owner = getRoot(environment, handoff).operation.request;
+      copy = {...ref, __fragmentOwner: owner};
+    }
+    owned.set(fragmentRef, copy);
   }
-  return owned;
+  return copy;
 }
 
 const PLAIN_OBJECT = Object.getPrototypeOf({});
@@ -829,8 +819,13 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
   // An ordinary reference costs only the checks above: a store that never
   // changes, and an effect whose dependencies never change.
   let key: ?string = null;
+  // A reader retains its roots as `useLazyLoadQuery` retains a query, through
+  // QueryResource: from render until it commits (or for QueryResource's
+  // timeout if it never does), then until it unmounts.
+  let queryResults: ?Array<QueryResult> = null;
   if (retained != null) {
-    retained.forEach(handoff => {
+    const queryResource = getQueryResourceForEnvironment(environment);
+    queryResults = retained.map(handoff => {
       const root = getRoot(environment, handoff);
       // A reader of a spread fragment leaves a failure to the reader of the
       // root's own fragment.
@@ -842,8 +837,7 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
       }
       const id = `${root.operation.request.identifier}-${root.generation}`;
       key = key == null ? id : `${key} ${id}`;
-      // Once per generation: the records are in the Store once the execution
-      // starts, retained until the reader's layout effect retains them.
+      // Once per generation.
       if (root.executed !== root.generation) {
         root.executed = root.generation;
         executeHandoff(environment, handoff, root, true, hydrating).subscribe({
@@ -857,6 +851,16 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
       if (handoffs != null && root.error != null) {
         throw root.error;
       }
+      // `store-only`: the handoff, not QueryResource, executes the root.
+      return queryResource.prepare(
+        root.operation,
+        Observable.create(() => {}),
+        'store-only',
+        null,
+        null,
+        null,
+        null,
+      );
     });
   }
 
@@ -886,18 +890,15 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
           ).subscribe({});
         }
       });
-      // Acquire before releasing the previous roots.
+      // Retain before releasing the previous roots.
+      const queryResource = getQueryResourceForEnvironment(environment);
+      const retains = (queryResults ?? []).map(result =>
+        queryResource.retain(result, null),
+      );
+      acquired.current = createAcquisition(() =>
+        retains.forEach(retain => retain.dispose()),
+      );
       roots = retained.map(handoff => getRoot(environment, handoff));
-      const disposables = roots.map(root => environment.retain(root.operation));
-      acquired.current = createAcquisition(() => {
-        disposables.forEach((disposable, index) => {
-          if (roots[index].active) {
-            roots[index].releaseOnEnd.push(disposable);
-          } else {
-            disposable.dispose();
-          }
-        });
-      });
     }
     previous?.release();
     // Last, so that a Store subscriber that throws leaves nothing acquired
@@ -918,6 +919,16 @@ hook useRelayHandoff(environment: IEnvironment, fragmentRef: unknown): unknown {
     },
     [],
   );
+  // On every commit, as `useLazyLoadQuery` does: each render retained the
+  // roots temporarily.
+  useLayoutEffect(() => {
+    if (queryResults != null) {
+      const queryResource = getQueryResourceForEnvironment(environment);
+      queryResults.forEach(result =>
+        queryResource.releaseTemporaryRetain(result),
+      );
+    }
+  });
 
   if (handoffs == null) {
     return fragmentRef;

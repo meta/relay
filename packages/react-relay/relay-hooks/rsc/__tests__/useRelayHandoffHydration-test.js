@@ -1053,7 +1053,9 @@ describe('hydrating a handed-off reference', () => {
       await Promise.resolve();
     }
     abandonedRoot.unmount();
-    // Nothing retains the records now.
+    // Nothing retains the records once Relay's temporary retain of the
+    // render that never committed expires.
+    jest.advanceTimersByTime(5 * 60 * 1000);
     clientStore.scheduleGC();
     for (let ii = 0; ii < 10; ii++) {
       jest.advanceTimersByTime(10);

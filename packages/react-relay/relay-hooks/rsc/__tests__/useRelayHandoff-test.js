@@ -1585,6 +1585,117 @@ describe('useFragment with a handed-off reference', () => {
     expect(client.requests).toEqual([]);
   });
 
+  it('holds a root for all its readers until the last one unmounts and its stream ends', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, StreamQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          friends: {
+            edges: [{node: {__typename: 'User', id: 'f0', name: 'f0'}}],
+          },
+          id: '4',
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const list = (await result).me?.list;
+    if (list == null) {
+      throw new Error('Expected a list reference.');
+    }
+    const client = createClient();
+    component List(user: useRelayHandoffTestStream_user$key) {
+      const value = useFragment(StreamFragment, user);
+      return (value.friends?.edges ?? [])
+        .map(edge => edge?.node?.name)
+        .join(',');
+    }
+    const friends = 'client:4:friends(first:10)';
+    const first = render(client.environment, <List user={list} />);
+    const second = render(client.environment, <List user={list} />);
+    await TestRenderer.act(() => flush());
+    TestRenderer.act(() => first.unmount());
+    await TestRenderer.act(() => flush());
+    client.store.__gc();
+    expect(client.source.has(friends)).toBe(true);
+    TestRenderer.act(() => second.unmount());
+    await TestRenderer.act(() => flush());
+    // Its handoff still streams.
+    client.store.__gc();
+    expect(client.source.has(friends)).toBe(true);
+    await TestRenderer.act(async () => {
+      sinks[0].complete();
+      await flush();
+    });
+    client.store.__gc();
+    expect(client.source.has(friends)).toBe(false);
+  });
+
+  it('keeps a root a reader acquires again before its stream ends, until that reader unmounts', async () => {
+    const sinks: Array<Sink<GraphQLResponse>> = [];
+    const server = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sinks.push(sink);
+        }),
+      ),
+      store: new Store(new RecordSource()),
+    });
+    const result = serverQuery(server, StreamQuery, {});
+    sinks[0].next({
+      data: {
+        me: {
+          __typename: 'User',
+          friends: {
+            edges: [{node: {__typename: 'User', id: 'f0', name: 'f0'}}],
+          },
+          id: '4',
+        },
+      },
+      extensions: {is_final: false},
+    });
+    const list = (await result).me?.list;
+    if (list == null) {
+      throw new Error('Expected a list reference.');
+    }
+    const client = createClient();
+    component List(user: useRelayHandoffTestStream_user$key) {
+      const value = useFragment(StreamFragment, user);
+      return (value.friends?.edges ?? [])
+        .map(edge => edge?.node?.name)
+        .join(',');
+    }
+    const friends = 'client:4:friends(first:10)';
+    const first = render(client.environment, <List user={list} />);
+    await TestRenderer.act(() => flush());
+    TestRenderer.act(() => first.unmount());
+    await TestRenderer.act(() => flush());
+    const second = render(client.environment, <List user={list} />);
+    await TestRenderer.act(() => flush());
+    await TestRenderer.act(async () => {
+      sinks[0].complete();
+      await flush();
+    });
+    client.store.__gc();
+    expect(client.source.has(friends)).toBe(true);
+    expect(second.toJSON()).toBe('f0');
+    TestRenderer.act(() => second.unmount());
+    await TestRenderer.act(() => flush());
+    client.store.__gc();
+    expect(client.source.has(friends)).toBe(false);
+  });
+
   it('paginates a handed-off connection whose edges streamed', async () => {
     const sinks: Array<Sink<GraphQLResponse>> = [];
     const server = new Environment({
