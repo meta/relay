@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<72bc12942de566f4a56bcdace9fae551>>
+ * @generated SignedSource<<161b194382dc4e23203f55318e375b11>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -46,14 +46,7 @@ v1 = [
     "name": "id",
     "variableName": "id"
   }
-],
-v2 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "id",
-  "storageKey": null
-};
+];
 return {
   "fragment": {
     "argumentDefinitions": (v0/*:: as any*/),
@@ -102,7 +95,13 @@ return {
             "name": "__typename",
             "storageKey": null
           },
-          (v2/*:: as any*/),
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "id",
+            "storageKey": null
+          },
           {
             "kind": "InlineFragment",
             "selections": [
@@ -112,47 +111,6 @@ return {
                 "kind": "ScalarField",
                 "name": "wheels",
                 "storageKey": null
-              },
-              {
-                "kind": "ClientExtension",
-                "selections": [
-                  {
-                    "kind": "InlineFragment",
-                    "selections": [
-                      {
-                        "name": "wheels",
-                        "args": null,
-                        "fragment": {
-                          "kind": "InlineFragment",
-                          "selections": [
-                            {
-                              "name": "__relay_model_instance",
-                              "args": null,
-                              "fragment": {
-                                "kind": "InlineFragment",
-                                "selections": [
-                                  (v2/*:: as any*/)
-                                ],
-                                "type": "Car",
-                                "abstractKey": null
-                              },
-                              "kind": "RelayResolver",
-                              "storageKey": null,
-                              "isOutputType": false
-                            }
-                          ],
-                          "type": "Car",
-                          "abstractKey": null
-                        },
-                        "kind": "RelayResolver",
-                        "storageKey": null,
-                        "isOutputType": true
-                      }
-                    ],
-                    "type": "Car",
-                    "abstractKey": null
-                  }
-                ]
               }
             ],
             "type": "Bicycle",

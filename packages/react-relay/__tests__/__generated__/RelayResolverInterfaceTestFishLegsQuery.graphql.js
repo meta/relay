@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<ef6814b98f86e9c31d9211f0214fe794>>
+ * @generated SignedSource<<332d0005bdcf0a6b323ab45901d90ebf>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -48,10 +48,7 @@ var v0 = {
   "kind": "ScalarField",
   "name": "id",
   "storageKey": null
-},
-v1 = [
-  (v0/*:: as any*/)
-];
+};
 return {
   "fragment": {
     "argumentDefinitions": [],
@@ -141,20 +138,6 @@ return {
                   "kind": "InlineFragment",
                   "selections": [
                     {
-                      "alias": null,
-                      "args": null,
-                      "kind": "ScalarField",
-                      "name": "legs",
-                      "storageKey": null
-                    }
-                  ],
-                  "type": "Chicken",
-                  "abstractKey": null
-                },
-                {
-                  "kind": "InlineFragment",
-                  "selections": [
-                    {
                       "name": "legs",
                       "args": null,
                       "fragment": {
@@ -165,41 +148,9 @@ return {
                             "args": null,
                             "fragment": {
                               "kind": "InlineFragment",
-                              "selections": (v1/*:: as any*/),
-                              "type": "Cat",
-                              "abstractKey": null
-                            },
-                            "kind": "RelayResolver",
-                            "storageKey": null,
-                            "isOutputType": false
-                          }
-                        ],
-                        "type": "Cat",
-                        "abstractKey": null
-                      },
-                      "kind": "RelayResolver",
-                      "storageKey": null,
-                      "isOutputType": true
-                    }
-                  ],
-                  "type": "Cat",
-                  "abstractKey": null
-                },
-                {
-                  "kind": "InlineFragment",
-                  "selections": [
-                    {
-                      "name": "legs",
-                      "args": null,
-                      "fragment": {
-                        "kind": "InlineFragment",
-                        "selections": [
-                          {
-                            "name": "__relay_model_instance",
-                            "args": null,
-                            "fragment": {
-                              "kind": "InlineFragment",
-                              "selections": (v1/*:: as any*/),
+                              "selections": [
+                                (v0/*:: as any*/)
+                              ],
                               "type": "Fish",
                               "abstractKey": null
                             },

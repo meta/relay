@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<be599a793fce4a10f0cba9167d404297>>
+ * @generated SignedSource<<4309ff1294b1138cb8b13d26c4175195>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -46,14 +46,7 @@ v1 = [
     "name": "input_fetch_id",
     "variableName": "id"
   }
-],
-v2 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "id",
-  "storageKey": null
-};
+];
 return {
   "fragment": {
     "argumentDefinitions": (v0/*:: as any*/),
@@ -110,54 +103,19 @@ return {
             "storageKey": null
           },
           {
-            "kind": "ClientExtension",
-            "selections": [
-              {
-                "kind": "InlineFragment",
-                "selections": [
-                  {
-                    "name": "description",
-                    "args": null,
-                    "fragment": {
-                      "kind": "InlineFragment",
-                      "selections": [
-                        {
-                          "name": "__relay_model_instance",
-                          "args": null,
-                          "fragment": {
-                            "kind": "InlineFragment",
-                            "selections": [
-                              (v2/*:: as any*/)
-                            ],
-                            "type": "Hovercraft",
-                            "abstractKey": null
-                          },
-                          "kind": "RelayResolver",
-                          "storageKey": null,
-                          "isOutputType": false
-                        }
-                      ],
-                      "type": "Hovercraft",
-                      "abstractKey": null
-                    },
-                    "kind": "RelayResolver",
-                    "storageKey": null,
-                    "isOutputType": true
-                  }
-                ],
-                "type": "Hovercraft",
-                "abstractKey": null
-              }
-            ]
-          },
-          {
             "alias": null,
             "args": null,
             "kind": "ScalarField",
             "name": "fetch_id",
             "storageKey": null
           },
-          (v2/*:: as any*/)
+          {
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "id",
+            "storageKey": null
+          }
         ],
         "storageKey": null
       }

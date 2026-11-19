@@ -1,0 +1,34 @@
+//- ActorFragment.js
+// `skip_impossible_inline_fragments` is enabled by default; setting it to
+// `disabled` keeps the `Page` branch that `me: User` can never enter.
+graphql`fragment ActorFragment on Actor {
+  ... on User {
+    name
+  }
+  ... on Page {
+    name
+  }
+}`
+
+//- KeptQuery.js
+graphql`query KeptQuery {
+  me {
+    ...ActorFragment
+  }
+}`
+
+//- relay.config.json
+{
+  "language": "flow",
+  "jsModuleFormat": "haste",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "skip_impossible_inline_fragments": { "kind": "disabled" }
+  }
+}
+
+//- schema.graphql
+type Query { me: User }
+interface Actor { name: String }
+type User implements Actor { name: String }
+type Page implements Actor { name: String }

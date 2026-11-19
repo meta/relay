@@ -40,10 +40,7 @@ graphql`query ClientAbstractQuery {
   "language": "flow",
   "jsModuleFormat": "haste",
   "schema": "schema.graphql",
-  "schemaExtensions": ["schema-extensions"],
-  "featureFlags": {
-    "skip_impossible_inline_fragments": { "kind": "enabled" }
-  }
+  "schemaExtensions": ["schema-extensions"]
 }
 
 //- schema.graphql

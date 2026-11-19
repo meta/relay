@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<85a2ea77c1ffe6011d2ce03044d48c87>>
+ * @generated SignedSource<<511e3e9c65f0d6cd5c6f3c76563a163b>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -39,17 +39,7 @@ export type RelayResolverInterfaceTestRedOctopusColorQuery = {
 };
 */
 
-var node/*: ClientRequest*/ = (function(){
-var v0 = [
-  {
-    "alias": null,
-    "args": null,
-    "kind": "ScalarField",
-    "name": "__relay_model_instance",
-    "storageKey": null
-  }
-];
-return {
+var node/*: ClientRequest*/ = {
   "fragment": {
     "argumentDefinitions": [],
     "kind": "Fragment",
@@ -133,27 +123,15 @@ return {
                       "args": null,
                       "fragment": {
                         "kind": "InlineFragment",
-                        "selections": (v0/*:: as any*/),
-                        "type": "PurpleOctopus",
-                        "abstractKey": null
-                      },
-                      "kind": "RelayResolver",
-                      "storageKey": null,
-                      "isOutputType": true
-                    }
-                  ],
-                  "type": "PurpleOctopus",
-                  "abstractKey": null
-                },
-                {
-                  "kind": "InlineFragment",
-                  "selections": [
-                    {
-                      "name": "color",
-                      "args": null,
-                      "fragment": {
-                        "kind": "InlineFragment",
-                        "selections": (v0/*:: as any*/),
+                        "selections": [
+                          {
+                            "alias": null,
+                            "args": null,
+                            "kind": "ScalarField",
+                            "name": "__relay_model_instance",
+                            "storageKey": null
+                          }
+                        ],
                         "type": "RedOctopus",
                         "abstractKey": null
                       },
@@ -190,7 +168,6 @@ return {
     "text": null
   }
 };
-})();
 
 if (__DEV__) {
   (node/*:: as any*/).hash = "ffbde5e537add11a8fa22b95fcd6c23c";

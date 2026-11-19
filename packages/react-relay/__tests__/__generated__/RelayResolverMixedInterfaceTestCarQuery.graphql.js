@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<6dc41fe4bfa2ed35bd0631203077ffd6>>
+ * @generated SignedSource<<7ab7778126b456ee3257f669d814b340>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -134,20 +134,6 @@ return {
             {
               "kind": "InlineFragment",
               "selections": [
-                {
-                  "kind": "InlineFragment",
-                  "selections": [
-                    {
-                      "alias": null,
-                      "args": null,
-                      "kind": "ScalarField",
-                      "name": "wheels",
-                      "storageKey": null
-                    }
-                  ],
-                  "type": "Bicycle",
-                  "abstractKey": null
-                },
                 {
                   "kind": "InlineFragment",
                   "selections": [

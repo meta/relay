@@ -814,10 +814,10 @@
           }
         },
         "skip_impossible_inline_fragments": {
-          "description": "Remove inline fragments on an object type from normalization ASTs when\nthe record they apply to is known to be of a different object type,\nsuch as the branches for other implementors left when a fragment on an\nabstract type is spread into a field of an object type. Limited and\nrollout variants are keyed by operation name, which for a split\noperation is `<Fragment>$normalization`.",
+          "description": "Remove inline fragments on an object type from normalization ASTs when\nthe record they apply to is known to be of a different object type,\nsuch as the branches for other implementors left when a fragment on an\nabstract type is spread into a field of an object type. Enabled by\ndefault; set `{ \"kind\": \"disabled\" }` to keep these branches. Limited\nand rollout variants are keyed by operation name, which for a split\noperation is `<Fragment>$normalization`.",
           "$ref": "#/$defs/FeatureFlag",
           "default": {
-            "kind": "disabled"
+            "kind": "enabled"
           }
         },
         "skip_printing_nulls": {
@@ -1081,7 +1081,7 @@
               "kind": "disabled"
             },
             "skip_impossible_inline_fragments": {
-              "kind": "disabled"
+              "kind": "enabled"
             },
             "skip_printing_nulls": {
               "kind": "disabled"

@@ -286,10 +286,11 @@ pub struct FeatureFlags {
     /// Remove inline fragments on an object type from normalization ASTs when
     /// the record they apply to is known to be of a different object type,
     /// such as the branches for other implementors left when a fragment on an
-    /// abstract type is spread into a field of an object type. Limited and
-    /// rollout variants are keyed by operation name, which for a split
+    /// abstract type is spread into a field of an object type. Enabled by
+    /// default; set `{ "kind": "disabled" }` to keep these branches. Limited
+    /// and rollout variants are keyed by operation name, which for a split
     /// operation is `<Fragment>$normalization`.
-    #[serde(default)]
+    #[serde(default = "enabled_feature_flag")]
     pub skip_impossible_inline_fragments: FeatureFlag,
 
     /// Server interfaces and unions that client-defined types (Relay Resolver
@@ -342,11 +343,11 @@ impl Default for FeatureFlags {
             enable_typename_discriminated_unions: Default::default(),
             emit_document_type_registry: Default::default(),
             relay_resolver_model_semantic_non_null_id: Default::default(),
-            skip_impossible_inline_fragments: Default::default(),
             enable_client_implementors_of_server_abstract_types: Default::default(),
 
             // enabled-by-default
             enforce_fragment_alias_where_ambiguous: FeatureFlag::Enabled,
+            skip_impossible_inline_fragments: FeatureFlag::Enabled,
         }
     }
 }
@@ -486,6 +487,27 @@ mod tests {
             FeatureFlag::Disabled
         ));
         assert!(!flags.enable_resolver_normalization_ast);
+    }
+
+    #[test]
+    fn default_trait_sets_skip_impossible_inline_fragments_enabled() {
+        let flags = FeatureFlags::default();
+        assert!(matches!(
+            flags.skip_impossible_inline_fragments,
+            FeatureFlag::Enabled
+        ));
+    }
+
+    #[test]
+    fn serde_skip_impossible_inline_fragments_disabled() {
+        let flags: FeatureFlags = serde_json::from_value(json!({
+            "skip_impossible_inline_fragments": { "kind": "disabled" }
+        }))
+        .expect("valid json");
+        assert!(matches!(
+            flags.skip_impossible_inline_fragments,
+            FeatureFlag::Disabled
+        ));
     }
 
     #[test]

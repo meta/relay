@@ -3,8 +3,9 @@
 // the server `Page` arm runs a server-to-client resolver, the `ClientPage` arm a
 // client resolver. Once the fragment is inlined, only the arm matching the
 // parent's runtime type can be entered: `selected_page` is a `ClientPage`, so
-// its normalization AST drops the `Page` arm and `SelectedPageQuery` must not
-// set `has_server_to_client_resolvers`. Under the server field `page`,
+// with `skip_impossible_inline_fragments` (on by default) its normalization AST
+// drops the `Page` arm and `SelectedPageQuery` must not set
+// `has_server_to_client_resolvers`. Under the server field `page`,
 // `ServerPageQuery` drops the `ClientPage` arm and keeps the flag.
 // `PageArmFragment` has only the `Page` arm: under `selected_page` its `IPage`
 // refinement is emptied rather than kept with the dead arm, so
@@ -78,8 +79,7 @@ graphql`fragment PageLabelResolverFragment on Page {
   "schemaExtensions": ["schema-extensions"],
   "featureFlags": {
     "enable_exec_time_resolvers_directive": true,
-    "relay_resolver_enable_interface_output_type": { "kind": "enabled" },
-    "skip_impossible_inline_fragments": { "kind": "enabled" }
+    "relay_resolver_enable_interface_output_type": { "kind": "enabled" }
   }
 }
 

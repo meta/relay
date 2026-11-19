@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<8ea33cf75efe4f080258ea785868f839>>
+ * @generated SignedSource<<c4991a919ebfe835cee5109d41b5497a>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -30,15 +30,7 @@ export type RelayResolverMixedInterfaceTestBicycleQuery = {
 };
 */
 
-var node/*: ConcreteRequest*/ = (function(){
-var v0 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "id",
-  "storageKey": null
-};
-return {
+var node/*: ConcreteRequest*/ = {
   "fragment": {
     "argumentDefinitions": [],
     "kind": "Fragment",
@@ -87,47 +79,12 @@ return {
             "storageKey": null
           },
           {
-            "kind": "ClientExtension",
-            "selections": [
-              {
-                "kind": "InlineFragment",
-                "selections": [
-                  {
-                    "name": "wheels",
-                    "args": null,
-                    "fragment": {
-                      "kind": "InlineFragment",
-                      "selections": [
-                        {
-                          "name": "__relay_model_instance",
-                          "args": null,
-                          "fragment": {
-                            "kind": "InlineFragment",
-                            "selections": [
-                              (v0/*:: as any*/)
-                            ],
-                            "type": "Car",
-                            "abstractKey": null
-                          },
-                          "kind": "RelayResolver",
-                          "storageKey": null,
-                          "isOutputType": false
-                        }
-                      ],
-                      "type": "Car",
-                      "abstractKey": null
-                    },
-                    "kind": "RelayResolver",
-                    "storageKey": null,
-                    "isOutputType": true
-                  }
-                ],
-                "type": "Car",
-                "abstractKey": null
-              }
-            ]
-          },
-          (v0/*:: as any*/)
+            "alias": null,
+            "args": null,
+            "kind": "ScalarField",
+            "name": "id",
+            "storageKey": null
+          }
         ],
         "storageKey": null
       }
@@ -148,7 +105,6 @@ return {
     "text": "query RelayResolverMixedInterfaceTestBicycleQuery {\n  bicycle {\n    wheels\n    id\n  }\n}\n"
   }
 };
-})();
 
 if (__DEV__) {
   (node/*:: as any*/).hash = "e387a24d67b303316be65c07b0b93017";

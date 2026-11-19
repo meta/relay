@@ -6,7 +6,7 @@
  *
  * @oncall relay
  *
- * @generated SignedSource<<7f55a03278f72732e09f4e90259cef6e>>
+ * @generated SignedSource<<b7812a4f55640c45f3694292ad5368ca>>
  * @flow
  * @lightSyntaxTransform
  */
@@ -30,18 +30,7 @@ export type RelayResolverInterfaceTestChickenLegsQuery = {
 };
 */
 
-var node/*: ClientRequest*/ = (function(){
-var v0 = {
-  "alias": null,
-  "args": null,
-  "kind": "ScalarField",
-  "name": "id",
-  "storageKey": null
-},
-v1 = [
-  (v0/*:: as any*/)
-];
-return {
+var node/*: ClientRequest*/ = {
   "fragment": {
     "argumentDefinitions": [],
     "kind": "Fragment",
@@ -106,80 +95,18 @@ return {
                     ],
                     "type": "Chicken",
                     "abstractKey": null
-                  },
-                  {
-                    "kind": "InlineFragment",
-                    "selections": [
-                      {
-                        "name": "legs",
-                        "args": null,
-                        "fragment": {
-                          "kind": "InlineFragment",
-                          "selections": [
-                            {
-                              "name": "__relay_model_instance",
-                              "args": null,
-                              "fragment": {
-                                "kind": "InlineFragment",
-                                "selections": (v1/*:: as any*/),
-                                "type": "Cat",
-                                "abstractKey": null
-                              },
-                              "kind": "RelayResolver",
-                              "storageKey": null,
-                              "isOutputType": false
-                            }
-                          ],
-                          "type": "Cat",
-                          "abstractKey": null
-                        },
-                        "kind": "RelayResolver",
-                        "storageKey": null,
-                        "isOutputType": true
-                      }
-                    ],
-                    "type": "Cat",
-                    "abstractKey": null
-                  },
-                  {
-                    "kind": "InlineFragment",
-                    "selections": [
-                      {
-                        "name": "legs",
-                        "args": null,
-                        "fragment": {
-                          "kind": "InlineFragment",
-                          "selections": [
-                            {
-                              "name": "__relay_model_instance",
-                              "args": null,
-                              "fragment": {
-                                "kind": "InlineFragment",
-                                "selections": (v1/*:: as any*/),
-                                "type": "Fish",
-                                "abstractKey": null
-                              },
-                              "kind": "RelayResolver",
-                              "storageKey": null,
-                              "isOutputType": false
-                            }
-                          ],
-                          "type": "Fish",
-                          "abstractKey": null
-                        },
-                        "kind": "RelayResolver",
-                        "storageKey": null,
-                        "isOutputType": true
-                      }
-                    ],
-                    "type": "Fish",
-                    "abstractKey": null
                   }
                 ],
                 "type": "IAnimal",
                 "abstractKey": "__isIAnimal"
               },
-              (v0/*:: as any*/)
+              {
+                "alias": null,
+                "args": null,
+                "kind": "ScalarField",
+                "name": "id",
+                "storageKey": null
+              }
             ],
             "storageKey": null
           }
@@ -203,7 +130,6 @@ return {
     "text": null
   }
 };
-})();
 
 if (__DEV__) {
   (node/*:: as any*/).hash = "faf70b0c71846f082798a4d7ad8b760b";
