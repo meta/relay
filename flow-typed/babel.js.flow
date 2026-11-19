@@ -16,26 +16,26 @@ declare type BabelNode_DEPRECATED = any;
 // See packages/babel-types/scripts/generators/flow.js for script used.
 // @flow
 
-declare type BabelNodeBaseComment = {|
+declare type BabelNodeBaseComment = {
   value: string,
   start: number,
   end: number,
   loc: BabelNodeSourceLocation,
-|};
+};
 
-declare type BabelNodeCommentBlock = {|
+declare type BabelNodeCommentBlock = {
   ...BabelNodeBaseComment,
   type: 'CommentBlock',
-|};
+};
 
-declare type BabelNodeCommentLine = {|
+declare type BabelNodeCommentLine = {
   ...BabelNodeBaseComment,
   type: 'CommentLine',
-|};
+};
 
 declare type BabelNodeComment = BabelNodeCommentBlock | BabelNodeCommentLine;
 
-declare type BabelNodeSourceLocation = {|
+declare type BabelNodeSourceLocation = {
   start: {
     line: number,
     column: number,
@@ -45,9 +45,9 @@ declare type BabelNodeSourceLocation = {|
     line: number,
     column: number,
   },
-|};
+};
 
-declare type BabelNodeArrayExpression = {|
+declare type BabelNodeArrayExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -56,9 +56,9 @@ declare type BabelNodeArrayExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ArrayExpression',
   elements?: Array<null | BabelNodeExpression | BabelNodeSpreadElement>,
-|};
+};
 
-declare type BabelNodeAssignmentExpression = {|
+declare type BabelNodeAssignmentExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -69,9 +69,9 @@ declare type BabelNodeAssignmentExpression = {|
   operator: string,
   left: BabelNodeLVal,
   right: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeBinaryExpression = {|
+declare type BabelNodeBinaryExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -104,9 +104,9 @@ declare type BabelNodeBinaryExpression = {|
     | '<=',
   left: BabelNodeExpression | BabelNodePrivateName,
   right: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeInterpreterDirective = {|
+declare type BabelNodeInterpreterDirective = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -115,9 +115,9 @@ declare type BabelNodeInterpreterDirective = {|
   loc: ?BabelNodeSourceLocation,
   type: 'InterpreterDirective',
   value: string,
-|};
+};
 
-declare type BabelNodeDirective = {|
+declare type BabelNodeDirective = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -126,9 +126,9 @@ declare type BabelNodeDirective = {|
   loc: ?BabelNodeSourceLocation,
   type: 'Directive',
   value: BabelNodeDirectiveLiteral,
-|};
+};
 
-declare type BabelNodeDirectiveLiteral = {|
+declare type BabelNodeDirectiveLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -137,9 +137,9 @@ declare type BabelNodeDirectiveLiteral = {|
   loc: ?BabelNodeSourceLocation,
   type: 'DirectiveLiteral',
   value: string,
-|};
+};
 
-declare type BabelNodeBlockStatement = {|
+declare type BabelNodeBlockStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -149,9 +149,9 @@ declare type BabelNodeBlockStatement = {|
   type: 'BlockStatement',
   body: Array<BabelNodeStatement>,
   directives?: Array<BabelNodeDirective>,
-|};
+};
 
-declare type BabelNodeBreakStatement = {|
+declare type BabelNodeBreakStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -160,9 +160,9 @@ declare type BabelNodeBreakStatement = {|
   loc: ?BabelNodeSourceLocation,
   type: 'BreakStatement',
   label?: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeCallExpression = {|
+declare type BabelNodeCallExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -180,9 +180,9 @@ declare type BabelNodeCallExpression = {|
   optional?: true | false,
   typeArguments?: BabelNodeTypeParameterInstantiation,
   typeParameters?: BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeCatchClause = {|
+declare type BabelNodeCatchClause = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -192,9 +192,9 @@ declare type BabelNodeCatchClause = {|
   type: 'CatchClause',
   param?: BabelNodeIdentifier | BabelNodeArrayPattern | BabelNodeObjectPattern,
   body: BabelNodeBlockStatement,
-|};
+};
 
-declare type BabelNodeConditionalExpression = {|
+declare type BabelNodeConditionalExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -205,9 +205,9 @@ declare type BabelNodeConditionalExpression = {|
   test: BabelNodeExpression,
   consequent: BabelNodeExpression,
   alternate: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeContinueStatement = {|
+declare type BabelNodeContinueStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -216,9 +216,9 @@ declare type BabelNodeContinueStatement = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ContinueStatement',
   label?: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeDebuggerStatement = {|
+declare type BabelNodeDebuggerStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -226,9 +226,9 @@ declare type BabelNodeDebuggerStatement = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'DebuggerStatement',
-|};
+};
 
-declare type BabelNodeDoWhileStatement = {|
+declare type BabelNodeDoWhileStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -238,9 +238,9 @@ declare type BabelNodeDoWhileStatement = {|
   type: 'DoWhileStatement',
   test: BabelNodeExpression,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeEmptyStatement = {|
+declare type BabelNodeEmptyStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -248,9 +248,9 @@ declare type BabelNodeEmptyStatement = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'EmptyStatement',
-|};
+};
 
-declare type BabelNodeExpressionStatement = {|
+declare type BabelNodeExpressionStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -259,9 +259,9 @@ declare type BabelNodeExpressionStatement = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ExpressionStatement',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeFile = {|
+declare type BabelNodeFile = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -272,9 +272,9 @@ declare type BabelNodeFile = {|
   program: BabelNodeProgram,
   comments?: Array<BabelNodeComment>,
   tokens?: Array<any>,
-|};
+};
 
-declare type BabelNodeForInStatement = {|
+declare type BabelNodeForInStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -285,9 +285,9 @@ declare type BabelNodeForInStatement = {|
   left: BabelNodeVariableDeclaration | BabelNodeLVal,
   right: BabelNodeExpression,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeForStatement = {|
+declare type BabelNodeForStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -299,9 +299,9 @@ declare type BabelNodeForStatement = {|
   test?: BabelNodeExpression,
   update?: BabelNodeExpression,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeFunctionDeclaration = {|
+declare type BabelNodeFunctionDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -326,9 +326,9 @@ declare type BabelNodeFunctionDeclaration = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeFunctionExpression = {|
+declare type BabelNodeFunctionExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -352,9 +352,9 @@ declare type BabelNodeFunctionExpression = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeIdentifier = {|
+declare type BabelNodeIdentifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -367,9 +367,9 @@ declare type BabelNodeIdentifier = {|
   optional?: boolean,
   typeAnnotation?:
     BabelNodeTypeAnnotation | BabelNodeTSTypeAnnotation | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeIfStatement = {|
+declare type BabelNodeIfStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -380,9 +380,9 @@ declare type BabelNodeIfStatement = {|
   test: BabelNodeExpression,
   consequent: BabelNodeStatement,
   alternate?: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeLabeledStatement = {|
+declare type BabelNodeLabeledStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -392,9 +392,9 @@ declare type BabelNodeLabeledStatement = {|
   type: 'LabeledStatement',
   label: BabelNodeIdentifier,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeStringLiteral = {|
+declare type BabelNodeStringLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -403,9 +403,9 @@ declare type BabelNodeStringLiteral = {|
   loc: ?BabelNodeSourceLocation,
   type: 'StringLiteral',
   value: string,
-|};
+};
 
-declare type BabelNodeNumericLiteral = {|
+declare type BabelNodeNumericLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -414,9 +414,9 @@ declare type BabelNodeNumericLiteral = {|
   loc: ?BabelNodeSourceLocation,
   type: 'NumericLiteral',
   value: number,
-|};
+};
 
-declare type BabelNodeNullLiteral = {|
+declare type BabelNodeNullLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -424,9 +424,9 @@ declare type BabelNodeNullLiteral = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'NullLiteral',
-|};
+};
 
-declare type BabelNodeBooleanLiteral = {|
+declare type BabelNodeBooleanLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -435,9 +435,9 @@ declare type BabelNodeBooleanLiteral = {|
   loc: ?BabelNodeSourceLocation,
   type: 'BooleanLiteral',
   value: boolean,
-|};
+};
 
-declare type BabelNodeRegExpLiteral = {|
+declare type BabelNodeRegExpLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -447,9 +447,9 @@ declare type BabelNodeRegExpLiteral = {|
   type: 'RegExpLiteral',
   pattern: string,
   flags?: string,
-|};
+};
 
-declare type BabelNodeLogicalExpression = {|
+declare type BabelNodeLogicalExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -460,9 +460,9 @@ declare type BabelNodeLogicalExpression = {|
   operator: '||' | '&&' | '??',
   left: BabelNodeExpression,
   right: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeMemberExpression = {|
+declare type BabelNodeMemberExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -474,9 +474,9 @@ declare type BabelNodeMemberExpression = {|
   property: BabelNodeExpression | BabelNodeIdentifier | BabelNodePrivateName,
   computed?: boolean,
   optional?: true | false,
-|};
+};
 
-declare type BabelNodeNewExpression = {|
+declare type BabelNodeNewExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -494,9 +494,9 @@ declare type BabelNodeNewExpression = {|
   optional?: true | false,
   typeArguments?: BabelNodeTypeParameterInstantiation,
   typeParameters?: BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeProgram = {|
+declare type BabelNodeProgram = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -509,9 +509,9 @@ declare type BabelNodeProgram = {|
   sourceType?: 'script' | 'module',
   interpreter?: BabelNodeInterpreterDirective,
   sourceFile: string,
-|};
+};
 
-declare type BabelNodeObjectExpression = {|
+declare type BabelNodeObjectExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -522,9 +522,9 @@ declare type BabelNodeObjectExpression = {|
   properties: Array<
     BabelNodeObjectMethod | BabelNodeObjectProperty | BabelNodeSpreadElement,
   >,
-|};
+};
 
-declare type BabelNodeObjectMethod = {|
+declare type BabelNodeObjectMethod = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -555,9 +555,9 @@ declare type BabelNodeObjectMethod = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeObjectProperty = {|
+declare type BabelNodeObjectProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -574,9 +574,9 @@ declare type BabelNodeObjectProperty = {|
   computed?: boolean,
   shorthand?: boolean,
   decorators?: Array<BabelNodeDecorator>,
-|};
+};
 
-declare type BabelNodeRestElement = {|
+declare type BabelNodeRestElement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -588,9 +588,9 @@ declare type BabelNodeRestElement = {|
   decorators?: Array<BabelNodeDecorator>,
   typeAnnotation?:
     BabelNodeTypeAnnotation | BabelNodeTSTypeAnnotation | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeReturnStatement = {|
+declare type BabelNodeReturnStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -599,9 +599,9 @@ declare type BabelNodeReturnStatement = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ReturnStatement',
   argument?: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeSequenceExpression = {|
+declare type BabelNodeSequenceExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -610,9 +610,9 @@ declare type BabelNodeSequenceExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'SequenceExpression',
   expressions: Array<BabelNodeExpression>,
-|};
+};
 
-declare type BabelNodeParenthesizedExpression = {|
+declare type BabelNodeParenthesizedExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -621,9 +621,9 @@ declare type BabelNodeParenthesizedExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ParenthesizedExpression',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeSwitchCase = {|
+declare type BabelNodeSwitchCase = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -633,9 +633,9 @@ declare type BabelNodeSwitchCase = {|
   type: 'SwitchCase',
   test?: BabelNodeExpression,
   consequent: Array<BabelNodeStatement>,
-|};
+};
 
-declare type BabelNodeSwitchStatement = {|
+declare type BabelNodeSwitchStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -645,9 +645,9 @@ declare type BabelNodeSwitchStatement = {|
   type: 'SwitchStatement',
   discriminant: BabelNodeExpression,
   cases: Array<BabelNodeSwitchCase>,
-|};
+};
 
-declare type BabelNodeThisExpression = {|
+declare type BabelNodeThisExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -655,9 +655,9 @@ declare type BabelNodeThisExpression = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'ThisExpression',
-|};
+};
 
-declare type BabelNodeThrowStatement = {|
+declare type BabelNodeThrowStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -666,9 +666,9 @@ declare type BabelNodeThrowStatement = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ThrowStatement',
   argument: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeTryStatement = {|
+declare type BabelNodeTryStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -679,9 +679,9 @@ declare type BabelNodeTryStatement = {|
   block: BabelNodeBlockStatement,
   handler?: BabelNodeCatchClause,
   finalizer?: BabelNodeBlockStatement,
-|};
+};
 
-declare type BabelNodeUnaryExpression = {|
+declare type BabelNodeUnaryExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -692,9 +692,9 @@ declare type BabelNodeUnaryExpression = {|
   operator: 'void' | 'throw' | 'delete' | '!' | '+' | '-' | '~' | 'typeof',
   argument: BabelNodeExpression,
   prefix?: boolean,
-|};
+};
 
-declare type BabelNodeUpdateExpression = {|
+declare type BabelNodeUpdateExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -705,9 +705,9 @@ declare type BabelNodeUpdateExpression = {|
   operator: '++' | '--',
   argument: BabelNodeExpression,
   prefix?: boolean,
-|};
+};
 
-declare type BabelNodeVariableDeclaration = {|
+declare type BabelNodeVariableDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -718,9 +718,9 @@ declare type BabelNodeVariableDeclaration = {|
   kind: 'var' | 'let' | 'const',
   declarations: Array<BabelNodeVariableDeclarator>,
   declare?: boolean,
-|};
+};
 
-declare type BabelNodeVariableDeclarator = {|
+declare type BabelNodeVariableDeclarator = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -731,9 +731,9 @@ declare type BabelNodeVariableDeclarator = {|
   id: BabelNodeLVal,
   init?: BabelNodeExpression,
   definite?: boolean,
-|};
+};
 
-declare type BabelNodeWhileStatement = {|
+declare type BabelNodeWhileStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -743,9 +743,9 @@ declare type BabelNodeWhileStatement = {|
   type: 'WhileStatement',
   test: BabelNodeExpression,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeWithStatement = {|
+declare type BabelNodeWithStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -755,9 +755,9 @@ declare type BabelNodeWithStatement = {|
   type: 'WithStatement',
   object: BabelNodeExpression,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeAssignmentPattern = {|
+declare type BabelNodeAssignmentPattern = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -774,9 +774,9 @@ declare type BabelNodeAssignmentPattern = {|
   decorators?: Array<BabelNodeDecorator>,
   typeAnnotation?:
     BabelNodeTypeAnnotation | BabelNodeTSTypeAnnotation | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeArrayPattern = {|
+declare type BabelNodeArrayPattern = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -788,9 +788,9 @@ declare type BabelNodeArrayPattern = {|
   decorators?: Array<BabelNodeDecorator>,
   typeAnnotation?:
     BabelNodeTypeAnnotation | BabelNodeTSTypeAnnotation | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeArrowFunctionExpression = {|
+declare type BabelNodeArrowFunctionExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -814,9 +814,9 @@ declare type BabelNodeArrowFunctionExpression = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeClassBody = {|
+declare type BabelNodeClassBody = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -832,9 +832,9 @@ declare type BabelNodeClassBody = {|
     | BabelNodeTSDeclareMethod
     | BabelNodeTSIndexSignature,
   >,
-|};
+};
 
-declare type BabelNodeClassExpression = {|
+declare type BabelNodeClassExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -853,9 +853,9 @@ declare type BabelNodeClassExpression = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeClassDeclaration = {|
+declare type BabelNodeClassDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -876,9 +876,9 @@ declare type BabelNodeClassDeclaration = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeExportAllDeclaration = {|
+declare type BabelNodeExportAllDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -887,9 +887,9 @@ declare type BabelNodeExportAllDeclaration = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ExportAllDeclaration',
   source: BabelNodeStringLiteral,
-|};
+};
 
-declare type BabelNodeExportDefaultDeclaration = {|
+declare type BabelNodeExportDefaultDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -902,9 +902,9 @@ declare type BabelNodeExportDefaultDeclaration = {|
     | BabelNodeTSDeclareFunction
     | BabelNodeClassDeclaration
     | BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeExportNamedDeclaration = {|
+declare type BabelNodeExportNamedDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -920,9 +920,9 @@ declare type BabelNodeExportNamedDeclaration = {|
   >,
   source?: BabelNodeStringLiteral,
   exportKind?: 'type' | 'value',
-|};
+};
 
-declare type BabelNodeExportSpecifier = {|
+declare type BabelNodeExportSpecifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -932,9 +932,9 @@ declare type BabelNodeExportSpecifier = {|
   type: 'ExportSpecifier',
   local: BabelNodeIdentifier,
   exported: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeForOfStatement = {|
+declare type BabelNodeForOfStatement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -945,9 +945,9 @@ declare type BabelNodeForOfStatement = {|
   left: BabelNodeVariableDeclaration | BabelNodeLVal,
   right: BabelNodeExpression,
   body: BabelNodeStatement,
-|};
+};
 
-declare type BabelNodeImportDeclaration = {|
+declare type BabelNodeImportDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -962,9 +962,9 @@ declare type BabelNodeImportDeclaration = {|
   >,
   source: BabelNodeStringLiteral,
   importKind?: 'type' | 'typeof' | 'value',
-|};
+};
 
-declare type BabelNodeImportDefaultSpecifier = {|
+declare type BabelNodeImportDefaultSpecifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -973,9 +973,9 @@ declare type BabelNodeImportDefaultSpecifier = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ImportDefaultSpecifier',
   local: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeImportNamespaceSpecifier = {|
+declare type BabelNodeImportNamespaceSpecifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -984,9 +984,9 @@ declare type BabelNodeImportNamespaceSpecifier = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ImportNamespaceSpecifier',
   local: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeImportSpecifier = {|
+declare type BabelNodeImportSpecifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -997,9 +997,9 @@ declare type BabelNodeImportSpecifier = {|
   local: BabelNodeIdentifier,
   imported: BabelNodeIdentifier,
   importKind?: 'type' | 'typeof',
-|};
+};
 
-declare type BabelNodeMetaProperty = {|
+declare type BabelNodeMetaProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1009,9 +1009,9 @@ declare type BabelNodeMetaProperty = {|
   type: 'MetaProperty',
   meta: BabelNodeIdentifier,
   property: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeClassMethod = {|
+declare type BabelNodeClassMethod = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1046,9 +1046,9 @@ declare type BabelNodeClassMethod = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeObjectPattern = {|
+declare type BabelNodeObjectPattern = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1060,9 +1060,9 @@ declare type BabelNodeObjectPattern = {|
   decorators?: Array<BabelNodeDecorator>,
   typeAnnotation?:
     BabelNodeTypeAnnotation | BabelNodeTSTypeAnnotation | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeSpreadElement = {|
+declare type BabelNodeSpreadElement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1071,9 +1071,9 @@ declare type BabelNodeSpreadElement = {|
   loc: ?BabelNodeSourceLocation,
   type: 'SpreadElement',
   argument: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeSuper = {|
+declare type BabelNodeSuper = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1081,9 +1081,9 @@ declare type BabelNodeSuper = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'Super',
-|};
+};
 
-declare type BabelNodeTaggedTemplateExpression = {|
+declare type BabelNodeTaggedTemplateExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1095,9 +1095,9 @@ declare type BabelNodeTaggedTemplateExpression = {|
   quasi: BabelNodeTemplateLiteral,
   typeParameters?:
     BabelNodeTypeParameterInstantiation | BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeTemplateElement = {|
+declare type BabelNodeTemplateElement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1107,9 +1107,9 @@ declare type BabelNodeTemplateElement = {|
   type: 'TemplateElement',
   value: {raw: string, cooked?: string},
   tail?: boolean,
-|};
+};
 
-declare type BabelNodeTemplateLiteral = {|
+declare type BabelNodeTemplateLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1119,9 +1119,9 @@ declare type BabelNodeTemplateLiteral = {|
   type: 'TemplateLiteral',
   quasis: Array<BabelNodeTemplateElement>,
   expressions: Array<BabelNodeExpression>,
-|};
+};
 
-declare type BabelNodeYieldExpression = {|
+declare type BabelNodeYieldExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1131,9 +1131,9 @@ declare type BabelNodeYieldExpression = {|
   type: 'YieldExpression',
   argument?: BabelNodeExpression,
   delegate?: boolean,
-|};
+};
 
-declare type BabelNodeAnyTypeAnnotation = {|
+declare type BabelNodeAnyTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1141,9 +1141,9 @@ declare type BabelNodeAnyTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'AnyTypeAnnotation',
-|};
+};
 
-declare type BabelNodeArrayTypeAnnotation = {|
+declare type BabelNodeArrayTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1152,9 +1152,9 @@ declare type BabelNodeArrayTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ArrayTypeAnnotation',
   elementType: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeBooleanTypeAnnotation = {|
+declare type BabelNodeBooleanTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1162,9 +1162,9 @@ declare type BabelNodeBooleanTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'BooleanTypeAnnotation',
-|};
+};
 
-declare type BabelNodeBooleanLiteralTypeAnnotation = {|
+declare type BabelNodeBooleanLiteralTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1173,9 +1173,9 @@ declare type BabelNodeBooleanLiteralTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'BooleanLiteralTypeAnnotation',
   value: boolean,
-|};
+};
 
-declare type BabelNodeNullLiteralTypeAnnotation = {|
+declare type BabelNodeNullLiteralTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1183,9 +1183,9 @@ declare type BabelNodeNullLiteralTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'NullLiteralTypeAnnotation',
-|};
+};
 
-declare type BabelNodeClassImplements = {|
+declare type BabelNodeClassImplements = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1195,9 +1195,9 @@ declare type BabelNodeClassImplements = {|
   type: 'ClassImplements',
   id: BabelNodeIdentifier,
   typeParameters?: BabelNodeTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeDeclareClass = {|
+declare type BabelNodeDeclareClass = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1209,9 +1209,9 @@ declare type BabelNodeDeclareClass = {|
   typeParameters?: BabelNodeTypeParameterDeclaration,
   body: BabelNodeObjectTypeAnnotation,
   mixins?: Array<BabelNodeInterfaceExtends>,
-|};
+};
 
-declare type BabelNodeDeclareFunction = {|
+declare type BabelNodeDeclareFunction = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1221,9 +1221,9 @@ declare type BabelNodeDeclareFunction = {|
   type: 'DeclareFunction',
   id: BabelNodeIdentifier,
   predicate?: BabelNodeDeclaredPredicate,
-|};
+};
 
-declare type BabelNodeDeclareInterface = {|
+declare type BabelNodeDeclareInterface = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1235,9 +1235,9 @@ declare type BabelNodeDeclareInterface = {|
   typeParameters?: BabelNodeTypeParameterDeclaration,
   body: BabelNodeObjectTypeAnnotation,
   mixins?: Array<BabelNodeInterfaceExtends>,
-|};
+};
 
-declare type BabelNodeDeclareModule = {|
+declare type BabelNodeDeclareModule = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1248,9 +1248,9 @@ declare type BabelNodeDeclareModule = {|
   id: BabelNodeIdentifier | BabelNodeStringLiteral,
   body: BabelNodeBlockStatement,
   kind?: 'CommonJS' | 'ES',
-|};
+};
 
-declare type BabelNodeDeclareModuleExports = {|
+declare type BabelNodeDeclareModuleExports = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1259,9 +1259,9 @@ declare type BabelNodeDeclareModuleExports = {|
   loc: ?BabelNodeSourceLocation,
   type: 'DeclareModuleExports',
   typeAnnotation: BabelNodeTypeAnnotation,
-|};
+};
 
-declare type BabelNodeDeclareTypeAlias = {|
+declare type BabelNodeDeclareTypeAlias = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1272,9 +1272,9 @@ declare type BabelNodeDeclareTypeAlias = {|
   id: BabelNodeIdentifier,
   typeParameters?: BabelNodeTypeParameterDeclaration,
   right: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeDeclareOpaqueType = {|
+declare type BabelNodeDeclareOpaqueType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1285,9 +1285,9 @@ declare type BabelNodeDeclareOpaqueType = {|
   id: BabelNodeIdentifier,
   typeParameters?: BabelNodeTypeParameterDeclaration,
   supertype?: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeDeclareVariable = {|
+declare type BabelNodeDeclareVariable = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1296,9 +1296,9 @@ declare type BabelNodeDeclareVariable = {|
   loc: ?BabelNodeSourceLocation,
   type: 'DeclareVariable',
   id: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeDeclareExportDeclaration = {|
+declare type BabelNodeDeclareExportDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1311,9 +1311,9 @@ declare type BabelNodeDeclareExportDeclaration = {|
     BabelNodeExportSpecifier | BabelNodeExportNamespaceSpecifier,
   >,
   source?: BabelNodeStringLiteral,
-|};
+};
 
-declare type BabelNodeDeclareExportAllDeclaration = {|
+declare type BabelNodeDeclareExportAllDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1323,9 +1323,9 @@ declare type BabelNodeDeclareExportAllDeclaration = {|
   type: 'DeclareExportAllDeclaration',
   source: BabelNodeStringLiteral,
   exportKind?: 'type' | 'value',
-|};
+};
 
-declare type BabelNodeDeclaredPredicate = {|
+declare type BabelNodeDeclaredPredicate = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1334,9 +1334,9 @@ declare type BabelNodeDeclaredPredicate = {|
   loc: ?BabelNodeSourceLocation,
   type: 'DeclaredPredicate',
   value: BabelNodeFlow,
-|};
+};
 
-declare type BabelNodeExistsTypeAnnotation = {|
+declare type BabelNodeExistsTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1344,9 +1344,9 @@ declare type BabelNodeExistsTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'ExistsTypeAnnotation',
-|};
+};
 
-declare type BabelNodeFunctionTypeAnnotation = {|
+declare type BabelNodeFunctionTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1358,9 +1358,9 @@ declare type BabelNodeFunctionTypeAnnotation = {|
   params: Array<BabelNodeFunctionTypeParam>,
   rest?: BabelNodeFunctionTypeParam,
   returnType: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeFunctionTypeParam = {|
+declare type BabelNodeFunctionTypeParam = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1371,9 +1371,9 @@ declare type BabelNodeFunctionTypeParam = {|
   name?: BabelNodeIdentifier,
   typeAnnotation: BabelNodeFlowType,
   optional?: boolean,
-|};
+};
 
-declare type BabelNodeGenericTypeAnnotation = {|
+declare type BabelNodeGenericTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1383,9 +1383,9 @@ declare type BabelNodeGenericTypeAnnotation = {|
   type: 'GenericTypeAnnotation',
   id: BabelNodeIdentifier | BabelNodeQualifiedTypeIdentifier,
   typeParameters?: BabelNodeTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeInferredPredicate = {|
+declare type BabelNodeInferredPredicate = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1393,9 +1393,9 @@ declare type BabelNodeInferredPredicate = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'InferredPredicate',
-|};
+};
 
-declare type BabelNodeInterfaceExtends = {|
+declare type BabelNodeInterfaceExtends = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1405,9 +1405,9 @@ declare type BabelNodeInterfaceExtends = {|
   type: 'InterfaceExtends',
   id: BabelNodeIdentifier | BabelNodeQualifiedTypeIdentifier,
   typeParameters?: BabelNodeTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeInterfaceDeclaration = {|
+declare type BabelNodeInterfaceDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1419,9 +1419,9 @@ declare type BabelNodeInterfaceDeclaration = {|
   typeParameters?: BabelNodeTypeParameterDeclaration,
   body: BabelNodeObjectTypeAnnotation,
   mixins?: Array<BabelNodeInterfaceExtends>,
-|};
+};
 
-declare type BabelNodeInterfaceTypeAnnotation = {|
+declare type BabelNodeInterfaceTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1430,9 +1430,9 @@ declare type BabelNodeInterfaceTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'InterfaceTypeAnnotation',
   body: BabelNodeObjectTypeAnnotation,
-|};
+};
 
-declare type BabelNodeIntersectionTypeAnnotation = {|
+declare type BabelNodeIntersectionTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1441,9 +1441,9 @@ declare type BabelNodeIntersectionTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'IntersectionTypeAnnotation',
   types: Array<BabelNodeFlowType>,
-|};
+};
 
-declare type BabelNodeMixedTypeAnnotation = {|
+declare type BabelNodeMixedTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1451,9 +1451,9 @@ declare type BabelNodeMixedTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'MixedTypeAnnotation',
-|};
+};
 
-declare type BabelNodeEmptyTypeAnnotation = {|
+declare type BabelNodeEmptyTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1461,9 +1461,9 @@ declare type BabelNodeEmptyTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'EmptyTypeAnnotation',
-|};
+};
 
-declare type BabelNodeNullableTypeAnnotation = {|
+declare type BabelNodeNullableTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1472,9 +1472,9 @@ declare type BabelNodeNullableTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'NullableTypeAnnotation',
   typeAnnotation: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeNumberLiteralTypeAnnotation = {|
+declare type BabelNodeNumberLiteralTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1483,9 +1483,9 @@ declare type BabelNodeNumberLiteralTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'NumberLiteralTypeAnnotation',
   value: number,
-|};
+};
 
-declare type BabelNodeNumberTypeAnnotation = {|
+declare type BabelNodeNumberTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1493,9 +1493,9 @@ declare type BabelNodeNumberTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'NumberTypeAnnotation',
-|};
+};
 
-declare type BabelNodeObjectTypeAnnotation = {|
+declare type BabelNodeObjectTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1511,9 +1511,9 @@ declare type BabelNodeObjectTypeAnnotation = {|
   internalSlots?: Array<BabelNodeObjectTypeInternalSlot>,
   exact?: boolean,
   inexact?: boolean,
-|};
+};
 
-declare type BabelNodeObjectTypeInternalSlot = {|
+declare type BabelNodeObjectTypeInternalSlot = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1525,9 +1525,9 @@ declare type BabelNodeObjectTypeInternalSlot = {|
   value: BabelNodeFlowType,
   optional: boolean,
   method: boolean,
-|};
+};
 
-declare type BabelNodeObjectTypeCallProperty = {|
+declare type BabelNodeObjectTypeCallProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1536,9 +1536,9 @@ declare type BabelNodeObjectTypeCallProperty = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ObjectTypeCallProperty',
   value: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeObjectTypeIndexer = {|
+declare type BabelNodeObjectTypeIndexer = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1550,9 +1550,9 @@ declare type BabelNodeObjectTypeIndexer = {|
   key: BabelNodeFlowType,
   value: BabelNodeFlowType,
   variance?: BabelNodeVariance,
-|};
+};
 
-declare type BabelNodeObjectTypeProperty = {|
+declare type BabelNodeObjectTypeProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1566,9 +1566,9 @@ declare type BabelNodeObjectTypeProperty = {|
   kind: 'init' | 'get' | 'set',
   optional: boolean,
   proto: boolean,
-|};
+};
 
-declare type BabelNodeObjectTypeSpreadProperty = {|
+declare type BabelNodeObjectTypeSpreadProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1577,9 +1577,9 @@ declare type BabelNodeObjectTypeSpreadProperty = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ObjectTypeSpreadProperty',
   argument: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeOpaqueType = {|
+declare type BabelNodeOpaqueType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1591,9 +1591,9 @@ declare type BabelNodeOpaqueType = {|
   typeParameters?: BabelNodeTypeParameterDeclaration,
   supertype?: BabelNodeFlowType,
   impltype: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeQualifiedTypeIdentifier = {|
+declare type BabelNodeQualifiedTypeIdentifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1603,9 +1603,9 @@ declare type BabelNodeQualifiedTypeIdentifier = {|
   type: 'QualifiedTypeIdentifier',
   id: BabelNodeIdentifier,
   qualification: BabelNodeIdentifier | BabelNodeQualifiedTypeIdentifier,
-|};
+};
 
-declare type BabelNodeStringLiteralTypeAnnotation = {|
+declare type BabelNodeStringLiteralTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1614,9 +1614,9 @@ declare type BabelNodeStringLiteralTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'StringLiteralTypeAnnotation',
   value: string,
-|};
+};
 
-declare type BabelNodeStringTypeAnnotation = {|
+declare type BabelNodeStringTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1624,9 +1624,9 @@ declare type BabelNodeStringTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'StringTypeAnnotation',
-|};
+};
 
-declare type BabelNodeSymbolTypeAnnotation = {|
+declare type BabelNodeSymbolTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1634,9 +1634,9 @@ declare type BabelNodeSymbolTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'SymbolTypeAnnotation',
-|};
+};
 
-declare type BabelNodeThisTypeAnnotation = {|
+declare type BabelNodeThisTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1644,9 +1644,9 @@ declare type BabelNodeThisTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'ThisTypeAnnotation',
-|};
+};
 
-declare type BabelNodeTupleTypeAnnotation = {|
+declare type BabelNodeTupleTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1655,9 +1655,9 @@ declare type BabelNodeTupleTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TupleTypeAnnotation',
   types: Array<BabelNodeFlowType>,
-|};
+};
 
-declare type BabelNodeTypeofTypeAnnotation = {|
+declare type BabelNodeTypeofTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1666,9 +1666,9 @@ declare type BabelNodeTypeofTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TypeofTypeAnnotation',
   argument: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeTypeAlias = {|
+declare type BabelNodeTypeAlias = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1679,9 +1679,9 @@ declare type BabelNodeTypeAlias = {|
   id: BabelNodeIdentifier,
   typeParameters?: BabelNodeTypeParameterDeclaration,
   right: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeTypeAnnotation = {|
+declare type BabelNodeTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1690,9 +1690,9 @@ declare type BabelNodeTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TypeAnnotation',
   typeAnnotation: BabelNodeFlowType,
-|};
+};
 
-declare type BabelNodeTypeCastExpression = {|
+declare type BabelNodeTypeCastExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1702,9 +1702,9 @@ declare type BabelNodeTypeCastExpression = {|
   type: 'TypeCastExpression',
   expression: BabelNodeExpression,
   typeAnnotation: BabelNodeTypeAnnotation,
-|};
+};
 
-declare type BabelNodeTypeParameter = {|
+declare type BabelNodeTypeParameter = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1715,9 +1715,9 @@ declare type BabelNodeTypeParameter = {|
   bound?: BabelNodeTypeAnnotation,
   variance?: BabelNodeVariance,
   name: string,
-|};
+};
 
-declare type BabelNodeTypeParameterDeclaration = {|
+declare type BabelNodeTypeParameterDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1726,9 +1726,9 @@ declare type BabelNodeTypeParameterDeclaration = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TypeParameterDeclaration',
   params: Array<BabelNodeTypeParameter>,
-|};
+};
 
-declare type BabelNodeTypeParameterInstantiation = {|
+declare type BabelNodeTypeParameterInstantiation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1737,9 +1737,9 @@ declare type BabelNodeTypeParameterInstantiation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TypeParameterInstantiation',
   params: Array<BabelNodeFlowType>,
-|};
+};
 
-declare type BabelNodeUnionTypeAnnotation = {|
+declare type BabelNodeUnionTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1748,9 +1748,9 @@ declare type BabelNodeUnionTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'UnionTypeAnnotation',
   types: Array<BabelNodeFlowType>,
-|};
+};
 
-declare type BabelNodeVariance = {|
+declare type BabelNodeVariance = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1759,9 +1759,9 @@ declare type BabelNodeVariance = {|
   loc: ?BabelNodeSourceLocation,
   type: 'Variance',
   kind: 'minus' | 'plus',
-|};
+};
 
-declare type BabelNodeVoidTypeAnnotation = {|
+declare type BabelNodeVoidTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1769,9 +1769,9 @@ declare type BabelNodeVoidTypeAnnotation = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'VoidTypeAnnotation',
-|};
+};
 
-declare type BabelNodeEnumDeclaration = {|
+declare type BabelNodeEnumDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1785,9 +1785,9 @@ declare type BabelNodeEnumDeclaration = {|
     | BabelNodeEnumNumberBody
     | BabelNodeEnumStringBody
     | BabelNodeEnumSymbolBody,
-|};
+};
 
-declare type BabelNodeEnumBooleanBody = {|
+declare type BabelNodeEnumBooleanBody = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1797,9 +1797,9 @@ declare type BabelNodeEnumBooleanBody = {|
   type: 'EnumBooleanBody',
   members: Array<BabelNodeEnumBooleanMember>,
   explicit: boolean,
-|};
+};
 
-declare type BabelNodeEnumNumberBody = {|
+declare type BabelNodeEnumNumberBody = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1809,9 +1809,9 @@ declare type BabelNodeEnumNumberBody = {|
   type: 'EnumNumberBody',
   members: Array<BabelNodeEnumNumberMember>,
   explicit: boolean,
-|};
+};
 
-declare type BabelNodeEnumStringBody = {|
+declare type BabelNodeEnumStringBody = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1821,9 +1821,9 @@ declare type BabelNodeEnumStringBody = {|
   type: 'EnumStringBody',
   members: Array<BabelNodeEnumStringMember | BabelNodeEnumDefaultedMember>,
   explicit: boolean,
-|};
+};
 
-declare type BabelNodeEnumSymbolBody = {|
+declare type BabelNodeEnumSymbolBody = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1832,9 +1832,9 @@ declare type BabelNodeEnumSymbolBody = {|
   loc: ?BabelNodeSourceLocation,
   type: 'EnumSymbolBody',
   members: Array<BabelNodeEnumDefaultedMember>,
-|};
+};
 
-declare type BabelNodeEnumBooleanMember = {|
+declare type BabelNodeEnumBooleanMember = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1844,9 +1844,9 @@ declare type BabelNodeEnumBooleanMember = {|
   type: 'EnumBooleanMember',
   id: BabelNodeIdentifier,
   init: BabelNodeBooleanLiteral,
-|};
+};
 
-declare type BabelNodeEnumNumberMember = {|
+declare type BabelNodeEnumNumberMember = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1856,9 +1856,9 @@ declare type BabelNodeEnumNumberMember = {|
   type: 'EnumNumberMember',
   id: BabelNodeIdentifier,
   init: BabelNodeNumericLiteral,
-|};
+};
 
-declare type BabelNodeEnumStringMember = {|
+declare type BabelNodeEnumStringMember = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1868,9 +1868,9 @@ declare type BabelNodeEnumStringMember = {|
   type: 'EnumStringMember',
   id: BabelNodeIdentifier,
   init: BabelNodeStringLiteral,
-|};
+};
 
-declare type BabelNodeEnumDefaultedMember = {|
+declare type BabelNodeEnumDefaultedMember = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1879,9 +1879,9 @@ declare type BabelNodeEnumDefaultedMember = {|
   loc: ?BabelNodeSourceLocation,
   type: 'EnumDefaultedMember',
   id: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeJSXAttribute = {|
+declare type BabelNodeJSXAttribute = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1895,9 +1895,9 @@ declare type BabelNodeJSXAttribute = {|
     | BabelNodeJSXFragment
     | BabelNodeStringLiteral
     | BabelNodeJSXExpressionContainer,
-|};
+};
 
-declare type BabelNodeJSXClosingElement = {|
+declare type BabelNodeJSXClosingElement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1909,9 +1909,9 @@ declare type BabelNodeJSXClosingElement = {|
     | BabelNodeJSXIdentifier
     | BabelNodeJSXMemberExpression
     | BabelNodeJSXNamespacedName,
-|};
+};
 
-declare type BabelNodeJSXElement = {|
+declare type BabelNodeJSXElement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1929,9 +1929,9 @@ declare type BabelNodeJSXElement = {|
     | BabelNodeJSXFragment,
   >,
   selfClosing?: boolean,
-|};
+};
 
-declare type BabelNodeJSXEmptyExpression = {|
+declare type BabelNodeJSXEmptyExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1939,9 +1939,9 @@ declare type BabelNodeJSXEmptyExpression = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'JSXEmptyExpression',
-|};
+};
 
-declare type BabelNodeJSXExpressionContainer = {|
+declare type BabelNodeJSXExpressionContainer = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1950,9 +1950,9 @@ declare type BabelNodeJSXExpressionContainer = {|
   loc: ?BabelNodeSourceLocation,
   type: 'JSXExpressionContainer',
   expression: BabelNodeExpression | BabelNodeJSXEmptyExpression,
-|};
+};
 
-declare type BabelNodeJSXSpreadChild = {|
+declare type BabelNodeJSXSpreadChild = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1961,9 +1961,9 @@ declare type BabelNodeJSXSpreadChild = {|
   loc: ?BabelNodeSourceLocation,
   type: 'JSXSpreadChild',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeJSXIdentifier = {|
+declare type BabelNodeJSXIdentifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1972,9 +1972,9 @@ declare type BabelNodeJSXIdentifier = {|
   loc: ?BabelNodeSourceLocation,
   type: 'JSXIdentifier',
   name: string,
-|};
+};
 
-declare type BabelNodeJSXMemberExpression = {|
+declare type BabelNodeJSXMemberExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1984,9 +1984,9 @@ declare type BabelNodeJSXMemberExpression = {|
   type: 'JSXMemberExpression',
   object: BabelNodeJSXMemberExpression | BabelNodeJSXIdentifier,
   property: BabelNodeJSXIdentifier,
-|};
+};
 
-declare type BabelNodeJSXNamespacedName = {|
+declare type BabelNodeJSXNamespacedName = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -1996,9 +1996,9 @@ declare type BabelNodeJSXNamespacedName = {|
   type: 'JSXNamespacedName',
   namespace: BabelNodeJSXIdentifier,
   name: BabelNodeJSXIdentifier,
-|};
+};
 
-declare type BabelNodeJSXOpeningElement = {|
+declare type BabelNodeJSXOpeningElement = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2014,9 +2014,9 @@ declare type BabelNodeJSXOpeningElement = {|
   selfClosing?: boolean,
   typeParameters?:
     BabelNodeTypeParameterInstantiation | BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeJSXSpreadAttribute = {|
+declare type BabelNodeJSXSpreadAttribute = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2025,9 +2025,9 @@ declare type BabelNodeJSXSpreadAttribute = {|
   loc: ?BabelNodeSourceLocation,
   type: 'JSXSpreadAttribute',
   argument: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeJSXText = {|
+declare type BabelNodeJSXText = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2036,9 +2036,9 @@ declare type BabelNodeJSXText = {|
   loc: ?BabelNodeSourceLocation,
   type: 'JSXText',
   value: string,
-|};
+};
 
-declare type BabelNodeJSXFragment = {|
+declare type BabelNodeJSXFragment = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2055,9 +2055,9 @@ declare type BabelNodeJSXFragment = {|
     | BabelNodeJSXElement
     | BabelNodeJSXFragment,
   >,
-|};
+};
 
-declare type BabelNodeJSXOpeningFragment = {|
+declare type BabelNodeJSXOpeningFragment = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2065,9 +2065,9 @@ declare type BabelNodeJSXOpeningFragment = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'JSXOpeningFragment',
-|};
+};
 
-declare type BabelNodeJSXClosingFragment = {|
+declare type BabelNodeJSXClosingFragment = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2075,9 +2075,9 @@ declare type BabelNodeJSXClosingFragment = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'JSXClosingFragment',
-|};
+};
 
-declare type BabelNodeNoop = {|
+declare type BabelNodeNoop = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2085,9 +2085,9 @@ declare type BabelNodeNoop = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'Noop',
-|};
+};
 
-declare type BabelNodePlaceholder = {|
+declare type BabelNodePlaceholder = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2105,9 +2105,9 @@ declare type BabelNodePlaceholder = {|
     | 'ClassBody'
     | 'Pattern',
   name: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeV8IntrinsicIdentifier = {|
+declare type BabelNodeV8IntrinsicIdentifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2116,9 +2116,9 @@ declare type BabelNodeV8IntrinsicIdentifier = {|
   loc: ?BabelNodeSourceLocation,
   type: 'V8IntrinsicIdentifier',
   name: string,
-|};
+};
 
-declare type BabelNodeArgumentPlaceholder = {|
+declare type BabelNodeArgumentPlaceholder = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2126,9 +2126,9 @@ declare type BabelNodeArgumentPlaceholder = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'ArgumentPlaceholder',
-|};
+};
 
-declare type BabelNodeAwaitExpression = {|
+declare type BabelNodeAwaitExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2137,9 +2137,9 @@ declare type BabelNodeAwaitExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'AwaitExpression',
   argument: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeBindExpression = {|
+declare type BabelNodeBindExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2149,9 +2149,9 @@ declare type BabelNodeBindExpression = {|
   type: 'BindExpression',
   object: BabelNodeExpression,
   callee: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeClassProperty = {|
+declare type BabelNodeClassProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2175,9 +2175,9 @@ declare type BabelNodeClassProperty = {|
   definite?: boolean,
   optional?: boolean,
   readonly?: boolean,
-|};
+};
 
-declare type BabelNodeOptionalMemberExpression = {|
+declare type BabelNodeOptionalMemberExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2189,9 +2189,9 @@ declare type BabelNodeOptionalMemberExpression = {|
   property: BabelNodeExpression | BabelNodeIdentifier,
   computed?: boolean,
   optional: boolean,
-|};
+};
 
-declare type BabelNodePipelineTopicExpression = {|
+declare type BabelNodePipelineTopicExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2200,9 +2200,9 @@ declare type BabelNodePipelineTopicExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'PipelineTopicExpression',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodePipelineBareFunction = {|
+declare type BabelNodePipelineBareFunction = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2211,9 +2211,9 @@ declare type BabelNodePipelineBareFunction = {|
   loc: ?BabelNodeSourceLocation,
   type: 'PipelineBareFunction',
   callee: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodePipelinePrimaryTopicReference = {|
+declare type BabelNodePipelinePrimaryTopicReference = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2221,9 +2221,9 @@ declare type BabelNodePipelinePrimaryTopicReference = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'PipelinePrimaryTopicReference',
-|};
+};
 
-declare type BabelNodeOptionalCallExpression = {|
+declare type BabelNodeOptionalCallExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2238,9 +2238,9 @@ declare type BabelNodeOptionalCallExpression = {|
   optional: boolean,
   typeArguments?: BabelNodeTypeParameterInstantiation,
   typeParameters?: BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeClassPrivateProperty = {|
+declare type BabelNodeClassPrivateProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2251,9 +2251,9 @@ declare type BabelNodeClassPrivateProperty = {|
   key: BabelNodePrivateName,
   value?: BabelNodeExpression,
   decorators?: Array<BabelNodeDecorator>,
-|};
+};
 
-declare type BabelNodeClassPrivateMethod = {|
+declare type BabelNodeClassPrivateMethod = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2284,9 +2284,9 @@ declare type BabelNodeClassPrivateMethod = {|
     | BabelNodeTypeParameterDeclaration
     | BabelNodeTSTypeParameterDeclaration
     | BabelNodeNoop,
-|};
+};
 
-declare type BabelNodeImport = {|
+declare type BabelNodeImport = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2294,9 +2294,9 @@ declare type BabelNodeImport = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'Import',
-|};
+};
 
-declare type BabelNodeImportAttribute = {|
+declare type BabelNodeImportAttribute = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2306,9 +2306,9 @@ declare type BabelNodeImportAttribute = {|
   type: 'ImportAttribute',
   key: BabelNodeIdentifier,
   value: BabelNodeStringLiteral,
-|};
+};
 
-declare type BabelNodeDecorator = {|
+declare type BabelNodeDecorator = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2317,9 +2317,9 @@ declare type BabelNodeDecorator = {|
   loc: ?BabelNodeSourceLocation,
   type: 'Decorator',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeDoExpression = {|
+declare type BabelNodeDoExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2328,9 +2328,9 @@ declare type BabelNodeDoExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'DoExpression',
   body: BabelNodeBlockStatement,
-|};
+};
 
-declare type BabelNodeExportDefaultSpecifier = {|
+declare type BabelNodeExportDefaultSpecifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2339,9 +2339,9 @@ declare type BabelNodeExportDefaultSpecifier = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ExportDefaultSpecifier',
   exported: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeExportNamespaceSpecifier = {|
+declare type BabelNodeExportNamespaceSpecifier = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2350,9 +2350,9 @@ declare type BabelNodeExportNamespaceSpecifier = {|
   loc: ?BabelNodeSourceLocation,
   type: 'ExportNamespaceSpecifier',
   exported: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodePrivateName = {|
+declare type BabelNodePrivateName = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2361,9 +2361,9 @@ declare type BabelNodePrivateName = {|
   loc: ?BabelNodeSourceLocation,
   type: 'PrivateName',
   id: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeBigIntLiteral = {|
+declare type BabelNodeBigIntLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2372,9 +2372,9 @@ declare type BabelNodeBigIntLiteral = {|
   loc: ?BabelNodeSourceLocation,
   type: 'BigIntLiteral',
   value: string,
-|};
+};
 
-declare type BabelNodeRecordExpression = {|
+declare type BabelNodeRecordExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2385,9 +2385,9 @@ declare type BabelNodeRecordExpression = {|
   properties: Array<
     BabelNodeObjectProperty | BabelNodeObjectMethod | BabelNodeSpreadElement,
   >,
-|};
+};
 
-declare type BabelNodeTupleExpression = {|
+declare type BabelNodeTupleExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2396,9 +2396,9 @@ declare type BabelNodeTupleExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TupleExpression',
   elements?: Array<null | BabelNodeExpression | BabelNodeSpreadElement>,
-|};
+};
 
-declare type BabelNodeTSParameterProperty = {|
+declare type BabelNodeTSParameterProperty = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2409,9 +2409,9 @@ declare type BabelNodeTSParameterProperty = {|
   parameter: BabelNodeIdentifier | BabelNodeAssignmentPattern,
   accessibility?: 'public' | 'private' | 'protected',
   readonly?: boolean,
-|};
+};
 
-declare type BabelNodeTSDeclareFunction = {|
+declare type BabelNodeTSDeclareFunction = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2431,9 +2431,9 @@ declare type BabelNodeTSDeclareFunction = {|
   async?: boolean,
   declare?: boolean,
   generator?: boolean,
-|};
+};
 
-declare type BabelNodeTSDeclareMethod = {|
+declare type BabelNodeTSDeclareMethod = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2463,9 +2463,9 @@ declare type BabelNodeTSDeclareMethod = {|
   generator?: boolean,
   kind?: 'get' | 'set' | 'method' | 'constructor',
   optional?: boolean,
-|};
+};
 
-declare type BabelNodeTSQualifiedName = {|
+declare type BabelNodeTSQualifiedName = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2475,9 +2475,9 @@ declare type BabelNodeTSQualifiedName = {|
   type: 'TSQualifiedName',
   left: BabelNodeTSEntityName,
   right: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeTSCallSignatureDeclaration = {|
+declare type BabelNodeTSCallSignatureDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2488,9 +2488,9 @@ declare type BabelNodeTSCallSignatureDeclaration = {|
   typeParameters?: BabelNodeTSTypeParameterDeclaration,
   parameters: Array<BabelNodeIdentifier | BabelNodeRestElement>,
   typeAnnotation?: BabelNodeTSTypeAnnotation,
-|};
+};
 
-declare type BabelNodeTSConstructSignatureDeclaration = {|
+declare type BabelNodeTSConstructSignatureDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2501,9 +2501,9 @@ declare type BabelNodeTSConstructSignatureDeclaration = {|
   typeParameters?: BabelNodeTSTypeParameterDeclaration,
   parameters: Array<BabelNodeIdentifier | BabelNodeRestElement>,
   typeAnnotation?: BabelNodeTSTypeAnnotation,
-|};
+};
 
-declare type BabelNodeTSPropertySignature = {|
+declare type BabelNodeTSPropertySignature = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2517,9 +2517,9 @@ declare type BabelNodeTSPropertySignature = {|
   computed?: boolean,
   optional?: boolean,
   readonly?: boolean,
-|};
+};
 
-declare type BabelNodeTSMethodSignature = {|
+declare type BabelNodeTSMethodSignature = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2533,9 +2533,9 @@ declare type BabelNodeTSMethodSignature = {|
   typeAnnotation?: BabelNodeTSTypeAnnotation,
   computed?: boolean,
   optional?: boolean,
-|};
+};
 
-declare type BabelNodeTSIndexSignature = {|
+declare type BabelNodeTSIndexSignature = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2546,9 +2546,9 @@ declare type BabelNodeTSIndexSignature = {|
   parameters: Array<BabelNodeIdentifier>,
   typeAnnotation?: BabelNodeTSTypeAnnotation,
   readonly?: boolean,
-|};
+};
 
-declare type BabelNodeTSAnyKeyword = {|
+declare type BabelNodeTSAnyKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2556,9 +2556,9 @@ declare type BabelNodeTSAnyKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSAnyKeyword',
-|};
+};
 
-declare type BabelNodeTSBooleanKeyword = {|
+declare type BabelNodeTSBooleanKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2566,9 +2566,9 @@ declare type BabelNodeTSBooleanKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSBooleanKeyword',
-|};
+};
 
-declare type BabelNodeTSBigIntKeyword = {|
+declare type BabelNodeTSBigIntKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2576,9 +2576,9 @@ declare type BabelNodeTSBigIntKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSBigIntKeyword',
-|};
+};
 
-declare type BabelNodeTSNeverKeyword = {|
+declare type BabelNodeTSNeverKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2586,9 +2586,9 @@ declare type BabelNodeTSNeverKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSNeverKeyword',
-|};
+};
 
-declare type BabelNodeTSNullKeyword = {|
+declare type BabelNodeTSNullKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2596,9 +2596,9 @@ declare type BabelNodeTSNullKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSNullKeyword',
-|};
+};
 
-declare type BabelNodeTSNumberKeyword = {|
+declare type BabelNodeTSNumberKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2606,9 +2606,9 @@ declare type BabelNodeTSNumberKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSNumberKeyword',
-|};
+};
 
-declare type BabelNodeTSObjectKeyword = {|
+declare type BabelNodeTSObjectKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2616,9 +2616,9 @@ declare type BabelNodeTSObjectKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSObjectKeyword',
-|};
+};
 
-declare type BabelNodeTSStringKeyword = {|
+declare type BabelNodeTSStringKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2626,9 +2626,9 @@ declare type BabelNodeTSStringKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSStringKeyword',
-|};
+};
 
-declare type BabelNodeTSSymbolKeyword = {|
+declare type BabelNodeTSSymbolKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2636,9 +2636,9 @@ declare type BabelNodeTSSymbolKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSSymbolKeyword',
-|};
+};
 
-declare type BabelNodeTSUndefinedKeyword = {|
+declare type BabelNodeTSUndefinedKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2646,9 +2646,9 @@ declare type BabelNodeTSUndefinedKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSUndefinedKeyword',
-|};
+};
 
-declare type BabelNodeTSUnknownKeyword = {|
+declare type BabelNodeTSUnknownKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2656,9 +2656,9 @@ declare type BabelNodeTSUnknownKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSUnknownKeyword',
-|};
+};
 
-declare type BabelNodeTSVoidKeyword = {|
+declare type BabelNodeTSVoidKeyword = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2666,9 +2666,9 @@ declare type BabelNodeTSVoidKeyword = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSVoidKeyword',
-|};
+};
 
-declare type BabelNodeTSThisType = {|
+declare type BabelNodeTSThisType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2676,9 +2676,9 @@ declare type BabelNodeTSThisType = {|
   end: ?number,
   loc: ?BabelNodeSourceLocation,
   type: 'TSThisType',
-|};
+};
 
-declare type BabelNodeTSFunctionType = {|
+declare type BabelNodeTSFunctionType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2689,9 +2689,9 @@ declare type BabelNodeTSFunctionType = {|
   typeParameters?: BabelNodeTSTypeParameterDeclaration,
   parameters: Array<BabelNodeIdentifier | BabelNodeRestElement>,
   typeAnnotation?: BabelNodeTSTypeAnnotation,
-|};
+};
 
-declare type BabelNodeTSConstructorType = {|
+declare type BabelNodeTSConstructorType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2702,9 +2702,9 @@ declare type BabelNodeTSConstructorType = {|
   typeParameters?: BabelNodeTSTypeParameterDeclaration,
   parameters: Array<BabelNodeIdentifier | BabelNodeRestElement>,
   typeAnnotation?: BabelNodeTSTypeAnnotation,
-|};
+};
 
-declare type BabelNodeTSTypeReference = {|
+declare type BabelNodeTSTypeReference = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2714,9 +2714,9 @@ declare type BabelNodeTSTypeReference = {|
   type: 'TSTypeReference',
   typeName: BabelNodeTSEntityName,
   typeParameters?: BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeTSTypePredicate = {|
+declare type BabelNodeTSTypePredicate = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2727,9 +2727,9 @@ declare type BabelNodeTSTypePredicate = {|
   parameterName: BabelNodeIdentifier | BabelNodeTSThisType,
   typeAnnotation?: BabelNodeTSTypeAnnotation,
   asserts?: boolean,
-|};
+};
 
-declare type BabelNodeTSTypeQuery = {|
+declare type BabelNodeTSTypeQuery = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2738,9 +2738,9 @@ declare type BabelNodeTSTypeQuery = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSTypeQuery',
   exprName: BabelNodeTSEntityName | BabelNodeTSImportType,
-|};
+};
 
-declare type BabelNodeTSTypeLiteral = {|
+declare type BabelNodeTSTypeLiteral = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2749,9 +2749,9 @@ declare type BabelNodeTSTypeLiteral = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSTypeLiteral',
   members: Array<BabelNodeTSTypeElement>,
-|};
+};
 
-declare type BabelNodeTSArrayType = {|
+declare type BabelNodeTSArrayType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2760,9 +2760,9 @@ declare type BabelNodeTSArrayType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSArrayType',
   elementType: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSTupleType = {|
+declare type BabelNodeTSTupleType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2771,9 +2771,9 @@ declare type BabelNodeTSTupleType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSTupleType',
   elementTypes: Array<BabelNodeTSType>,
-|};
+};
 
-declare type BabelNodeTSOptionalType = {|
+declare type BabelNodeTSOptionalType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2782,9 +2782,9 @@ declare type BabelNodeTSOptionalType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSOptionalType',
   typeAnnotation: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSRestType = {|
+declare type BabelNodeTSRestType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2793,9 +2793,9 @@ declare type BabelNodeTSRestType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSRestType',
   typeAnnotation: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSUnionType = {|
+declare type BabelNodeTSUnionType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2804,9 +2804,9 @@ declare type BabelNodeTSUnionType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSUnionType',
   types: Array<BabelNodeTSType>,
-|};
+};
 
-declare type BabelNodeTSIntersectionType = {|
+declare type BabelNodeTSIntersectionType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2815,9 +2815,9 @@ declare type BabelNodeTSIntersectionType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSIntersectionType',
   types: Array<BabelNodeTSType>,
-|};
+};
 
-declare type BabelNodeTSConditionalType = {|
+declare type BabelNodeTSConditionalType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2829,9 +2829,9 @@ declare type BabelNodeTSConditionalType = {|
   extendsType: BabelNodeTSType,
   trueType: BabelNodeTSType,
   falseType: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSInferType = {|
+declare type BabelNodeTSInferType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2840,9 +2840,9 @@ declare type BabelNodeTSInferType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSInferType',
   typeParameter: BabelNodeTSTypeParameter,
-|};
+};
 
-declare type BabelNodeTSParenthesizedType = {|
+declare type BabelNodeTSParenthesizedType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2851,9 +2851,9 @@ declare type BabelNodeTSParenthesizedType = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSParenthesizedType',
   typeAnnotation: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSTypeOperator = {|
+declare type BabelNodeTSTypeOperator = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2863,9 +2863,9 @@ declare type BabelNodeTSTypeOperator = {|
   type: 'TSTypeOperator',
   typeAnnotation: BabelNodeTSType,
   operator: string,
-|};
+};
 
-declare type BabelNodeTSIndexedAccessType = {|
+declare type BabelNodeTSIndexedAccessType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2875,9 +2875,9 @@ declare type BabelNodeTSIndexedAccessType = {|
   type: 'TSIndexedAccessType',
   objectType: BabelNodeTSType,
   indexType: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSMappedType = {|
+declare type BabelNodeTSMappedType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2889,9 +2889,9 @@ declare type BabelNodeTSMappedType = {|
   typeAnnotation?: BabelNodeTSType,
   optional?: boolean,
   readonly?: boolean,
-|};
+};
 
-declare type BabelNodeTSLiteralType = {|
+declare type BabelNodeTSLiteralType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2904,9 +2904,9 @@ declare type BabelNodeTSLiteralType = {|
     | BabelNodeStringLiteral
     | BabelNodeBooleanLiteral
     | BabelNodeBigIntLiteral,
-|};
+};
 
-declare type BabelNodeTSExpressionWithTypeArguments = {|
+declare type BabelNodeTSExpressionWithTypeArguments = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2916,9 +2916,9 @@ declare type BabelNodeTSExpressionWithTypeArguments = {|
   type: 'TSExpressionWithTypeArguments',
   expression: BabelNodeTSEntityName,
   typeParameters?: BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeTSInterfaceDeclaration = {|
+declare type BabelNodeTSInterfaceDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2930,9 +2930,9 @@ declare type BabelNodeTSInterfaceDeclaration = {|
   typeParameters?: BabelNodeTSTypeParameterDeclaration,
   body: BabelNodeTSInterfaceBody,
   declare?: boolean,
-|};
+};
 
-declare type BabelNodeTSInterfaceBody = {|
+declare type BabelNodeTSInterfaceBody = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2941,9 +2941,9 @@ declare type BabelNodeTSInterfaceBody = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSInterfaceBody',
   body: Array<BabelNodeTSTypeElement>,
-|};
+};
 
-declare type BabelNodeTSTypeAliasDeclaration = {|
+declare type BabelNodeTSTypeAliasDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2955,9 +2955,9 @@ declare type BabelNodeTSTypeAliasDeclaration = {|
   typeParameters?: BabelNodeTSTypeParameterDeclaration,
   typeAnnotation: BabelNodeTSType,
   declare?: boolean,
-|};
+};
 
-declare type BabelNodeTSAsExpression = {|
+declare type BabelNodeTSAsExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2967,9 +2967,9 @@ declare type BabelNodeTSAsExpression = {|
   type: 'TSAsExpression',
   expression: BabelNodeExpression,
   typeAnnotation: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSTypeAssertion = {|
+declare type BabelNodeTSTypeAssertion = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2979,9 +2979,9 @@ declare type BabelNodeTSTypeAssertion = {|
   type: 'TSTypeAssertion',
   typeAnnotation: BabelNodeTSType,
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeTSEnumDeclaration = {|
+declare type BabelNodeTSEnumDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -2993,9 +2993,9 @@ declare type BabelNodeTSEnumDeclaration = {|
   members: Array<BabelNodeTSEnumMember>,
   declare?: boolean,
   initializer?: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeTSEnumMember = {|
+declare type BabelNodeTSEnumMember = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3005,9 +3005,9 @@ declare type BabelNodeTSEnumMember = {|
   type: 'TSEnumMember',
   id: BabelNodeIdentifier | BabelNodeStringLiteral,
   initializer?: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeTSModuleDeclaration = {|
+declare type BabelNodeTSModuleDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3019,9 +3019,9 @@ declare type BabelNodeTSModuleDeclaration = {|
   body: BabelNodeTSModuleBlock | BabelNodeTSModuleDeclaration,
   declare?: boolean,
   global?: boolean,
-|};
+};
 
-declare type BabelNodeTSModuleBlock = {|
+declare type BabelNodeTSModuleBlock = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3030,9 +3030,9 @@ declare type BabelNodeTSModuleBlock = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSModuleBlock',
   body: Array<BabelNodeStatement>,
-|};
+};
 
-declare type BabelNodeTSImportType = {|
+declare type BabelNodeTSImportType = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3043,9 +3043,9 @@ declare type BabelNodeTSImportType = {|
   argument: BabelNodeStringLiteral,
   qualifier?: BabelNodeTSEntityName,
   typeParameters?: BabelNodeTSTypeParameterInstantiation,
-|};
+};
 
-declare type BabelNodeTSImportEqualsDeclaration = {|
+declare type BabelNodeTSImportEqualsDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3056,9 +3056,9 @@ declare type BabelNodeTSImportEqualsDeclaration = {|
   id: BabelNodeIdentifier,
   moduleReference: BabelNodeTSEntityName | BabelNodeTSExternalModuleReference,
   isExport: boolean,
-|};
+};
 
-declare type BabelNodeTSExternalModuleReference = {|
+declare type BabelNodeTSExternalModuleReference = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3067,9 +3067,9 @@ declare type BabelNodeTSExternalModuleReference = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSExternalModuleReference',
   expression: BabelNodeStringLiteral,
-|};
+};
 
-declare type BabelNodeTSNonNullExpression = {|
+declare type BabelNodeTSNonNullExpression = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3078,9 +3078,9 @@ declare type BabelNodeTSNonNullExpression = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSNonNullExpression',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeTSExportAssignment = {|
+declare type BabelNodeTSExportAssignment = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3089,9 +3089,9 @@ declare type BabelNodeTSExportAssignment = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSExportAssignment',
   expression: BabelNodeExpression,
-|};
+};
 
-declare type BabelNodeTSNamespaceExportDeclaration = {|
+declare type BabelNodeTSNamespaceExportDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3100,9 +3100,9 @@ declare type BabelNodeTSNamespaceExportDeclaration = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSNamespaceExportDeclaration',
   id: BabelNodeIdentifier,
-|};
+};
 
-declare type BabelNodeTSTypeAnnotation = {|
+declare type BabelNodeTSTypeAnnotation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3111,9 +3111,9 @@ declare type BabelNodeTSTypeAnnotation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSTypeAnnotation',
   typeAnnotation: BabelNodeTSType,
-|};
+};
 
-declare type BabelNodeTSTypeParameterInstantiation = {|
+declare type BabelNodeTSTypeParameterInstantiation = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3122,9 +3122,9 @@ declare type BabelNodeTSTypeParameterInstantiation = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSTypeParameterInstantiation',
   params: Array<BabelNodeTSType>,
-|};
+};
 
-declare type BabelNodeTSTypeParameterDeclaration = {|
+declare type BabelNodeTSTypeParameterDeclaration = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3133,9 +3133,9 @@ declare type BabelNodeTSTypeParameterDeclaration = {|
   loc: ?BabelNodeSourceLocation,
   type: 'TSTypeParameterDeclaration',
   params: Array<BabelNodeTSTypeParameter>,
-|};
+};
 
-declare type BabelNodeTSTypeParameter = {|
+declare type BabelNodeTSTypeParameter = {
   leadingComments?: Array<BabelNodeComment>,
   innerComments?: Array<BabelNodeComment>,
   trailingComments?: Array<BabelNodeComment>,
@@ -3145,7 +3145,7 @@ declare type BabelNodeTSTypeParameter = {|
   type: 'TSTypeParameter',
   constraint?: BabelNodeTSType,
   name: string,
-|};
+};
 
 declare type BabelNode =
   | BabelNodeArrayExpression
@@ -6555,7 +6555,7 @@ declare module '@babel/types' {
   };
   declare export function traverse<T>(
     n: BabelNode,
-    TraversalHandler<T> | TraversalHandlers<T>,
+    v1: TraversalHandler<T> | TraversalHandlers<T>,
     state?: T,
   ): void;
   declare export function traverseFast<T>(

@@ -20,7 +20,7 @@ function transformerWithOptions(
   options: RelayPluginOptions,
   environment: 'development' | 'production' = 'production',
   filename?: string = '',
-): string => Promise<string> {
+): (v: string) => Promise<string> {
   return (text, providedFileName) => {
     const previousEnv = process.env.BABEL_ENV;
     try {

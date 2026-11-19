@@ -30,12 +30,15 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
  * first. tsc prefers the more specific pattern, so the bare `*` entry only
  * catches paths that are already flat.
  */
-function relayPackagePaths(): {[string]: Array<string>} {
-  const paths: {[string]: Array<string>} = {};
+function relayPackagePaths(): {[key: string]: Array<string>} {
+  const paths: {[key: string]: Array<string>} = {};
   for (const name of ['relay-runtime', 'react-relay']) {
     const root = resolveRelayPackage(name);
     paths[name] = [path.join(root, 'index.d.ts')];
-    paths[`${name}/lib/*`] = [path.join(root, 'lib', '*'), path.join(root, '*')];
+    paths[`${name}/lib/*`] = [
+      path.join(root, 'lib', '*'),
+      path.join(root, '*'),
+    ];
     paths[`${name}/*`] = [path.join(root, '*')];
   }
   return paths;

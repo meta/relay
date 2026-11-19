@@ -78,7 +78,7 @@ function getRelayCompilerBinary(): string {
 function runAllowingFailure(
   command: string,
   args: Array<string>,
-  options?: {env?: {[string]: string}, cwd?: string},
+  options?: {env?: {[key: string]: string}, cwd?: string},
 ): Promise<{
   code: number | null,
   signal: string | null,
@@ -110,7 +110,7 @@ function runAllowingFailure(
 async function run(
   command: string,
   args: Array<string>,
-  options?: {env?: {[string]: string}, cwd?: string},
+  options?: {env?: {[key: string]: string}, cwd?: string},
 ): Promise<string> {
   const {code, signal, stdout, stderr} = await runAllowingFailure(
     command,
