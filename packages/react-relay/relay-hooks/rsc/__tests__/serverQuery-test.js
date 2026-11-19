@@ -15,6 +15,7 @@ import type {Fragment, FragmentType, IEnvironment} from 'relay-runtime';
 import type {GraphQLResponse} from 'relay-runtime/network/RelayNetworkTypes';
 import type {Sink} from 'relay-runtime/network/RelayObservable';
 
+const {createServerEnvironment} = require('../../../rsc_EXPERIMENTAL');
 const {getRelayHandoff} = require('../RelayHandoff');
 const RelayServerHandoff = require('../RelayServerHandoff');
 const serverQuery = require('../serverQuery');
@@ -63,7 +64,7 @@ function serverRead<TFragmentType extends FragmentType, TData>(
   return new Promise((resolve, reject) => read.then(resolve, reject));
 }
 
-function createServer() {
+function createServer(store: Store = new Store(new RecordSource())) {
   const sinks: Array<Sink<GraphQLResponse>> = [];
   const cancelled: Array<boolean> = [];
   const environment = new Environment({
@@ -78,7 +79,7 @@ function createServer() {
         };
       }),
     ),
-    store: new Store(new RecordSource()),
+    store,
   });
   return {cancelled, environment, sinks};
 }
@@ -517,5 +518,31 @@ describe('server fragment reads', () => {
     });
     expect(sync.mock.calls).toEqual([[null]]);
     sync.mockRestore();
+  });
+});
+
+describe('createServerEnvironment', () => {
+  it("never collects garbage in a request's Environment", async () => {
+    // Without a release buffer, released records are collected at once.
+    const store = new Store(new RecordSource(), {gcReleaseBufferSize: 0});
+    const {environment, sinks} = createServer(store);
+    const result = createServerEnvironment(() => environment).serverQuery(
+      Query,
+      {},
+    );
+    sinks[0].next({
+      data: {me: {__typename: 'User', id: '4', name: 'Zuck'}},
+      extensions: {is_final: false},
+    });
+    await result;
+    sinks[0].complete();
+    // A record that no operation retains.
+    environment.commitUpdate(recordSource => {
+      recordSource.create('unretained', 'User');
+    });
+    store.scheduleGC();
+    await flush();
+    expect(store.getSource().has('4')).toBe(true);
+    expect(store.getSource().has('unretained')).toBe(true);
   });
 });

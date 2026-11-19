@@ -69,7 +69,13 @@ function createServerEnvironment(
   // $FlowFixMe[missing-export] React.cache is available in React 19+
   const cache = React.cache;
   invariant(typeof cache === 'function', 'Relay RSC APIs require React 19+');
-  const getEnvironment = cache(create);
+  const getEnvironment = cache(() => {
+    const environment = create();
+    // The Environment serves one request, so its Store keeps every record
+    // until the request is over: it never collects garbage.
+    environment.getStore().holdGC();
+    return environment;
+  });
 
   async function serverFetchQuery<TVariables extends Variables, TData>(
     query: Query<TVariables, TData>,

@@ -310,9 +310,6 @@ function execute(
     }),
   };
   registerServerQueryExecution(execution);
-  // The server Environment is request scoped: keep the data for the
-  // request's server fragment reads.
-  environment.retain(operation);
 
   const cancelled = () =>
     fail(new Error('serverQuery: The request was cancelled.'));
