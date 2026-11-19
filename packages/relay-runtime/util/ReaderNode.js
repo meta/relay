@@ -247,7 +247,8 @@ export type ReaderCatchField = {
   readonly path?: unknown,
 };
 
-export type ResolverFunction = (...args: Array<any>) => unknown; // flowlint-line unclear-type:off
+// $FlowFixMe[unclear-type]
+export type ResolverFunction = (...args: Array<any>) => unknown;
 // With ES6 imports, a resolver function might be exported under the `default` key.
 export type ResolverModule = ResolverFunction | {default: ResolverFunction};
 
