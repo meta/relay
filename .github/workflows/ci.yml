@@ -242,6 +242,10 @@ jobs:
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Main releases derive their version number from the commit count,
+          # which requires the full history.
+          fetch-depth: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '0' || '1' }}
       - uses: actions-rs/toolchain@v1
         with:
           # Should stay in sync with fbcode/buck2/rust-toolchain
@@ -258,6 +262,10 @@ jobs:
       - name: Install dependencies
         if: github.event_name == 'push' && github.repository == 'meta/relay' && github.ref == 'refs/heads/main'
         run: yarn install --frozen-lockfile --ignore-scripts
+      - name: Compute the main release number
+        if: github.event_name == 'push' && github.repository == 'meta/relay' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: echo "RELEASE_COMMIT_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
       - name: Set the compiler version when releasing the `main` branch
         if: github.event_name == 'push' && github.repository == 'meta/relay' && github.ref == 'refs/heads/main'
         run: yarn gulp setCompilerMainVersion
@@ -305,6 +313,10 @@ jobs:
       id-token: write  # Required for trusted publishing to NPM
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Main releases derive their version number from the commit count,
+          # which requires the full history.
+          fetch-depth: ${{ github.ref == 'refs/heads/main' && '0' || '1' }}
       - uses: actions/setup-node@v6
         with:
           node-version: 24.x
@@ -344,6 +356,10 @@ jobs:
           chmod +x linux-arm64/relay
           chmod +x macos-x64/relay
           chmod +x macos-arm64/relay
+
+      - name: Compute the main release number
+        if: github.ref == 'refs/heads/main'
+        run: echo "RELEASE_COMMIT_NUMBER=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
 
       - name: Build latest (main) version
         if: github.ref == 'refs/heads/main'

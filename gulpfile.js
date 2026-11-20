@@ -44,12 +44,30 @@ if (RELEASE_COMMIT_SHA && RELEASE_COMMIT_SHA.length !== 40) {
   );
 }
 
-const VERSION = RELEASE_COMMIT_SHA
-  ? `0.0.0-main-${RELEASE_COMMIT_SHA.substr(0, 8)}`
+// Builds of the `main` branch are published as `0.0.1-main.N`, where N is the
+// number of commits on `main`. This gives every commit a monotonically
+// increasing version, so consumers can depend on "this commit or newer" with a
+// range like `^0.0.1-main.N`.
+//
+// * It is a prerelease, so it never matches ranges targeting stable releases,
+//   and tools (e.g. the VS Code extension) still recognize it as a main build.
+// * The `0.0.1` base sorts above the legacy `0.0.0-main-<sha>` versions.
+const RELEASE_COMMIT_NUMBER = process.env.RELEASE_COMMIT_NUMBER;
+if (RELEASE_COMMIT_NUMBER && !/^[1-9][0-9]*$/.test(RELEASE_COMMIT_NUMBER)) {
+  throw new Error(
+    'If the RELEASE_COMMIT_NUMBER env variable is set, it should be set to ' +
+      'the number of commits on the main branch (`git rev-list --count HEAD`).',
+  );
+}
+
+const IS_MAIN_RELEASE = Boolean(RELEASE_COMMIT_SHA && RELEASE_COMMIT_NUMBER);
+
+const VERSION = IS_MAIN_RELEASE
+  ? `0.0.1-main.${RELEASE_COMMIT_NUMBER}`
   : process.env.npm_package_version;
 
 const PRODUCTION_HEADER = `/**
- * Relay v${VERSION}
+ * Relay v${VERSION}${IS_MAIN_RELEASE ? ` (${RELEASE_COMMIT_SHA})` : ''}
  *
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  *
@@ -271,8 +289,11 @@ const relayCompiler = gulp.parallel(
  * the main tag.
  */
 const setMainVersion = async () => {
-  if (!RELEASE_COMMIT_SHA) {
-    throw new Error('Expected the RELEASE_COMMIT_SHA env variable to be set.');
+  if (!IS_MAIN_RELEASE) {
+    throw new Error(
+      'Expected the RELEASE_COMMIT_SHA and RELEASE_COMMIT_NUMBER env ' +
+        'variables to be set.',
+    );
   }
   const packages = builds.map(build => build.package);
   packages.push('relay-compiler');
@@ -301,22 +322,30 @@ const setMainVersion = async () => {
 };
 
 async function setCompilerMainVersion() {
-  if (!RELEASE_COMMIT_SHA) {
-    throw new Error('Expected the RELEASE_COMMIT_SHA env variable to be set.');
+  if (!IS_MAIN_RELEASE) {
+    throw new Error(
+      'Expected the RELEASE_COMMIT_SHA and RELEASE_COMMIT_NUMBER env ' +
+        'variables to be set.',
+    );
   }
-  const currentVersion = require('./package.json').version;
+  // The `relay` binary (and so `relay-compiler --version`) gets its version
+  // from the relay-bin crate's CARGO_PKG_VERSION.
   const compilerCargoFile = path.join(
     '.',
     'compiler',
     'crates',
-    'relay-compiler',
+    'relay-bin',
     'Cargo.toml',
   );
   const cargo = fs.readFileSync(compilerCargoFile, 'utf8');
-  const updatedCargo = cargo.replace(
-    `version = "${currentVersion}"`,
-    `version = "${VERSION}"`,
-  );
+  // Replace the `version` of the `[package]` section, whatever it currently is.
+  const packageVersionRegex = /^(\[package\][^[]*?^version = )"[^"]*"/m;
+  if (!packageVersionRegex.test(cargo)) {
+    throw new Error(
+      `Could not find the package version in ${compilerCargoFile}`,
+    );
+  }
+  const updatedCargo = cargo.replace(packageVersionRegex, `$1"${VERSION}"`);
   fs.writeFileSync(compilerCargoFile, updatedCargo, 'utf8');
 }
 
