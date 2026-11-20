@@ -41,6 +41,65 @@ describe('RelayResponseNormalizer', () => {
     log: null,
   };
 
+  it('normalizes nested lists with abstract leaf types', () => {
+    const Query = graphql`
+      query RelayResponseNormalizerTestNestedAbstractListsQuery {
+        actorMatrix {
+          __typename
+          id
+          name
+        }
+      }
+    `;
+    const first = {__typename: 'User', id: '1', name: 'Alice'};
+    const second = {__typename: 'Page', id: '2', name: 'Relay'};
+    const recordSource = new RelayRecordSource();
+    recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+    normalize(
+      recordSource,
+      createNormalizationSelector(Query.operation, ROOT_ID, {}),
+      {actorMatrix: [[first, null], null, [], [second]]},
+      defaultOptions,
+    );
+
+    expect(recordSource.get('1')).toEqual({__id: '1', ...first});
+    expect(recordSource.get('2')).toEqual({__id: '2', ...second});
+  });
+
+  it('normalizes nested lists with concrete leaf types', () => {
+    const Query = graphql`
+      query RelayResponseNormalizerTestNestedConcreteListsQuery {
+        userMatrix {
+          id
+          name
+        }
+      }
+    `;
+    const first = {id: '1', name: 'Alice'};
+    const second = {id: '2', name: 'Bob'};
+    const recordSource = new RelayRecordSource();
+    recordSource.set(ROOT_ID, RelayModernRecord.create(ROOT_ID, ROOT_TYPE));
+
+    normalize(
+      recordSource,
+      createNormalizationSelector(Query.operation, ROOT_ID, {}),
+      {userMatrix: [[first, null], null, [], [second]]},
+      defaultOptions,
+    );
+
+    expect(recordSource.get('1')).toEqual({
+      __id: '1',
+      __typename: 'User',
+      ...first,
+    });
+    expect(recordSource.get('2')).toEqual({
+      __id: '2',
+      __typename: 'User',
+      ...second,
+    });
+  });
+
   it('normalizes queries', () => {
     const FooQuery = graphql`
       query RelayResponseNormalizerTest1Query($id: ID, $size: [Int]) {
