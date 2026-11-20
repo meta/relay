@@ -39,6 +39,7 @@ use schema::FieldID;
 use schema::Schema;
 use thiserror::Error;
 
+use crate::CATCH_DIRECTIVE_NAME;
 use crate::ConnectionConstants;
 use crate::INLINE_DIRECTIVE_NAME;
 use crate::MATCH_CONSTANTS;
@@ -400,7 +401,7 @@ fn validate_server_selection_directives(
                         program,
                         directive.name.item,
                         ALLOWED_SERVER_SELECTION_EXTENSION_DIRECTIVES.as_slice(),
-                    )
+                    ) && !is_rsc_field_catch(program, selection, directive)
                 })
                 .map(|directive| {
                     let directive_name = directive.name.item;
@@ -426,6 +427,14 @@ fn validate_server_selection_directives(
         );
         validate_server_selection_directives(program, document_name, children, errors);
     }
+}
+
+/// An RSC field's value is an ordinary field value, with an ordinary field
+/// error when it fails, so it may be caught.
+fn is_rsc_field_catch(program: &Program, selection: &Selection, directive: &Directive) -> bool {
+    directive.name.item == *CATCH_DIRECTIVE_NAME
+        && matches!(selection, Selection::ScalarField(field)
+            if is_rsc_value_field(&program.schema, program.schema.field(field.definition.item)))
 }
 
 /// Validates, after `transform_match` and `transform_refetchable_fragment`:

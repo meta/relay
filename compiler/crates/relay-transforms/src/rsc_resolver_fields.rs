@@ -53,9 +53,13 @@ use schema::Schema;
 use schema::Type;
 use schema::TypeReference;
 
+use crate::CATCH_DIRECTIVE_NAME;
+use crate::CatchTo;
 use crate::NO_INLINE_DIRECTIVE_NAME;
 use crate::SplitOperationMetadata;
 use crate::apply_fragment_arguments::format_local_variable;
+use crate::catch_directive::catch_to_with_fallback;
+use crate::catch_directive::catchable_node::CatchableNode;
 use crate::fragment_prop_name;
 use crate::generate_relay_resolvers_model_fragments::get_resolver_source_hash;
 use crate::get_resolver_fragment_dependency_name;
@@ -80,6 +84,9 @@ pub struct RscSeamMetadata {
     pub local_variable_definitions: Vec<VariableDefinition>,
     pub field_variable_definitions: Vec<VariableDefinition>,
     pub component_arguments: Vec<Argument>,
+    /// The field's `@catch`, which the Reader applies: the catch transform
+    /// runs after the field is lowered.
+    pub catch_to: Option<CatchTo>,
 }
 associated_data_impl!(RscSeamMetadata);
 
@@ -345,13 +352,24 @@ impl<'program> RscResolverFieldTransform<'program> {
             );
             return Transformed::Keep;
         }
-        if !field.directives.is_empty() {
+        if let Some(directive) = field
+            .directives
+            .iter()
+            .find(|directive| directive.name.item != *CATCH_DIRECTIVE_NAME)
+        {
             self.error(
-                "Resolver-authored RSC fields do not support selection directives.",
-                field.directives[0].name.location,
+                "Resolver-authored RSC fields support no selection directive other than `@catch`.",
+                directive.name.location,
             );
             return Transformed::Keep;
         }
+        let catch_to = match field.catch_metadata() {
+            Ok(catch) => catch.map(|catch| catch_to_with_fallback(catch.to)),
+            Err(diagnostic) => {
+                self.errors.push(diagnostic);
+                return Transformed::Keep;
+            }
+        };
         let Some(fragment_name) = resolver_info.fragment_name else {
             self.error(
                 "A Resolver-authored RSC field must declare a singular `@rootFragment`.",
@@ -536,6 +554,7 @@ impl<'program> RscResolverFieldTransform<'program> {
             local_variable_definitions: fragment.variable_definitions.clone(),
             field_variable_definitions,
             component_arguments,
+            catch_to,
         };
         let mut spread = FragmentSpread {
             fragment: fragment.name,

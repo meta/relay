@@ -1,11 +1,18 @@
 //- src/Page.js
 
-// `@catch` on an RSC Resolver field is outside the server-owned selection
-// directive allowlist.
+// A failed RSC field is an ordinary Relay field error, so `@catch` on an RSC
+// field is accepted in server documents and in client fragments: the Reader
+// wraps the field in a `CatchField` (`RESULT` by default) and its type is a
+// `Result`. The server operation and the handoff do not change.
 graphql`query ServerRscCatchQuery @server {
   me {
     panel: rscPanel @catch
+    ...ClientCard_user @alias(as: "card")
   }
+}`
+
+graphql`fragment ClientCard_user on User {
+  panel: rscPanel @catch(to: NULL)
 }`
 
 //- src/RscPanel.js
@@ -26,7 +33,7 @@ export function RscPanel() {}
   "projects": {
     "test_project": {
       "schema": "schema.graphql",
-      "language": "javascript",
+      "language": "flow",
       "jsModuleFormat": "commonjs",
       "featureFlags": {
         "enable_relay_rsc": true

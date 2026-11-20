@@ -262,6 +262,7 @@ pub(crate) fn visit_selections(
                         &mut type_selections,
                         resolver_metadata,
                         RequiredMetadataDirective::find(&scalar_field.directives).is_some(),
+                        is_result_type_directive(&scalar_field.directives),
                         imported_resolvers,
                         emit_semantic_types,
                     );
@@ -324,6 +325,7 @@ fn visit_fragment_spread(
             type_selections,
             resolver_metadata,
             RequiredMetadataDirective::find(&fragment_spread.directives).is_some(),
+            is_result_type_directive(&fragment_spread.directives),
             imported_resolvers,
             emit_semantic_types,
         );
@@ -895,6 +897,8 @@ fn visit_relay_resolver(
     type_selections: &mut Vec<TypeSelection>,
     resolver_metadata: &RelayResolverMetadata,
     required: bool,
+    // `@catch(to: RESULT)`, which Relay RSC fields apply.
+    rsc_result_type: bool,
     imported_resolvers: &mut ImportedResolvers,
     emit_semantic_types: bool,
 ) {
@@ -914,7 +918,7 @@ fn visit_relay_resolver(
             conditional: false,
             concrete_type: None,
             abstract_type: None,
-            is_result_type: false,
+            is_result_type: rsc_result_type,
         }));
         return;
     }

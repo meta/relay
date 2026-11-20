@@ -1651,11 +1651,17 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
                 return vec![self.build_rsc_seam_reader(frag_spread, seam, Primitive::Null)];
             }
             return match self.variant {
-                CodegenVariant::Reader => vec![self.build_rsc_seam_reader(
-                    frag_spread,
-                    seam,
-                    Primitive::String(seam.alias),
-                )],
+                CodegenVariant::Reader => {
+                    let reader = self.build_rsc_seam_reader(
+                        frag_spread,
+                        seam,
+                        Primitive::String(seam.alias),
+                    );
+                    vec![match seam.catch_to {
+                        Some(to) => self.build_catch_node(&CatchMetadataDirective { to }, reader),
+                        None => reader,
+                    }]
+                }
                 // The server normalizes the root fragment's data, and the
                 // `rsc` handle writes the field's value at the Reader's key.
                 CodegenVariant::Normalization => vec![
