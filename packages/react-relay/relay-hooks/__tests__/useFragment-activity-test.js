@@ -361,10 +361,12 @@ describe('useFragment renders and store reads', () => {
         app.click('show');
       });
     });
+    // The hidden render after the hide reads the store, which the hide's
+    // effect wrote "Alison" to, instead of showing the stale "Alicia".
     expect(withoutRepeatedRenders(result)).toEqual({
       content: 'Alicia2',
-      lookups: 4,
-      renders: ['Alice', 'Alicia', 'Alicia2'],
+      lookups: 6,
+      renders: ['Alice', 'Alicia', 'Alison', 'Alicia2'],
     });
   });
 
