@@ -1,12 +1,13 @@
 //- src/Page.js
 
-// The same documents as
-// `server_rsc_resolver_standalone_root_fragment_shared_spread_first`, but
-// `Shared_user` is reached outside a Relay Resolver root fragment by the
-// standalone `ServerShell_user`, which is validated after `RscPanel_user`.
-// The `@defer` is rejected inside the Resolver root fragment either way.
-graphql`fragment ServerShell_user on User @server {
+// No server-owned operation selects `Outer_user`, so it is validated as its own
+// owner. It spreads `Shared_user` directly, where the `@defer` is allowed, and
+// then spreads the Relay Resolver root fragment `RscPanel_user`: entering a
+// Resolver root fragment by a spread enters its context, where the same `@defer`
+// is accepted too: an RSC field's root fragment may defer.
+graphql`fragment Outer_user on User @server {
   ...Shared_user
+  ...RscPanel_user
 }`
 
 graphql`fragment Shared_user on User @server {

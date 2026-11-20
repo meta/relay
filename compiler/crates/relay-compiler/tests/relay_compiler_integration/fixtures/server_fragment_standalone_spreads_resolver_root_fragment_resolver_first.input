@@ -2,8 +2,8 @@
 
 // The same documents as
 // `server_fragment_standalone_spreads_resolver_root_fragment_spread_first`, with
-// the Relay Resolver root fragment spread first. The `@defer` is rejected inside
-// the Resolver root fragment either way.
+// the Relay Resolver root fragment spread first. The `@defer` is accepted
+// inside the Resolver root fragment either way.
 graphql`fragment Outer_user on User @server {
   ...RscPanel_user
   ...Shared_user

@@ -1,0 +1,63 @@
+//- src/Page.js
+
+// The `rsc` handle's `handleArgs` carry every argument the root fragment and
+// the component declare: a provided variable passed to a root fragment
+// argument under its global name (`size`), an explicit null that overrides a
+// default (`tone`), and an unbound argument without a default as null
+// (`label`).
+graphql`query ServerRscHandleArgumentsQuery @server {
+  me {
+    ...ServerCard_user
+  }
+}`
+
+graphql`fragment ServerCard_user on User @server
+  @argumentDefinitions(size: {type: "Int", provider: "SizeProvider.relayprovider"}) {
+  panel: rscPanel(size: $size, tone: null)
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel(size: Int, tone: String = "quiet", label: String): RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User
+  @argumentDefinitions(size: {type: "Int"})
+  @server {
+  profilePicture(size: $size) {
+    uri
+  }
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  profilePicture(size: Int): Image
+}
+
+type Image {
+  uri: String
+}

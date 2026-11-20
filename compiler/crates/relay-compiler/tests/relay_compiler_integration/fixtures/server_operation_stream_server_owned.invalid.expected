@@ -57,7 +57,7 @@ type User {
   friends: [User]
 }
 ==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
+✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive.
 
   src/ServerFriends.js:12:11
    11 │ fragment ServerFriends_user on User @server {
@@ -65,7 +65,7 @@ type User {
       │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    13 │     name
 
-✖︎ Server-owned fragment `ServerFriends_user` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
+✖︎ Server-owned fragment `ServerFriends_user` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive.
 
   src/ServerFriends.js:12:11
    11 │ fragment ServerFriends_user on User @server {

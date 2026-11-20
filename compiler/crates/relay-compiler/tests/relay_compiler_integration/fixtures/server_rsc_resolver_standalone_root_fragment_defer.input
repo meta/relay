@@ -1,20 +1,13 @@
-//- src/Page.js
-
-graphql`query ServerRscResolverDeferQuery @server {
-  me {
-    panel: rscPanel
-  }
-}`
-
 //- src/RscPanel.js
 
 /**
  * @relayField User.rscPanel: RelayRscValue
  * @rootFragment RscPanel_user
  */
-// The `@defer` is reachable from the query only through the RSC Resolver's
-// root fragment. The incremental delivery validation follows Resolver root
-// fragments itself, so it does not depend on `lower_rsc_resolver_fields`.
+// No `@server` operation in this project selects `rscPanel`, so its root
+// fragment is validated as its own owner, inside a Relay Resolver root
+// fragment, where `@defer` is accepted: an RSC field's root fragment may
+// defer.
 graphql`fragment RscPanel_user on User @server {
   ...DeferredName_user @defer(label: "RscPanel_user$name")
 }`

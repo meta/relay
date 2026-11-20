@@ -46,6 +46,7 @@ async fn server_rsc_resolver_projection() {
         "\"componentArgumentNames\": [",
         "\"tone\"",
         "\"rscIdentityArgs\":",
+        "\"handle\": \"rsc\"",
     ] {
         assert!(
             output.contains(expected),
@@ -112,17 +113,19 @@ async fn rsc_component_export_collision() {
 }
 
 #[tokio::test]
-async fn server_rsc_resolver_incremental_unsupported() {
-    let input = include_str!("rsc_fixtures/server_rsc_resolver_incremental_unsupported.input");
+async fn server_rsc_resolver_root_fragment_defer() {
+    let input = include_str!("rsc_fixtures/server_rsc_resolver_root_fragment_defer.input");
     let project = graphql_test_helpers::ProjectFixture::deserialize(input);
     let output = transform_project_fixture(&project)
         .await
-        .expect("the compiler diagnostic should be rendered");
+        .expect("the Relay RSC fixture should compile");
+    let request = generated_artifact(
+        &output,
+        "src/__generated__/ServerRscResolverIncrementalQuery.graphql.js",
+    );
     assert!(
-        output.contains(
-            "Relay RSC operation `ServerRscResolverIncrementalQuery` cannot use `@defer` or `@stream`"
-        ),
-        "@defer inside an RSC Resolver root fragment must be rejected:\n{output}"
+        request.contains(r#"@defer(label: \"RscPanel_user$defer$RscPanel_user$name\")"#),
+        "@defer inside an RSC Resolver root fragment is deferred in the server operation:\n{request}"
     );
 }
 

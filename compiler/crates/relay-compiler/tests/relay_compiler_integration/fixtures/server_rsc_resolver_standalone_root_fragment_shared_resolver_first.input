@@ -1,11 +1,10 @@
-==================================== INPUT ====================================
 //- src/Page.js
 
 // The same documents as
 // `server_rsc_resolver_standalone_root_fragment_shared_spread_first`, but
 // `Shared_user` is reached outside a Relay Resolver root fragment by the
 // standalone `ServerShell_user`, which is validated after `RscPanel_user`.
-// The `@defer` is rejected inside the Resolver root fragment either way.
+// The `@defer` is accepted inside the Resolver root fragment either way.
 graphql`fragment ServerShell_user on User @server {
   ...Shared_user
 }`
@@ -59,11 +58,3 @@ type User {
   id: ID!
   name: String
 }
-==================================== OUTPUT ===================================
-✖︎ Server-owned fragment `RscPanel_user` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
-
-  src/Page.js:12:24
-   11 │ fragment Shared_user on User @server {
-   12 │   ...DeferredName_user @defer(label: "Shared_user$name")
-      │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   13 │ }

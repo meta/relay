@@ -1,0 +1,56 @@
+//- src/Page.js
+
+// The server operation writes each RSC field's value with an `rsc` handle
+// beside the root fragment's normalization. The handle's identity arguments
+// are the field's public arguments, as in the Reader's `rsc$<definitionID>`
+// field, so the handler writes at the key the Reader reads; its key keeps
+// them as filters, so two argument variants of one field get two values.
+// `handleArgs` adds the field's response key, the path of an error the
+// handler writes.
+graphql`query ServerRscHandleQuery @server {
+  me {
+    panel: profilePanel(greeting: "Welcome back", length: 2)
+    other: profilePanel(greeting: "Hi", length: 2)
+  }
+}`
+
+//- src/ProfilePanel.js
+
+/**
+ * @relayField User.profilePanel(greeting: String!, length: Int!): RelayRscValue
+ * @rootFragment ProfilePanel_user
+ */
+graphql`fragment ProfilePanel_user on User
+  @argumentDefinitions(length: {type: "Int!"})
+  @server {
+  name
+  initials(length: $length)
+}`
+
+export function ProfilePanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  initials(length: Int): String
+}

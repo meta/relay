@@ -1,12 +1,7 @@
 //- src/Page.js
 
-// The page spreads the RSC Resolver's root fragment directly, then selects the
-// Resolver field. The root fragment's `@defer` is allowed for the direct spread
-// but rejected through the Resolver, whatever the selection order (see
-// `..._resolver_first`).
 graphql`query ServerRscResolverDeferQuery @server {
   me {
-    ...RscPanel_user
     panel: rscPanel
   }
 }`
@@ -17,6 +12,8 @@ graphql`query ServerRscResolverDeferQuery @server {
  * @relayField User.rscPanel: RelayRscValue
  * @rootFragment RscPanel_user
  */
+// The `@defer` is reachable from the query only through the RSC Resolver's
+// root fragment, where it is accepted: an RSC field's root fragment may defer.
 graphql`fragment RscPanel_user on User @server {
   ...DeferredName_user @defer(label: "RscPanel_user$name")
 }`

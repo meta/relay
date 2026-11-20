@@ -1,0 +1,95 @@
+//- src/Page.js
+
+// The root fragment reads what the query text binds, and so do its
+// normalization, the Reader's field and the `rsc` handle. An omitted field
+// argument binds the field's default (`size` 64 over the root fragment's 32;
+// `width` 16, the root fragment has none). A null literal for a root fragment
+// argument binds the root fragment's default, as the text applies it (`height`
+// 4); a component argument's null stays null (`tone`), and so does a root
+// fragment argument's without a default, even where the field has one (`width`
+// in `ServerRscArgumentNullQuery`). A variable is passed as
+// is (`ServerRscArgumentVariableQuery`): the split operation has no defaults,
+// so a variable bound to null normalizes as null, as the request sends it,
+// unlike a stock `@no_inline` fragment's normalization (`PlainPicture_user`,
+// unchanged).
+graphql`query ServerRscArgumentDefaultsQuery @server {
+  me {
+    panel: rscPanel(height: null, tone: null)
+  }
+}`
+
+graphql`query ServerRscArgumentNullQuery @server {
+  me {
+    panel: rscPanel(width: null)
+  }
+}`
+
+graphql`query ServerRscArgumentVariableQuery($height: Int) @server {
+  me {
+    panel: rscPanel(height: $height)
+  }
+}`
+
+graphql`query PlainNoInlineQuery($height: Int) {
+  me {
+    ...PlainPicture_user @arguments(height: $height)
+  }
+}`
+
+graphql`fragment PlainPicture_user on User
+  @argumentDefinitions(height: {type: "Int", defaultValue: 4})
+  @no_inline {
+  profilePicture(height: $height) {
+    uri
+  }
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel(size: Int = 64, width: Int = 16, height: Int = 8, tone: String = "quiet"): RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User
+  @argumentDefinitions(
+    size: {type: "Int", defaultValue: 32}
+    width: {type: "Int"}
+    height: {type: "Int", defaultValue: 4}
+  )
+  @server {
+  profilePicture(size: $size, width: $width, height: $height) {
+    uri
+  }
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  profilePicture(size: Int, width: Int, height: Int): Image
+}
+
+type Image {
+  uri: String
+}

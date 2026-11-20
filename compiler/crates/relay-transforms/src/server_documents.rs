@@ -50,7 +50,6 @@ use crate::SplitOperationMetadata;
 use crate::UPDATABLE_DIRECTIVE;
 use crate::fragment_alias_directive::FRAGMENT_ALIAS_DIRECTIVE_NAME;
 use crate::get_all_resolver_fragment_dependency_names;
-use crate::get_resolver_fragment_dependency_name;
 use crate::relay_directive::RELAY_DIRECTIVE_NAME;
 use crate::rsc_resolver_fields::is_rsc_value_field;
 
@@ -463,16 +462,10 @@ pub(crate) fn validate_server_operation_incremental_delivery(
     if !has_rsc_fields && server_operations.is_empty() && owners.is_empty() {
         return Ok(());
     }
-    let resolver_root_fragments: FragmentDefinitionNameSet = program
-        .schema
-        .get_fields()
-        .filter_map(get_resolver_fragment_dependency_name)
-        .collect();
     let mut finder = IncrementalSelectionFinder {
         program,
         defer_stream_interface,
         connection_constants: ConnectionConstants::default(),
-        resolver_root_fragments: &resolver_root_fragments,
         has_rsc_fields,
         results: Default::default(),
         errors: Vec::new(),
@@ -530,9 +523,6 @@ pub(crate) fn validate_server_operation_incremental_delivery(
             Unsupported::ServerOwnedStream => {
                 ValidationMessage::ServerOwnedStreamUnsupported { operation_name }
             }
-            Unsupported::InResolverFragment => {
-                ValidationMessage::IncrementalDeliveryInResolverFragment { operation_name }
-            }
             Unsupported::ServerReadModule => ValidationMessage::ServerReadModule { operation_name },
         };
         Some(Diagnostic::error(message, location))
@@ -550,11 +540,6 @@ pub(crate) fn validate_server_operation_incremental_delivery(
             }
             Unsupported::ServerOwnedStream => {
                 ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported { fragment_name }
-            }
-            Unsupported::InResolverFragment => {
-                ValidationMessage::StandaloneFragmentIncrementalDeliveryInResolverFragment {
-                    fragment_name,
-                }
             }
             Unsupported::ServerReadModule => {
                 ValidationMessage::StandaloneFragmentServerReadModule { fragment_name }
@@ -630,11 +615,9 @@ impl Visitor for ReachedFragments<'_> {
 enum Unsupported {
     /// The project sets `relayRsc.allowIncrementalDelivery` to false.
     Disabled,
-    /// `@stream` on a server-owned selection: a server component renders the
-    /// list once, so items that arrive later would never render.
+    /// `@stream` on a server-owned selection: a server-owned read consumes
+    /// the list once, so items that arrive later would never be read.
     ServerOwnedStream,
-    /// Incremental delivery inside a Relay Resolver root fragment.
-    InResolverFragment,
     /// `@match` or `@module` in a fragment the server reads.
     ServerReadModule,
 }
@@ -642,12 +625,10 @@ enum Unsupported {
 /// Who reads a fragment's data.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum Context {
-    /// A server component: the selections of a server query or of a server
-    /// fragment it selects, and of an `@inline` fragment spread there.
+    /// The server: the selections of a server query or of a server fragment
+    /// it selects, of an `@inline` fragment spread there, and of the root
+    /// fragments of the Relay Resolvers (RSC fields included) it reads.
     Server,
-    /// A Relay Resolver on the server: a root fragment the server reads,
-    /// that of a Relay RSC field or of a Resolver selected in server context.
-    ServerResolver,
     /// A client component: a client fragment that a server document hands
     /// off. Only the root fragments of its Relay RSC fields are read on the
     /// server again.
@@ -682,15 +663,12 @@ struct IncrementalSelectionFinder<'program> {
     program: &'program Program,
     defer_stream_interface: &'program DeferStreamInterface,
     connection_constants: ConnectionConstants,
-    /// Entering one of these fragments, by a Resolver field or by a spread,
-    /// enters a Resolver root fragment.
-    resolver_root_fragments: &'program FragmentDefinitionNameSet,
     /// Without Relay RSC fields, nothing in a client fragment is read on the
     /// server.
     has_rsc_fields: bool,
-    /// A fragment can be both server-owned and reached through a Resolver
-    /// root fragment or a client fragment, so it is searched once in each
-    /// context, for every owner (empty while it is being searched).
+    /// A fragment can be both server-owned and reached through a client
+    /// fragment, so it is searched once in each context, for every owner
+    /// (empty while it is being searched).
     results: FxHashMap<(FragmentDefinitionName, Context), RscFacts>,
     errors: Vec<Diagnostic>,
     allow_incremental_delivery: bool,
@@ -712,8 +690,6 @@ impl IncrementalSelectionFinder<'_> {
             Some((location, Unsupported::Disabled))
         } else if !owned || context == Context::Client {
             None
-        } else if context == Context::ServerResolver {
-            Some((location, Unsupported::InResolverFragment))
         } else if is_stream {
             Some((location, Unsupported::ServerOwnedStream))
         } else {
@@ -850,12 +826,11 @@ impl IncrementalSelectionFinder<'_> {
     /// fragment is read where the Resolver runs.
     fn find_resolver_fragments(&mut self, field_id: FieldID, context: Context) -> RscFacts {
         let field = self.program.schema.field(field_id);
-        let context =
-            if context != Context::Client || is_rsc_value_field(&self.program.schema, field) {
-                Context::ServerResolver
-            } else {
-                Context::Client
-            };
+        let context = if is_rsc_value_field(&self.program.schema, field) {
+            Context::Server
+        } else {
+            context
+        };
         get_all_resolver_fragment_dependency_names(field, self.program.schema.as_ref())
             .into_iter()
             .map(|name| self.find_fragment(name, context))
@@ -867,13 +842,6 @@ impl IncrementalSelectionFinder<'_> {
         fragment_name: FragmentDefinitionName,
         context: Context,
     ) -> RscFacts {
-        let context = if context == Context::Server
-            && self.resolver_root_fragments.contains(&fragment_name)
-        {
-            Context::ServerResolver
-        } else {
-            context
-        };
         if context == Context::Client && self.allow_incremental_delivery && !self.has_rsc_fields {
             return RscFacts::default();
         }
@@ -1041,16 +1009,9 @@ enum ValidationMessage {
     },
 
     #[error(
-        "Relay RSC operation `{operation_name}` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive."
+        "Relay RSC operation `{operation_name}` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive."
     )]
     ServerOwnedStreamUnsupported {
-        operation_name: OperationDefinitionName,
-    },
-
-    #[error(
-        "Relay RSC operation `{operation_name}` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet."
-    )]
-    IncrementalDeliveryInResolverFragment {
         operation_name: OperationDefinitionName,
     },
 
@@ -1069,16 +1030,9 @@ enum ValidationMessage {
     },
 
     #[error(
-        "Server-owned fragment `{fragment_name}` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive."
+        "Server-owned fragment `{fragment_name}` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive."
     )]
     StandaloneFragmentServerOwnedStreamUnsupported {
-        fragment_name: FragmentDefinitionName,
-    },
-
-    #[error(
-        "Server-owned fragment `{fragment_name}` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet."
-    )]
-    StandaloneFragmentIncrementalDeliveryInResolverFragment {
         fragment_name: FragmentDefinitionName,
     },
 

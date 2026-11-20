@@ -80,7 +80,7 @@ type User implements Node {
   friends: [User]
 }
 ==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerRscClientRootStreamQuery` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+✖︎ Relay RSC operation `ServerRscClientRootStreamQuery` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive.
 
   src/RscPanel.js:7:11
     6 │ fragment RscPanel_user on User @server {
@@ -88,7 +88,7 @@ type User implements Node {
       │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     8 │     name
 
-✖︎ Server-owned fragment `RscPanel_user` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+✖︎ Server-owned fragment `RscPanel_user` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive.
 
   src/RscPanel.js:7:11
     6 │ fragment RscPanel_user on User @server {

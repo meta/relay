@@ -537,12 +537,48 @@ impl<'program> RscResolverFieldTransform<'program> {
             field_variable_definitions,
             component_arguments,
         };
-        let spread = FragmentSpread {
+        let mut spread = FragmentSpread {
             fragment: fragment.name,
             arguments: fragment_arguments,
-            directives: vec![metadata.into()],
+            directives: Vec::new(),
             signature: Some(fragment.as_ref().into()),
         };
+        // The root fragment reads what the query text binds, which the handler
+        // and the Reader bind too: an omitted argument's field default (over
+        // the root fragment's own), and for a null literal the root fragment's
+        // default, or null when it has none. A root variable nothing binds
+        // (such as a provided variable) is left unbound. Its split operation
+        // has no defaults, so a variable bound to null stays null in the
+        // normalization, as in the request.
+        let passed: Vec<ArgumentName> = spread
+            .arguments
+            .iter()
+            .map(|argument| argument.name.item)
+            .collect();
+        spread.arguments = rsc_seam_arguments(&spread, &metadata)
+            .into_iter()
+            .filter_map(|argument| {
+                let definition = fragment
+                    .variable_definitions
+                    .named(VariableName(argument.name.item.0))?;
+                match (&argument.value.item, &definition.default_value) {
+                    (Value::Constant(ConstantValue::Null()), Some(default)) => Some(Argument {
+                        value: WithLocation::new(
+                            default.location,
+                            Value::Constant(default.item.clone()),
+                        ),
+                        ..argument
+                    }),
+                    (Value::Constant(ConstantValue::Null()), None)
+                        if !passed.contains(&argument.name.item) =>
+                    {
+                        None
+                    }
+                    _ => Some(argument),
+                }
+            })
+            .collect();
+        spread.directives.push(metadata.into());
         Transformed::Replace(Selection::InlineFragment(Arc::new(InlineFragment {
             type_condition: Some(fragment.type_condition),
             directives: Vec::new(),
@@ -587,7 +623,13 @@ impl<'program> RscResolverFieldTransform<'program> {
                         name: WithLocation::new(fragment.name.location, normalization_operation),
                         type_: fragment.type_condition,
                         kind: OperationKind::Query,
-                        variable_definitions,
+                        variable_definitions: variable_definitions
+                            .into_iter()
+                            .map(|definition| VariableDefinition {
+                                default_value: None,
+                                ..definition
+                            })
+                            .collect(),
                         directives: Vec::new(),
                         selections: vec![Selection::FragmentSpread(Arc::new(FragmentSpread {
                             fragment: fragment.name,

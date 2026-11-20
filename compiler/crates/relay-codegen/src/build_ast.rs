@@ -1656,9 +1656,12 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
                     seam,
                     Primitive::String(seam.alias),
                 )],
-                CodegenVariant::Normalization => {
-                    vec![self.build_rsc_seam_normalization(frag_spread, seam)]
-                }
+                // The server normalizes the root fragment's data, and the
+                // `rsc` handle writes the field's value at the Reader's key.
+                CodegenVariant::Normalization => vec![
+                    self.build_rsc_seam_normalization(frag_spread, seam),
+                    self.build_rsc_handle(&rsc_seam_arguments(frag_spread, seam), seam),
+                ],
             };
         }
         vec![self.build_fragment_spread(frag_spread)]
@@ -1730,6 +1733,83 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
             value: Primitive::String(self.rsc_render_id(seam)),
         });
         Primitive::Key(self.object(fields))
+    }
+
+    /// `handleArgs` also carries the field's response key, which a field
+    /// error the handler writes reports as its path.
+    fn build_rsc_handle(&mut self, arguments: &[Argument], seam: &RscSeamMetadata) -> Primitive {
+        let client_id_field_name = self.schema.field(self.schema.clientid_field()).name.item;
+        let public_arguments: Vec<&Argument> = arguments
+            .iter()
+            .filter(|argument| seam.is_public_argument(argument.name.item))
+            .collect();
+        let identity_arguments = self.build_arguments_from_refs(public_arguments.clone());
+        let response_key = Argument {
+            name: WithLocation::generated(ArgumentName("__responseKey".intern())),
+            value: WithLocation::generated(Value::Constant(ConstantValue::String(seam.alias))),
+        };
+        let mut handler_arguments: Vec<_> = arguments.iter().chain([&response_key]).collect();
+        handler_arguments.sort_unstable_by_key(|argument| argument.name.item);
+        // Explicit nulls and null defaults are kept: the root fragment and the
+        // component get every argument they declare.
+        let handler_arguments = handler_arguments
+            .into_iter()
+            .filter_map(|argument| match &argument.value.item {
+                Value::Constant(ConstantValue::Null()) => {
+                    Some(Primitive::Key(self.object(object! {
+                        kind: Primitive::String(CODEGEN_CONSTANTS.literal),
+                        name: Primitive::String(argument.name.item.0),
+                        value: Primitive::Null,
+                    })))
+                }
+                value => self
+                    .build_argument(argument.name.item.0, value)
+                    .map(Primitive::Key),
+            })
+            .collect();
+        let handler_arguments = Some(self.array(handler_arguments));
+        let filters = if public_arguments.is_empty() {
+            Primitive::SkippableNull
+        } else {
+            Primitive::Key(
+                self.array(
+                    public_arguments
+                        .iter()
+                        .map(|argument| Primitive::String(argument.name.item.0))
+                        .collect(),
+                ),
+            )
+        };
+        let source_field = Primitive::Key(self.object(object! {
+            alias: Primitive::SkippableNull,
+            args: identity_arguments.map_or(Primitive::SkippableNull, Primitive::Key),
+            kind: Primitive::String(CODEGEN_CONSTANTS.scalar_field),
+            name: Primitive::String(client_id_field_name),
+            storage_key: Primitive::SkippableNull,
+        }));
+        let mut handle_object = object! {
+            alias: Primitive::SkippableNull,
+            args: identity_arguments.map_or(Primitive::SkippableNull, Primitive::Key),
+            filters: filters,
+            handle: Primitive::String("rsc".intern()),
+            key: Primitive::String(seam.definition_id),
+            kind: Primitive::String(CODEGEN_CONSTANTS.scalar_handle),
+            name: Primitive::String(client_id_field_name),
+        };
+        // `handleArgs` is optional but not nullable in the runtime's
+        // NormalizationHandle type, so a handle without arguments omits it.
+        if let Some(handler_arguments) = handler_arguments {
+            handle_object.push(ObjectEntry {
+                key: CODEGEN_CONSTANTS.handle_args,
+                value: Primitive::Key(handler_arguments),
+            });
+        }
+        let handle_field = Primitive::Key(self.object(handle_object));
+        let selections = Primitive::Key(self.array(vec![source_field, handle_field]));
+        Primitive::Key(self.object(object! {
+            kind: Primitive::String(CODEGEN_CONSTANTS.client_extension),
+            selections: selections,
+        }))
     }
 
     fn build_rsc_seam_reader(

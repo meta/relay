@@ -69,7 +69,7 @@ type PageInfo {
   hasPreviousPage: Boolean
 }
 ==================================== OUTPUT ===================================
-✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
+✖︎ Relay RSC operation `ServerFriendsQuery` cannot use `@stream` on a server-owned selection: a server-owned read consumes the list once, so items that arrive later would never be read or rendered. Select the streamed field in a client fragment, where it re-renders as items arrive.
 
   src/ServerFriends.js:7:7
     6 │     friends(first: 1)
