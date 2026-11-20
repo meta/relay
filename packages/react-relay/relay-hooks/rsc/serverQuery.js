@@ -52,11 +52,13 @@ declare function serverQuery<TVariables extends Variables, TData>(
 
 /**
  * Executes a `@server` query in a request-scoped server Environment and
- * resolves with its data once the first payload has arrived. `@defer`
- * payloads keep arriving afterwards; server fragment reads wait for the data
- * they need. Client fragment references in the data carry their root's
- * records, so passing one to a client component is all a server component
- * does to hand it off.
+ * resolves with its data once the Store has the data the query reads itself,
+ * as `useLazyLoadQuery` does with `renderPolicy: 'partial'`: a query that only
+ * spreads fragments, or whose fields another query of the request wrote,
+ * resolves before its response arrives, unless that data was invalidated.
+ * Server fragment reads wait for the data they need. Client fragment
+ * references in the data carry their root's records, so passing one to a
+ * client component is all a server component does to hand it off.
  */
 function serverQuery(
   environment: IEnvironment,
@@ -89,14 +91,56 @@ function execute(
   operation: OperationDescriptor,
   signal: ?ServerQuerySignal,
 ): Promise<unknown> {
+  // As `QueryResource` does, data invalidated since the query last wrote it is
+  // not rendered from: the query waits for its response. Checked with the
+  // operation loader that normalizes `@module` data, which the Store may have
+  // been created without.
+  const store = environment.getStore();
+  const stale =
+    store.check(operation, {
+      operationLoader:
+        environment.getOperationLoader?.() ?? store.getOperationLoader(),
+    }).status === 'stale';
   const {execution, first} = startServerExecution(
     environment,
     operation,
     signal,
   );
-  return first.then(() =>
-    execution.handOff(environment.lookup(operation.fragment).data),
-  );
+  const read = () =>
+    execution.handOff(environment.lookup(operation.fragment).data);
+  if (stale) {
+    return first.then(read);
+  }
+  // As in `QueryResource`, a request that fails before its first payload
+  // fails the query, if the query has not resolved yet; a later failure fails
+  // the fragment reads that wait for the rest.
+  let failure: ?Error = null;
+  first.catch((error: Error) => {
+    failure = error;
+  });
+  return new Promise<void>(resolve => {
+    const snapshot = environment.lookup(operation.fragment);
+    if (!snapshot.isMissingData || execution.done) {
+      resolve();
+      return;
+    }
+    let subscription = null;
+    const done = () => {
+      subscription?.dispose();
+      resolve();
+    };
+    subscription = environment.subscribe(snapshot, next => {
+      if (!next.isMissingData) {
+        done();
+      }
+    });
+    void execution.settled.then(done);
+  }).then(() => {
+    if (failure != null) {
+      throw failure;
+    }
+    return read();
+  });
 }
 
 module.exports = serverQuery;
