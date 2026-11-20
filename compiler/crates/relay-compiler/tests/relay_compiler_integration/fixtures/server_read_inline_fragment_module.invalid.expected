@@ -1,0 +1,75 @@
+==================================== INPUT ====================================
+//- src/Page.js
+
+// A server fragment reads the data of an `@inline` fragment it spreads
+// (`readInlineData` on the server), so `@match`/`@module` in it is rejected
+// like in the server fragment's own selections.
+graphql`query ServerInlineModuleQuery @server {
+  me {
+    ...ServerCard_user
+  }
+}`
+
+graphql`fragment ServerCard_user on User @server {
+  ...RendererName_user
+}`
+
+graphql`fragment RendererName_user on User @inline {
+  nameRenderer @match {
+    ...RendererName_plainRenderer @module(name: "PlainRenderer.react")
+  }
+}`
+
+graphql`fragment RendererName_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+scalar JSDependency
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}
+==================================== OUTPUT ===================================
+✖︎ Server-owned document `ServerCard_user` cannot spread `@inline` fragment `RendererName_user` because it spreads client fragment `RendererName_plainRenderer`: the server reads `@inline` data, so that client fragment's data would not be handed off to the client. Spread `RendererName_plainRenderer` with `@alias` directly in the server-owned document instead.
+
+  src/Page.js:12:6
+   11 │ fragment ServerCard_user on User @server {
+   12 │   ...RendererName_user
+      │      ^^^^^^^^^^^^^^^^^
+   13 │ }
+
+  ℹ︎ the client fragment is spread here
+
+  src/Page.js:17:8
+   16 │   nameRenderer @match {
+   17 │     ...RendererName_plainRenderer @module(name: "PlainRenderer.react")
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   18 │   }

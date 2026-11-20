@@ -1,0 +1,58 @@
+//- src/Page.js
+
+// A server fragment reads the data of an `@inline` fragment it spreads
+// (`readInlineData` on the server), so `@match`/`@module` in it is rejected
+// like in the server fragment's own selections.
+graphql`query ServerInlineModuleQuery @server {
+  me {
+    ...ServerCard_user
+  }
+}`
+
+graphql`fragment ServerCard_user on User @server {
+  ...RendererName_user
+}`
+
+graphql`fragment RendererName_user on User @inline {
+  nameRenderer @match {
+    ...RendererName_plainRenderer @module(name: "PlainRenderer.react")
+  }
+}`
+
+graphql`fragment RendererName_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+scalar JSDependency
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}

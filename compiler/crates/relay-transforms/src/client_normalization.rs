@@ -245,15 +245,16 @@ impl Visitor for BranchFinder<'_> {
 }
 
 /// What one split operation selects directly: the RSC fields and the client
-/// boundaries in an RSC field's root fragment (S→C).
+/// boundaries in an RSC field's root fragment (S→C), and the RSC fields in a
+/// client fragment (C→S).
 struct Edges {
     rsc_seams: Vec<RscSeamMetadata>,
     client_fragments: Vec<ServerOperationClientFragment>,
 }
 
-/// The documents a server operation hands off below its own RSC fields, at any
-/// depth. Each split operation's edges are found once for all server
-/// operations.
+/// The documents a server operation hands off below its own RSC fields and
+/// client boundaries, at any depth. Each split operation's edges are found
+/// once for all server operations.
 struct NestedDocuments<'program> {
     program: &'program Program,
     fragments_program: &'program Program,
@@ -272,8 +273,8 @@ impl NestedDocuments<'_> {
             projector.visit_selections(&operation.selections);
         } else {
             // A base project writes the split operation of its fragment (an
-            // RSC root fragment, or a `@no_inline` fragment): its edges come
-            // from the fragment, with its spreads inlined here.
+            // RSC root fragment, or a `@no_inline` or client fragment): its
+            // edges come from the fragment, with its spreads inlined here.
             let lookup = name.0.lookup();
             let fragment_name = lookup.strip_suffix("$normalization").unwrap_or(lookup);
             let fragment = self
@@ -281,7 +282,7 @@ impl NestedDocuments<'_> {
                 .fragment(FragmentDefinitionName(fragment_name.intern()))
                 .unwrap_or_else(|| {
                     panic!(
-                        "should have split operation `{name}` or the fragment it normalizes, which an RSC field names"
+                        "should have split operation `{name}` or the fragment it normalizes, which an RSC field or a client boundary names"
                     )
                 });
             projector.fragments = Some(self.fragments_program);
@@ -295,36 +296,47 @@ impl NestedDocuments<'_> {
         (edges, projector.errors)
     }
 
-    /// Adds every RSC field reachable from the ones the operation selects,
-    /// with the client boundaries their root fragments hand off, visiting
-    /// each split operation once. The first occurrence of each RSC field is
-    /// kept.
+    /// Adds every RSC field and client boundary reachable from the ones the
+    /// operation selects, visiting each split operation once. The first
+    /// occurrence of each RSC field is kept.
     fn close_over(&mut self, projector: &mut HandoffCollector<'_>) {
         let mut seen = FxHashSet::default();
         projector
             .rsc_seams
             .retain(|seam| seen.insert(seam.definition_id));
+        // A root fragment is server-owned, so its projection errors are
+        // reported. A client fragment's normalization may spread `@no_inline`
+        // fragments that a base project normalizes.
         let mut pending: Vec<_> = projector
             .rsc_seams
             .iter()
-            .map(|seam| seam.normalization_operation)
+            .map(|seam| (seam.normalization_operation, true))
+            .chain(
+                projector
+                    .client_fragments
+                    .iter()
+                    .map(|boundary| (boundary.client_normalization_operation, false)),
+            )
             .collect();
         let mut visited = FxHashSet::default();
-        while let Some(name) = pending.pop() {
+        while let Some((name, is_server)) = pending.pop() {
             if !visited.insert(name) {
                 continue;
             }
             let (edges, errors) = self.edges(name);
-            projector.errors.extend(errors);
+            if is_server {
+                projector.errors.extend(errors);
+            }
             for seam in &edges.rsc_seams {
                 if seen.insert(seam.definition_id) {
-                    pending.push(seam.normalization_operation);
+                    pending.push((seam.normalization_operation, true));
                     projector.rsc_seams.push(seam.clone());
                 }
             }
-            projector
-                .client_fragments
-                .extend(edges.client_fragments.iter().cloned());
+            for boundary in &edges.client_fragments {
+                pending.push((boundary.client_normalization_operation, false));
+                projector.client_fragments.push(boundary.clone());
+            }
         }
     }
 }

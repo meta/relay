@@ -192,16 +192,6 @@ fn apply_common_transforms(
     log_event.time("validate_server_documents", || {
         validate_server_documents(&program, project_config.relay_rsc_capabilities().is_some())
     })?;
-    log_event.time("validate_server_operation_incremental_delivery", || {
-        validate_server_operation_incremental_delivery(
-            &program,
-            &project_config.schema_config.defer_stream_interface,
-            project_config
-                .relay_rsc_capabilities()
-                .is_none_or(|capabilities| capabilities.allow_incremental_delivery),
-            &base_fragment_names,
-        )
-    })?;
     // With the flag on, `$__relay_exec_time` is the compiler's even before a
     // client type implements an interface it names.
     if has_client_implementors_of_server_abstract_types(project_config) {
@@ -292,6 +282,17 @@ fn apply_common_transforms(
             &base_fragment_names,
         )
     })?;
+
+    if let Some(capabilities) = project_config.relay_rsc_capabilities() {
+        log_event.time("validate_server_operation_incremental_delivery", || {
+            validate_server_operation_incremental_delivery(
+                &program,
+                &project_config.schema_config.defer_stream_interface,
+                capabilities.allow_incremental_delivery,
+                &base_fragment_names,
+            )
+        })?;
+    }
 
     program = log_event.time("lower_rsc_resolver_fields", || {
         lower_rsc_resolver_fields(

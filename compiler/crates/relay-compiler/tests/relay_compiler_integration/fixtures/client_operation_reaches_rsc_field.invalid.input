@@ -1,0 +1,99 @@
+//- src/Page.js
+
+// Only a server query reads Relay RSC fields. A client query, mutation or
+// subscription that reaches one through a client fragment is rejected, also in
+// CometJS mode (whose `allowClientRootedOperations` defaults to true), and so
+// is the client query that shares the fragment with a server query.
+graphql`query ServerRscSharedQuery @server {
+  me {
+    ...SharedCard_user @alias(as: "card")
+  }
+}`
+
+graphql`query ClientRscQuery {
+  me {
+    ...SharedCard_user
+  }
+}`
+
+graphql`mutation ClientRscMutation {
+  updateUser {
+    ...SharedCard_user
+  }
+}`
+
+graphql`subscription ClientRscSubscription {
+  userUpdated {
+    ...SharedCard_user
+  }
+}`
+
+//- src/SharedCard.js
+
+graphql`fragment SharedCard_user on User {
+  name
+  panel: rscPanel
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      },
+      "relayRsc": {"mode": "cometjs"}
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+) on FIELD
+
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+type Mutation {
+  updateUser: User
+}
+
+type Subscription {
+  userUpdated: User
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends: [User]
+}

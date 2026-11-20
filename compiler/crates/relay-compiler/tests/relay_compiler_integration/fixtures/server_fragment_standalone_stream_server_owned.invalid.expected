@@ -41,7 +41,7 @@ type User {
   friends: [User]
 }
 ==================================== OUTPUT ===================================
-✖︎ Server-owned fragment `ServerFriends_user`, which no server-owned operation in this project selects, cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
+✖︎ Server-owned fragment `ServerFriends_user` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive.
 
   src/ServerFriends.js:6:11
     5 │ fragment ServerFriends_user on User @server {

@@ -281,7 +281,6 @@ struct RscResolverFieldTransform<'program> {
     enabled: bool,
     has_dynamic_module_provider: bool,
     document_name: Option<ExecutableDefinitionName>,
-    document_is_server: bool,
     root_variables: InferVariablesVisitor<'program>,
     split_operations: FragmentDefinitionNameMap<(SplitOperationMetadata, OperationDefinition)>,
     errors: Vec<Diagnostic>,
@@ -300,7 +299,6 @@ impl<'program> RscResolverFieldTransform<'program> {
             enabled,
             has_dynamic_module_provider,
             document_name: None,
-            document_is_server: false,
             root_variables: InferVariablesVisitor::new_server_read(program),
             split_operations: Default::default(),
             errors: Vec::new(),
@@ -336,13 +334,6 @@ impl<'program> RscResolverFieldTransform<'program> {
         ) {
             self.error(
                 "A Resolver-authored RSC field must have the exact nullable scalar type `RelayRscValue`.",
-                field.definition.location,
-            );
-            return Transformed::Keep;
-        }
-        if !self.document_is_server {
-            self.error(
-                "A `RelayRscValue` field may only be selected by an explicitly `@server` document in this compiler slice.",
                 field.definition.location,
             );
             return Transformed::Keep;
@@ -627,7 +618,6 @@ impl Transformer<'_> for RscResolverFieldTransform<'_> {
         operation: &OperationDefinition,
     ) -> Transformed<OperationDefinition> {
         self.document_name = Some(operation.name.item.into());
-        self.document_is_server = operation.directives.named(*SERVER_DIRECTIVE).is_some();
         self.default_transform_operation(operation)
     }
 
@@ -636,7 +626,6 @@ impl Transformer<'_> for RscResolverFieldTransform<'_> {
         fragment: &FragmentDefinition,
     ) -> Transformed<FragmentDefinition> {
         self.document_name = Some(fragment.name.item.into());
-        self.document_is_server = fragment.directives.named(*SERVER_DIRECTIVE).is_some();
         self.default_transform_fragment(fragment)
     }
 

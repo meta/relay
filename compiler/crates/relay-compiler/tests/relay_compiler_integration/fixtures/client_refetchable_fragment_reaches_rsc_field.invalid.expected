@@ -1,0 +1,125 @@
+==================================== INPUT ====================================
+//- src/Page.js
+
+// The query generated for a `@refetchable` fragment is a client query, so a
+// fragment that is refetched or paginated from the client (`@refetchable`,
+// `@connection`) cannot reach a Relay RSC field, even when a server query
+// hands it off. Both generated queries are rejected with a message that names
+// the fragment.
+graphql`query ServerRscRefetchableQuery @server {
+  me {
+    ...Cards_card @alias(as: "card")
+    ...Cards_friends @alias(as: "friends")
+  }
+}`
+
+//- src/Cards.js
+
+graphql`fragment Cards_card on User
+  @refetchable(queryName: "CardsRefetchQuery") {
+  name
+  panel: rscPanel
+}`
+
+graphql`fragment Cards_friends on User
+  @argumentDefinitions(count: {type: "Int", defaultValue: 2}, cursor: {type: "String"})
+  @refetchable(queryName: "CardsFriendsPaginationQuery") {
+  friends(first: $count, after: $cursor) @connection(key: "Cards_friends") {
+    edges {
+      node {
+        panel: rscPanel
+      }
+    }
+  }
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      },
+      "relayRsc": {"mode": "cometjs"}
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends(first: Int, after: String): UserConnection
+}
+
+type UserConnection {
+  edges: [UserEdge]
+  pageInfo: PageInfo
+}
+
+type UserEdge {
+  cursor: String
+  node: User
+}
+
+type PageInfo {
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+  endCursor: String
+}
+==================================== OUTPUT ===================================
+✖︎ Fragment `Cards_card` cannot be refetched or paginated from the client (`@refetchable`, `@connection`): its generated query `CardsRefetchQuery` reaches a Relay RSC field, and client-rooted execution of that field is not supported yet. Read the new data with a `@server` query instead.
+
+  src/Cards.js:2:18
+    2 │ fragment Cards_card on User
+      │          ^^^^^^^^^^
+    3 │   @refetchable(queryName: "CardsRefetchQuery") {
+
+  ℹ︎ the Relay RSC field
+
+  src/Cards.js:5:10
+    4 │   name
+    5 │   panel: rscPanel
+      │          ^^^^^^^^
+    6 │ }
+
+✖︎ Fragment `Cards_friends` cannot be refetched or paginated from the client (`@refetchable`, `@connection`): its generated query `CardsFriendsPaginationQuery` reaches a Relay RSC field, and client-rooted execution of that field is not supported yet. Read the new data with a `@server` query instead.
+
+  src/Cards.js:8:18
+    8 │ fragment Cards_friends on User
+      │          ^^^^^^^^^^^^^
+    9 │   @argumentDefinitions(count: {type: "Int", defaultValue: 2}, cursor: {type: "String"})
+
+  ℹ︎ the Relay RSC field
+
+  src/Cards.js:14:16
+   13 │       node {
+   14 │         panel: rscPanel
+      │                ^^^^^^^^
+   15 │       }

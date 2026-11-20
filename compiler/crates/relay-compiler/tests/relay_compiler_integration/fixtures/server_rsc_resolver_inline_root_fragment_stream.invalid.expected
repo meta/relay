@@ -1,0 +1,109 @@
+==================================== INPUT ====================================
+//- src/Page.js
+
+// The RSC component reads the data of an `@inline` fragment its root fragment
+// spreads, so `@stream` in it is rejected as in the root fragment itself, also
+// when a client fragment selects the RSC field. A client fragment may still
+// stream in an `@inline` fragment it spreads (`ClientFriends_user`).
+graphql`query ServerRscInlineRootStreamQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  panel: rscPanel
+  ...ClientFriends_user
+}`
+
+graphql`fragment ClientFriends_user on User @inline {
+  friends @stream(label: "ClientFriends_user$friends", initialCount: 1) {
+    name
+  }
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  ...RscPanelFriends_user
+}`
+
+graphql`fragment RscPanelFriends_user on User @inline {
+  friends @stream(label: "RscPanelFriends_user$friends", initialCount: 1) {
+    name
+  }
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+) on FIELD
+
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+type Mutation {
+  updateUser: User
+}
+
+type Subscription {
+  userUpdated: User
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends: [User]
+}
+==================================== OUTPUT ===================================
+✖︎ Relay RSC operation `ServerRscInlineRootStreamQuery` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+
+  src/RscPanel.js:11:11
+   10 │ fragment RscPanelFriends_user on User @inline {
+   11 │   friends @stream(label: "RscPanelFriends_user$friends", initialCount: 1) {
+      │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   12 │     name
+
+✖︎ Server-owned fragment `RscPanel_user` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+
+  src/RscPanel.js:11:11
+   10 │ fragment RscPanelFriends_user on User @inline {
+   11 │   friends @stream(label: "RscPanelFriends_user$friends", initialCount: 1) {
+      │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   12 │     name

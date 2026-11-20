@@ -28,7 +28,7 @@ async fn client_rsc_resolver_unsupported() {
         .await
         .expect("the compiler diagnostic should be rendered");
     assert!(output.contains(
-        "A `RelayRscValue` field may only be selected by an explicitly `@server` document"
+        "Operation `ClientRscResolverQuery` reaches a server-resolved field, but client-rooted execution of that field is not supported here."
     ));
 }
 

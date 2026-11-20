@@ -1,0 +1,80 @@
+//- src/Page.js
+
+// The root fragment of a Relay RSC field that a client fragment selects is read
+// on the server, so incremental delivery in it is rejected as in any Relay
+// Resolver root fragment the server reads.
+graphql`query ServerRscClientRootStreamQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  panel: rscPanel
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  friends @stream(label: "RscPanel_user$friends", initialCount: 1) {
+    name
+  }
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+) on FIELD
+
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+type Mutation {
+  updateUser: User
+}
+
+type Subscription {
+  userUpdated: User
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends: [User]
+}

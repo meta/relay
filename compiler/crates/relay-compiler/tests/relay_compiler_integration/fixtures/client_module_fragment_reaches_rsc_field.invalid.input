@@ -1,0 +1,68 @@
+//- src/Page.js
+
+// A fragment selected with `@module` cannot reach a Relay RSC field, even in a
+// client fragment that a server query hands off.
+graphql`query ServerRscModuleQuery @server {
+  me {
+    ...ClientRenderer_user @alias(as: "renderer")
+  }
+}`
+
+//- src/ClientRenderer.js
+
+graphql`fragment ClientRenderer_user on User {
+  nameRenderer @match {
+    ...ClientRenderer_plainRenderer @module(name: "PlainRenderer.react")
+  }
+}`
+
+graphql`fragment ClientRenderer_plainRenderer on PlainUserNameRenderer {
+  plaintext
+  panel: rscPanel
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField PlainUserNameRenderer.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_renderer
+ */
+graphql`fragment RscPanel_renderer on PlainUserNameRenderer @server {
+  plaintext
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+scalar JSDependency
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}

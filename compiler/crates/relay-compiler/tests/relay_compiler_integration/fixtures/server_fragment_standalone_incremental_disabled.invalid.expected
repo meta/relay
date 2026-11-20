@@ -43,7 +43,7 @@ type User {
   name: String
 }
 ==================================== OUTPUT ===================================
-✖︎ Server-owned fragment `ServerUser_user`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false.
+✖︎ Server-owned fragment `ServerUser_user` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false.
 
   src/ServerUser.js:6:24
     5 │ fragment ServerUser_user on User @server {

@@ -1,0 +1,79 @@
+//- src/Page.js
+
+// A client fragment that a server query hands off may select a Relay RSC
+// field: the server query's handoff lists the field's descriptor, one level
+// below the client boundary.
+graphql`query ServerRscInClientFragmentQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  name
+  panel: rscPanel
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+) on FIELD
+
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+type Mutation {
+  updateUser: User
+}
+
+type Subscription {
+  userUpdated: User
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends: [User]
+}

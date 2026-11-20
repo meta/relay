@@ -62,7 +62,7 @@ type User {
   name: String
 }
 ==================================== OUTPUT ===================================
-✖︎ Server-owned fragment `RscPanel_user`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
+✖︎ Server-owned fragment `RscPanel_user` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet.
 
   src/Page.js:14:24
    13 │ fragment Shared_user on User @server {

@@ -1,0 +1,96 @@
+//- src/Page.js
+
+// A server fragment that selects an ordinary Relay Resolver reads the
+// Resolver's root fragment on the server, and the `@inline` fragment that root
+// fragment reads, so `@match`/`@module` in it is rejected like in the server
+// fragment's own selections. `AClientOwnerQuery`, validated first, reaches the
+// same root fragment through a client fragment, where the client reads it: the
+// root fragment is searched again for the server query, in its own context.
+graphql`query AClientOwnerQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User {
+  rendererName
+  panel: rscPanel
+}`
+
+graphql`query ServerResolverModuleQuery @server {
+  me {
+    ...ServerCard_user
+  }
+}`
+
+graphql`fragment ServerCard_user on User @server {
+  rendererName
+}`
+
+//- src/RendererName.js
+
+/**
+ * @relayField User.rendererName: String
+ * @rootFragment RendererName_user
+ */
+graphql`fragment RendererName_user on User {
+  ...RendererNameInline_user
+}`
+
+graphql`fragment RendererNameInline_user on User @inline {
+  nameRenderer @match {
+    ...RendererName_plainRenderer @module(name: "PlainRenderer.react")
+  }
+}`
+
+graphql`fragment RendererName_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+export function rendererName() {}
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  id
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+scalar JSDependency
+
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}

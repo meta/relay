@@ -1,0 +1,92 @@
+//- src/Page.js
+
+// An ordinary Relay Resolver that a client fragment selects runs on the client,
+// so its root fragment may `@stream`, as the client fragment itself may.
+graphql`query ServerRscClientResolverQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  friendCount
+  panel: rscPanel
+}`
+
+//- src/FriendCount.js
+
+/**
+ * @relayField User.friendCount: Int
+ * @rootFragment FriendCount_user
+ */
+graphql`fragment FriendCount_user on User {
+  friends @stream(label: "FriendCount_user$friends", initialCount: 1) {
+    name
+  }
+}`
+
+export function friendCount() {}
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+) on FIELD
+
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+type Mutation {
+  updateUser: User
+}
+
+type Subscription {
+  userUpdated: User
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends: [User]
+}

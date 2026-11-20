@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::mem::take;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -24,7 +23,6 @@ use graphql_ir::FragmentDefinitionName;
 use graphql_ir::FragmentDefinitionNameSet;
 use graphql_ir::FragmentSpread;
 use graphql_ir::LinkedField;
-use graphql_ir::OperationDefinition;
 use graphql_ir::OperationDefinitionName;
 use graphql_ir::Program;
 use graphql_ir::ScalarField;
@@ -36,7 +34,7 @@ use graphql_ir::Visitor;
 use intern::string_key::Intern;
 use intern::string_key::StringKey;
 use relay_config::DeferStreamInterface;
-use rustc_hash::FxHashSet;
+use rustc_hash::FxHashMap;
 use schema::FieldID;
 use schema::Schema;
 use thiserror::Error;
@@ -44,13 +42,17 @@ use thiserror::Error;
 use crate::ConnectionConstants;
 use crate::INLINE_DIRECTIVE_NAME;
 use crate::MATCH_CONSTANTS;
+use crate::ModuleMetadata;
 use crate::NO_INLINE_DIRECTIVE_NAME;
 use crate::REFETCHABLE_NAME;
+use crate::RefetchableDerivedFromMetadata;
+use crate::SplitOperationMetadata;
 use crate::UPDATABLE_DIRECTIVE;
 use crate::fragment_alias_directive::FRAGMENT_ALIAS_DIRECTIVE_NAME;
 use crate::get_all_resolver_fragment_dependency_names;
 use crate::get_resolver_fragment_dependency_name;
 use crate::relay_directive::RELAY_DIRECTIVE_NAME;
+use crate::rsc_resolver_fields::is_rsc_value_field;
 
 pub static SERVER_DIRECTIVE: LazyLock<DirectiveName> =
     LazyLock::new(|| DirectiveName("server".intern()));
@@ -427,22 +429,38 @@ fn validate_server_selection_directives(
     }
 }
 
+/// Validates, after `transform_match` and `transform_refetchable_fragment`:
+/// - that only server queries read Relay RSC fields: every other operation
+///   that reaches one (a client query, mutation or subscription, or a
+///   generated refetch or pagination query) is rejected, whatever
+///   `relayRsc.allowClientRootedOperations` says, and so is a fragment
+///   selected with `@module` that reaches one;
+/// - the incremental delivery and `@match`/`@module` the server would read,
+///   for each server query and each local server fragment.
 pub(crate) fn validate_server_operation_incremental_delivery(
     program: &Program,
     defer_stream_interface: &DeferStreamInterface,
     allow_incremental_delivery: bool,
     base_fragment_names: &FragmentDefinitionNameSet,
 ) -> DiagnosticsResult<()> {
+    let has_rsc_fields = program
+        .schema
+        .get_fields()
+        .any(|field| is_rsc_value_field(&program.schema, field));
     let mut server_operations: Vec<_> = program
         .operations()
         .filter(|operation| operation.directives.named(*SERVER_DIRECTIVE).is_some())
         .collect();
     server_operations.sort_unstable_by_key(|operation| operation.name.item);
-    if server_operations.is_empty()
-        && !program
-            .fragments()
-            .any(|fragment| fragment.directives.named(*SERVER_DIRECTIVE).is_some())
-    {
+    let mut owners: Vec<_> = program
+        .fragments()
+        .filter(|fragment| {
+            fragment.directives.named(*SERVER_DIRECTIVE).is_some()
+                && !base_fragment_names.contains(&fragment.name.item)
+        })
+        .collect();
+    owners.sort_unstable_by_key(|fragment| fragment.name.item);
+    if !has_rsc_fields && server_operations.is_empty() && owners.is_empty() {
         return Ok(());
     }
     let resolver_root_fragments: FragmentDefinitionNameSet = program
@@ -450,119 +468,106 @@ pub(crate) fn validate_server_operation_incremental_delivery(
         .get_fields()
         .filter_map(get_resolver_fragment_dependency_name)
         .collect();
-
     let mut finder = IncrementalSelectionFinder {
         program,
         defer_stream_interface,
         connection_constants: ConnectionConstants::default(),
         resolver_root_fragments: &resolver_root_fragments,
-        visited_fragments: Default::default(),
+        has_rsc_fields,
+        results: Default::default(),
+        errors: Vec::new(),
         allow_incremental_delivery,
-        in_resolver_fragment: false,
     };
-    let mut validated_fragments = FxHashSet::default();
-    let mut errors: Vec<_> = server_operations
-        .iter()
-        .filter_map(|operation| {
-            let found = finder.find(&operation.selections);
-            validated_fragments.extend(take(&mut finder.visited_fragments));
-            let (location, reason) = found?;
-            let operation_name = operation.name.item;
-            let message = match reason {
-                Unsupported::Disabled => {
-                    ValidationMessage::IncrementalDeliveryDisabled { operation_name }
+    let mut errors = Vec::new();
+    if has_rsc_fields {
+        program.fragments().for_each(|fragment| {
+            finder.find_fragment(fragment.name.item, Context::Client);
+        });
+        // Client-rooted operations cannot execute Relay RSC fields or server
+        // values yet, so one that reaches one is rejected whatever
+        // `relayRsc.allowClientRootedOperations` says. Once that path works,
+        // this check can honor the flag; hosts with it off (Next.js's
+        // default) keep it.
+        // In source order: generated refetch queries are added in no fixed
+        // order.
+        let mut operations: Vec<_> = program.operations().collect();
+        operations.sort_by_key(|operation| operation.name.location);
+        errors.extend(operations.into_iter().filter_map(|operation| {
+            if operation.directives.named(*SERVER_DIRECTIVE).is_some()
+                || SplitOperationMetadata::find(&operation.directives).is_some()
+            {
+                return None;
+            }
+            let field_location = finder
+                .find(&operation.selections, Context::Client, false)
+                .rsc?;
+            let message = match RefetchableDerivedFromMetadata::find(&operation.directives) {
+                Some(RefetchableDerivedFromMetadata(fragment_name)) => {
+                    ValidationMessage::RefetchQueryReadsRscField {
+                        operation_name: operation.name.item,
+                        fragment_name: *fragment_name,
+                    }
                 }
-                Unsupported::ServerOwnedStream => {
-                    ValidationMessage::ServerOwnedStreamUnsupported { operation_name }
-                }
-                Unsupported::InResolverFragment => {
-                    ValidationMessage::IncrementalDeliveryInResolverFragment { operation_name }
-                }
+                None => ValidationMessage::ClientOperationReadsRscField {
+                    operation_name: operation.name.item,
+                },
             };
-            Some(Diagnostic::error(message, location))
-        })
-        .collect();
-    finder.visited_fragments = validated_fragments;
-    errors.extend(validate_standalone_server_fragments(
-        program,
-        &server_operations,
-        base_fragment_names,
-        finder,
-    ));
-
+            Some(
+                Diagnostic::error(message, operation.name.location)
+                    .annotate("the Relay RSC field", field_location),
+            )
+        }));
+    }
+    errors.extend(server_operations.iter().filter_map(|operation| {
+        let (location, reason) = finder
+            .find(&operation.selections, Context::Server, true)
+            .unsupported?;
+        let operation_name = operation.name.item;
+        let message = match reason {
+            Unsupported::Disabled => {
+                ValidationMessage::IncrementalDeliveryDisabled { operation_name }
+            }
+            Unsupported::ServerOwnedStream => {
+                ValidationMessage::ServerOwnedStreamUnsupported { operation_name }
+            }
+            Unsupported::InResolverFragment => {
+                ValidationMessage::IncrementalDeliveryInResolverFragment { operation_name }
+            }
+            Unsupported::ServerReadModule => ValidationMessage::ServerReadModule { operation_name },
+        };
+        Some(Diagnostic::error(message, location))
+    }));
+    // A server fragment may also be selected by a server query in another
+    // project, or by one not written yet, so it is validated as its own owner.
+    errors.extend(owners.into_iter().filter_map(|fragment| {
+        let fragment_name = fragment.name.item;
+        let (location, reason) = finder
+            .find_fragment(fragment_name, Context::Server)
+            .unsupported?;
+        let message = match reason {
+            Unsupported::Disabled => {
+                ValidationMessage::StandaloneFragmentIncrementalDeliveryDisabled { fragment_name }
+            }
+            Unsupported::ServerOwnedStream => {
+                ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported { fragment_name }
+            }
+            Unsupported::InResolverFragment => {
+                ValidationMessage::StandaloneFragmentIncrementalDeliveryInResolverFragment {
+                    fragment_name,
+                }
+            }
+            Unsupported::ServerReadModule => {
+                ValidationMessage::StandaloneFragmentServerReadModule { fragment_name }
+            }
+        };
+        Some(Diagnostic::error(message, location))
+    }));
+    errors.append(&mut finder.errors);
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
     }
-}
-
-/// A local `@server` fragment that no `@server` operation selects may still be
-/// selected by a server query in another project, or by one not written yet,
-/// so it is validated as its own owner. Fragments an operation reaches are
-/// left to that operation, and a fragment that another such fragment selects
-/// is validated through it. The finder starts with the fragments and contexts
-/// the operations already validated, so each rejected directive is reported
-/// once.
-fn validate_standalone_server_fragments(
-    program: &Program,
-    server_operations: &[&Arc<OperationDefinition>],
-    base_fragment_names: &FragmentDefinitionNameSet,
-    mut finder: IncrementalSelectionFinder<'_>,
-) -> Vec<Diagnostic> {
-    let mut reached = ReachedFragments {
-        program,
-        fragments: Default::default(),
-    };
-    for operation in server_operations {
-        reached.visit_selections(&operation.selections);
-    }
-    let unreached: Vec<_> = program
-        .fragments()
-        .filter(|fragment| {
-            fragment.directives.named(*SERVER_DIRECTIVE).is_some()
-                && !base_fragment_names.contains(&fragment.name.item)
-                && !reached.fragments.contains(&fragment.name.item)
-        })
-        .collect();
-    if unreached.is_empty() {
-        return Vec::new();
-    }
-
-    for fragment in &unreached {
-        reached.visit_selections(&fragment.selections);
-    }
-    let mut owners: Vec<_> = unreached
-        .into_iter()
-        .filter(|fragment| !reached.fragments.contains(&fragment.name.item))
-        .collect();
-    owners.sort_unstable_by_key(|fragment| fragment.name.item);
-
-    owners
-        .into_iter()
-        .filter_map(|fragment| {
-            let fragment_name = fragment.name.item;
-            let (location, reason) = finder.find_fragment(fragment_name)?;
-            let message = match reason {
-                Unsupported::Disabled => {
-                    ValidationMessage::StandaloneFragmentIncrementalDeliveryDisabled {
-                        fragment_name,
-                    }
-                }
-                Unsupported::ServerOwnedStream => {
-                    ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported {
-                        fragment_name,
-                    }
-                }
-                Unsupported::InResolverFragment => {
-                    ValidationMessage::StandaloneFragmentIncrementalDeliveryInResolverFragment {
-                        fragment_name,
-                    }
-                }
-            };
-            Some(Diagnostic::error(message, location))
-        })
-        .collect()
 }
 
 /// Collects the fragments that selections reach through fragment spreads and
@@ -620,7 +625,7 @@ impl Visitor for ReachedFragments<'_> {
     }
 }
 
-/// Why an incremental directive is rejected.
+/// Why a selection is rejected.
 #[derive(Clone, Copy)]
 enum Unsupported {
     /// The project sets `relayRsc.allowIncrementalDelivery` to false.
@@ -630,12 +635,46 @@ enum Unsupported {
     ServerOwnedStream,
     /// Incremental delivery inside a Relay Resolver root fragment.
     InResolverFragment,
+    /// `@match` or `@module` in a fragment the server reads.
+    ServerReadModule,
 }
 
-/// Finds rejected `@defer` and `@stream` in the authored documents, including
+/// Who reads a fragment's data.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum Context {
+    /// A server component: the selections of a server query or of a server
+    /// fragment it selects, and of an `@inline` fragment spread there.
+    Server,
+    /// A Relay Resolver on the server: a root fragment the server reads,
+    /// that of a Relay RSC field or of a Resolver selected in server context.
+    ServerResolver,
+    /// A client component: a client fragment that a server document hands
+    /// off. Only the root fragments of its Relay RSC fields are read on the
+    /// server again.
+    Client,
+}
+
+/// What a selection set, or a fragment in a context, reaches: its first Relay
+/// RSC field, and its first rejected selection.
+#[derive(Clone, Copy, Default)]
+struct RscFacts {
+    rsc: Option<Location>,
+    unsupported: Option<(Location, Unsupported)>,
+}
+
+impl RscFacts {
+    fn merge(self, next: Self) -> Self {
+        Self {
+            rsc: self.rsc.or(next.rsc),
+            unsupported: self.unsupported.or(next.unsupported),
+        }
+    }
+}
+
+/// Finds Relay RSC fields, rejected `@defer` and `@stream` (including
 /// `@stream_connection`, deferred fragment spreads, and Resolver root
-/// fragments, so the result does not depend on `transform_connections`,
-/// `transform_defer_stream`, or Resolver lowering having run.
+/// fragments), and the `@match` and `@module` the server would read. Every
+/// sibling is searched, so each `@module` fragment is checked.
 ///
 /// When incremental delivery is allowed, `@defer` is accepted and only
 /// server-owned selections are searched: a client fragment may stream.
@@ -646,18 +685,34 @@ struct IncrementalSelectionFinder<'program> {
     /// Entering one of these fragments, by a Resolver field or by a spread,
     /// enters a Resolver root fragment.
     resolver_root_fragments: &'program FragmentDefinitionNameSet,
+    /// Without Relay RSC fields, nothing in a client fragment is read on the
+    /// server.
+    has_rsc_fields: bool,
     /// A fragment can be both server-owned and reached through a Resolver
-    /// root fragment, so it is visited once in each context.
-    visited_fragments: FxHashSet<(FragmentDefinitionName, bool)>,
+    /// root fragment or a client fragment, so it is searched once in each
+    /// context, for every owner (empty while it is being searched).
+    results: FxHashMap<(FragmentDefinitionName, Context), RscFacts>,
+    errors: Vec<Diagnostic>,
     allow_incremental_delivery: bool,
-    in_resolver_fragment: bool,
 }
 
 impl IncrementalSelectionFinder<'_> {
-    fn reject(&self, location: Location, is_stream: bool) -> Option<(Location, Unsupported)> {
+    /// `owned`: whether a server component owns the selection. When
+    /// incremental delivery is allowed, a client fragment's own incremental
+    /// directives, and those of an ordinary Resolver's root fragment, are
+    /// left to it.
+    fn reject(
+        &self,
+        location: Location,
+        is_stream: bool,
+        context: Context,
+        owned: bool,
+    ) -> Option<(Location, Unsupported)> {
         if !self.allow_incremental_delivery {
             Some((location, Unsupported::Disabled))
-        } else if self.in_resolver_fragment {
+        } else if !owned || context == Context::Client {
+            None
+        } else if context == Context::ServerResolver {
             Some((location, Unsupported::InResolverFragment))
         } else if is_stream {
             Some((location, Unsupported::ServerOwnedStream))
@@ -666,90 +721,178 @@ impl IncrementalSelectionFinder<'_> {
         }
     }
 
-    fn find(&mut self, selections: &[Selection]) -> Option<(Location, Unsupported)> {
-        let defer_stream = self.defer_stream_interface;
-        selections.iter().find_map(|selection| match selection {
-            Selection::LinkedField(field) => active_directive_location(
-                &field.directives,
-                defer_stream.stream_name,
-                defer_stream.if_arg,
-            )
-            .or_else(|| {
-                active_directive_location(
-                    &field.directives,
-                    self.connection_constants.stream_connection_directive_name,
-                    self.connection_constants.stream_connection_if_arg,
-                )
+    fn find(&mut self, selections: &[Selection], context: Context, owned: bool) -> RscFacts {
+        selections
+            .iter()
+            .map(|selection| {
+                let mut facts = match selection {
+                    Selection::LinkedField(field) => self
+                        .find_resolver_fragments(field.definition.item, context)
+                        .merge(self.find(&field.selections, context, owned)),
+                    Selection::InlineFragment(fragment) => {
+                        let mut facts = self.find(&fragment.selections, context, owned);
+                        // A separate unsupported shape: the client's operation
+                        // loader loads an `@module` branch. Lift this only
+                        // once that path executes server fields; client-rooted
+                        // support alone does not enable it. `RscFacts::rsc`
+                        // serves this check and the one for operations.
+                        if let Some(module) = ModuleMetadata::find(&fragment.directives) {
+                            let branch = self.find_fragment(module.fragment_name, Context::Client);
+                            if context == Context::Client
+                                && let Some(field_location) = branch.rsc
+                            {
+                                let message = ValidationMessage::ModuleFragmentReachesRscField {
+                                    fragment_name: module.fragment_name,
+                                };
+                                self.errors.push(
+                                    Diagnostic::error(message, module.location)
+                                        .annotate("the Relay RSC field", field_location),
+                                );
+                            }
+                            facts = facts.merge(branch);
+                        }
+                        facts
+                    }
+                    Selection::Condition(condition) => match condition.value {
+                        ConditionValue::Constant(value) if value != condition.passing_value => {
+                            RscFacts::default()
+                        }
+                        _ => self.find(&condition.selections, context, owned),
+                    },
+                    // Fragment arguments are not applied yet, so a directive gated
+                    // by a fragment argument is conservatively treated as reachable.
+                    Selection::FragmentSpread(spread) => {
+                        self.find_spread(spread.fragment.item, context)
+                    }
+                    Selection::ScalarField(field) => RscFacts {
+                        rsc: is_rsc_value_field(
+                            &self.program.schema,
+                            self.program.schema.field(field.definition.item),
+                        )
+                        .then_some(field.definition.location),
+                        unsupported: None,
+                    }
+                    .merge(self.find_resolver_fragments(field.definition.item, context)),
+                };
+                facts.unsupported = self
+                    .reject_selection(selection, context, owned)
+                    .or(facts.unsupported);
+                facts
             })
-            .and_then(|location| self.reject(location, true))
-            .or_else(|| self.find_resolver_fragments(field.definition.item))
-            .or_else(|| self.find(&field.selections)),
-            Selection::InlineFragment(fragment) => active_directive_location(
-                &fragment.directives,
-                defer_stream.defer_name,
-                defer_stream.if_arg,
-            )
-            .and_then(|location| self.reject(location, false))
-            .or_else(|| self.find(&fragment.selections)),
-            Selection::Condition(condition) => {
-                if let ConditionValue::Constant(value) = condition.value
-                    && value != condition.passing_value
-                {
+            .fold(RscFacts::default(), RscFacts::merge)
+    }
+
+    fn reject_selection(
+        &self,
+        selection: &Selection,
+        context: Context,
+        owned: bool,
+    ) -> Option<(Location, Unsupported)> {
+        let interface = self.defer_stream_interface;
+        let (directive, is_stream) = match selection {
+            Selection::LinkedField(_) => (interface.stream_name, true),
+            Selection::InlineFragment(_) | Selection::FragmentSpread(_) => {
+                (interface.defer_name, false)
+            }
+            _ => return None,
+        };
+        let directives = selection.directives();
+        active_directive_location(directives, directive, interface.if_arg)
+            .or_else(|| {
+                is_stream
+                    .then(|| {
+                        active_directive_location(
+                            directives,
+                            self.connection_constants.stream_connection_directive_name,
+                            self.connection_constants.stream_connection_if_arg,
+                        )
+                    })
+                    .flatten()
+            })
+            .and_then(|location| self.reject(location, is_stream, context, owned))
+            .or_else(|| {
+                if context == Context::Client {
                     return None;
                 }
-                self.find(&condition.selections)
-            }
-            // Fragment arguments are not applied yet, so a directive gated by a
-            // fragment argument is conservatively treated as reachable.
-            Selection::FragmentSpread(spread) => active_directive_location(
-                &spread.directives,
-                defer_stream.defer_name,
-                defer_stream.if_arg,
-            )
-            .and_then(|location| self.reject(location, false))
-            .or_else(|| self.find_fragment(spread.fragment.item)),
-            Selection::ScalarField(field) => self.find_resolver_fragments(field.definition.item),
-        })
+                if let Some(module) = ModuleMetadata::find(directives) {
+                    return Some((module.location, Unsupported::ServerReadModule));
+                }
+                directives
+                    .iter()
+                    .find(|directive| {
+                        directive.name.item == MATCH_CONSTANTS.match_directive_name
+                            || directive.name.item == MATCH_CONSTANTS.module_directive_name
+                    })
+                    .map(|directive| (directive.name.location, Unsupported::ServerReadModule))
+            })
+    }
+
+    /// A spread in server context of a fragment no server document owns is a
+    /// client boundary, unless it is `@inline`: the server reads that data.
+    fn find_spread(&mut self, fragment_name: FragmentDefinitionName, context: Context) -> RscFacts {
+        let Some(fragment) = self.program.fragment(fragment_name) else {
+            return RscFacts::default();
+        };
+        let context = if context == Context::Client
+            || fragment.directives.named(*SERVER_DIRECTIVE).is_some()
+            || fragment.directives.named(*INLINE_DIRECTIVE_NAME).is_some()
+        {
+            context
+        } else {
+            Context::Client
+        };
+        self.find_fragment(fragment_name, context)
     }
 
     /// A Relay Resolver's root fragment is selected by the operation that
-    /// selects the Resolver field.
-    fn find_resolver_fragments(&mut self, field_id: FieldID) -> Option<(Location, Unsupported)> {
-        let in_resolver_fragment = self.in_resolver_fragment;
-        self.in_resolver_fragment = true;
-        let found = get_all_resolver_fragment_dependency_names(
-            self.program.schema.field(field_id),
-            self.program.schema.as_ref(),
-        )
-        .into_iter()
-        .find_map(|fragment_name| self.find_fragment(fragment_name));
-        self.in_resolver_fragment = in_resolver_fragment;
-        found
+    /// selects the Resolver field. A Relay RSC field's root fragment is read
+    /// on the server wherever the field is selected; another Resolver's root
+    /// fragment is read where the Resolver runs.
+    fn find_resolver_fragments(&mut self, field_id: FieldID, context: Context) -> RscFacts {
+        let field = self.program.schema.field(field_id);
+        let context =
+            if context != Context::Client || is_rsc_value_field(&self.program.schema, field) {
+                Context::ServerResolver
+            } else {
+                Context::Client
+            };
+        get_all_resolver_fragment_dependency_names(field, self.program.schema.as_ref())
+            .into_iter()
+            .map(|name| self.find_fragment(name, context))
+            .fold(RscFacts::default(), RscFacts::merge)
     }
 
     fn find_fragment(
         &mut self,
         fragment_name: FragmentDefinitionName,
-    ) -> Option<(Location, Unsupported)> {
-        let in_resolver_fragment =
-            self.in_resolver_fragment || self.resolver_root_fragments.contains(&fragment_name);
-        if !self
-            .visited_fragments
-            .insert((fragment_name, in_resolver_fragment))
+        context: Context,
+    ) -> RscFacts {
+        let context = if context == Context::Server
+            && self.resolver_root_fragments.contains(&fragment_name)
         {
-            return None;
+            Context::ServerResolver
+        } else {
+            context
+        };
+        if context == Context::Client && self.allow_incremental_delivery && !self.has_rsc_fields {
+            return RscFacts::default();
         }
+        let key = (fragment_name, context);
+        if let Some(result) = self.results.get(&key) {
+            return *result;
+        }
+        self.results.insert(key, RscFacts::default());
         let program = self.program;
-        let fragment = program.fragment(fragment_name)?;
-        if self.allow_incremental_delivery && fragment.directives.named(*SERVER_DIRECTIVE).is_none()
-        {
-            return None;
-        }
-        let outer_in_resolver_fragment = self.in_resolver_fragment;
-        self.in_resolver_fragment = in_resolver_fragment;
-        let found = self.find(&fragment.selections);
-        self.in_resolver_fragment = outer_in_resolver_fragment;
-        found
+        let Some(fragment) = program.fragment(fragment_name) else {
+            return RscFacts::default();
+        };
+        // A server component reads an `@inline` fragment's data itself.
+        let owned = fragment.directives.named(*SERVER_DIRECTIVE).is_some()
+            || (context != Context::Client
+                && fragment.directives.named(*INLINE_DIRECTIVE_NAME).is_some());
+        let result = self.find(&fragment.selections, context, owned);
+        self.results.insert(key, result);
+        result
     }
 }
 
@@ -871,6 +1014,26 @@ enum ValidationMessage {
     ServerDocumentSelectsModule { document_name: StringKey },
 
     #[error(
+        "Operation `{operation_name}` reaches a server-resolved field, but client-rooted execution of that field is not supported here. Select it in a client fragment that a `@server` query hands off."
+    )]
+    ClientOperationReadsRscField {
+        operation_name: OperationDefinitionName,
+    },
+
+    #[error(
+        "Fragment `{fragment_name}` cannot be refetched or paginated from the client (`@refetchable`, `@connection`): its generated query `{operation_name}` reaches a Relay RSC field, and client-rooted execution of that field is not supported yet. Read the new data with a `@server` query instead."
+    )]
+    RefetchQueryReadsRscField {
+        operation_name: OperationDefinitionName,
+        fragment_name: FragmentDefinitionName,
+    },
+
+    #[error("Fragment `{fragment_name}` selected with `@module` cannot reach a Relay RSC field.")]
+    ModuleFragmentReachesRscField {
+        fragment_name: FragmentDefinitionName,
+    },
+
+    #[error(
         "Relay RSC operation `{operation_name}` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false."
     )]
     IncrementalDeliveryDisabled {
@@ -892,23 +1055,37 @@ enum ValidationMessage {
     },
 
     #[error(
-        "Server-owned fragment `{fragment_name}`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false."
+        "Relay RSC operation `{operation_name}` cannot read `@match` or `@module` selections on the server: a server component reads this fragment through `@inline` or a Relay Resolver. Place module selections in an aliased client-owned fragment."
+    )]
+    ServerReadModule {
+        operation_name: OperationDefinitionName,
+    },
+
+    #[error(
+        "Server-owned fragment `{fragment_name}` cannot use `@defer` or `@stream`: this project sets `relayRsc.allowIncrementalDelivery` to false."
     )]
     StandaloneFragmentIncrementalDeliveryDisabled {
         fragment_name: FragmentDefinitionName,
     },
 
     #[error(
-        "Server-owned fragment `{fragment_name}`, which no server-owned operation in this project selects, cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive."
+        "Server-owned fragment `{fragment_name}` cannot use `@stream` on a server-owned selection: a server component renders the list once, so items that arrive later would never render. Select the streamed field in a client fragment, where it re-renders as items arrive."
     )]
     StandaloneFragmentServerOwnedStreamUnsupported {
         fragment_name: FragmentDefinitionName,
     },
 
     #[error(
-        "Server-owned fragment `{fragment_name}`, which no server-owned operation in this project selects, cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet."
+        "Server-owned fragment `{fragment_name}` cannot use `@defer` or `@stream` inside a Relay Resolver root fragment: incremental delivery of Relay RSC Resolver fields is not supported yet."
     )]
     StandaloneFragmentIncrementalDeliveryInResolverFragment {
+        fragment_name: FragmentDefinitionName,
+    },
+
+    #[error(
+        "Server-owned fragment `{fragment_name}` cannot read `@match` or `@module` selections on the server: a server component reads this fragment through `@inline` or a Relay Resolver. Place module selections in an aliased client-owned fragment."
+    )]
+    StandaloneFragmentServerReadModule {
         fragment_name: FragmentDefinitionName,
     },
 
@@ -1177,7 +1354,7 @@ mod tests {
     }
 
     #[test]
-    fn validates_server_fragments_no_server_operation_selects_once() {
+    fn validates_each_local_server_fragment_as_an_owner() {
         let program = program(
             r#"query ServerQuery @server {
               ...ServerReached_query
@@ -1217,11 +1394,19 @@ mod tests {
                 }
                 .to_string(),
                 ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported {
+                    fragment_name: FragmentDefinitionName("ServerInner_query".intern()),
+                }
+                .to_string(),
+                ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported {
                     fragment_name: FragmentDefinitionName("ServerOuter_query".intern()),
                 }
                 .to_string(),
+                ValidationMessage::StandaloneFragmentServerOwnedStreamUnsupported {
+                    fragment_name: FragmentDefinitionName("ServerReached_query".intern()),
+                }
+                .to_string(),
             ],
-            "the operation owns the fragment it reaches, the outer standalone fragment owns the inner one, and base fragments are validated by their own project"
+            "the operation and each local server fragment own what they reach, and base fragments are validated by their own project"
         );
     }
 

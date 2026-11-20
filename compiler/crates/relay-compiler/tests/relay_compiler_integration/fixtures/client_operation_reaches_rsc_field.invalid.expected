@@ -1,0 +1,145 @@
+==================================== INPUT ====================================
+//- src/Page.js
+
+// Only a server query reads Relay RSC fields. A client query, mutation or
+// subscription that reaches one through a client fragment is rejected, also in
+// CometJS mode (whose `allowClientRootedOperations` defaults to true), and so
+// is the client query that shares the fragment with a server query.
+graphql`query ServerRscSharedQuery @server {
+  me {
+    ...SharedCard_user @alias(as: "card")
+  }
+}`
+
+graphql`query ClientRscQuery {
+  me {
+    ...SharedCard_user
+  }
+}`
+
+graphql`mutation ClientRscMutation {
+  updateUser {
+    ...SharedCard_user
+  }
+}`
+
+graphql`subscription ClientRscSubscription {
+  userUpdated {
+    ...SharedCard_user
+  }
+}`
+
+//- src/SharedCard.js
+
+graphql`fragment SharedCard_user on User {
+  name
+  panel: rscPanel
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      },
+      "relayRsc": {"mode": "cometjs"}
+    }
+  }
+}
+
+//- schema.graphql
+directive @defer(
+  label: String!
+  if: Boolean = true
+) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @stream(
+  label: String!
+  initialCount: Int!
+  if: Boolean = true
+) on FIELD
+
+type Query {
+  me: User
+  node(id: ID!): Node
+}
+
+type Mutation {
+  updateUser: User
+}
+
+type Subscription {
+  userUpdated: User
+}
+
+interface Node {
+  id: ID!
+}
+
+type User implements Node {
+  id: ID!
+  name: String
+  friends: [User]
+}
+==================================== OUTPUT ===================================
+✖︎ Operation `ClientRscQuery` reaches a server-resolved field, but client-rooted execution of that field is not supported here. Select it in a client fragment that a `@server` query hands off.
+
+  src/Page.js:12:15
+   12 │ query ClientRscQuery {
+      │       ^^^^^^^^^^^^^^
+   13 │   me {
+
+  ℹ︎ the Relay RSC field
+
+  src/SharedCard.js:4:10
+    3 │   name
+    4 │   panel: rscPanel
+      │          ^^^^^^^^
+    5 │ }
+
+✖︎ Operation `ClientRscMutation` reaches a server-resolved field, but client-rooted execution of that field is not supported here. Select it in a client fragment that a `@server` query hands off.
+
+  src/Page.js:18:18
+   18 │ mutation ClientRscMutation {
+      │          ^^^^^^^^^^^^^^^^^
+   19 │   updateUser {
+
+  ℹ︎ the Relay RSC field
+
+  src/SharedCard.js:4:10
+    3 │   name
+    4 │   panel: rscPanel
+      │          ^^^^^^^^
+    5 │ }
+
+✖︎ Operation `ClientRscSubscription` reaches a server-resolved field, but client-rooted execution of that field is not supported here. Select it in a client fragment that a `@server` query hands off.
+
+  src/Page.js:24:22
+   24 │ subscription ClientRscSubscription {
+      │              ^^^^^^^^^^^^^^^^^^^^^
+   25 │   userUpdated {
+
+  ℹ︎ the Relay RSC field
+
+  src/SharedCard.js:4:10
+    3 │   name
+    4 │   panel: rscPanel
+      │          ^^^^^^^^
+    5 │ }
