@@ -15,6 +15,7 @@ import type {GraphQLResponseWithData} from '../network/RelayNetworkTypes';
 import type {NormalizationOptions} from './RelayResponseNormalizer';
 import type {
   NormalizationSelector,
+  Record,
   RelayResponsePayload,
 } from './RelayStoreTypes';
 
@@ -28,10 +29,14 @@ function normalizeResponse(
   typeName: string,
   options: NormalizationOptions,
   useExecTimeResolvers: boolean,
+  existingRootRecord?: ?Record,
 ): RelayResponsePayload {
   const {data, errors} = response;
   const source = RelayRecordSource.create();
-  const record = RelayModernRecord.create(selector.dataID, typeName);
+  const record =
+    existingRootRecord != null
+      ? RelayModernRecord.clone(existingRootRecord)
+      : RelayModernRecord.create(selector.dataID, typeName);
   source.set(selector.dataID, record);
   const relayPayload = RelayResponseNormalizer.normalize(
     source,
