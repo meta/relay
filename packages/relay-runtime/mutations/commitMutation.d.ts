@@ -31,6 +31,11 @@ export interface MutationConfig<TOperation extends MutationParameters> {
         | ((response: TOperation['response'], errors: readonly PayloadError[] | null | undefined) => void)
         | null
         | undefined;
+    onSettled?: ((
+        response: TOperation['response'] | null,
+        errors: readonly PayloadError[] | null | undefined,
+        error: Error | null | undefined,
+    ) => void) | null | undefined;
     onUnsubscribe?: (() => void | null | undefined) | undefined;
     /**
      * An object whose type matches the raw response type of the mutation. Make sure you decorate

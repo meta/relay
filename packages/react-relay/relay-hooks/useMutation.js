@@ -38,6 +38,11 @@ export type UseMutationConfig<TMutation extends MutationParameters> = {
     errors: ?Array<PayloadError>,
   ) => void,
   onNext?: ?() => void,
+  onSettled?: ?(
+    response: TMutation['response'] | null,
+    errors: ?Array<PayloadError>,
+    error: ?Error,
+  ) => void,
   onUnsubscribe?: ?() => void,
   optimisticResponse?: {
     readonly rawResponse?: {...},
@@ -55,6 +60,7 @@ type UseMutationConfigInternal<TVariables, TData, TRawResponse> = {
   onError?: ?(error: Error) => void,
   onCompleted?: ?(response: TData, errors: ?Array<PayloadError>) => void,
   onNext?: ?() => void,
+  onSettled?: ?(response: TData | null, errors: ?Array<PayloadError>, error: ?Error) => void,
   onUnsubscribe?: ?() => void,
   optimisticResponse?: TRawResponse,
   optimisticUpdater?: ?SelectorStoreUpdater<TData>,
