@@ -12,6 +12,7 @@ use common::DiagnosticsResult;
 use common::Location;
 use common::NamedItem;
 use common::SourceLocationKey;
+use common::WithLocation;
 use graphql_ir::Condition;
 use graphql_ir::ConditionValue;
 use graphql_ir::Directive;
@@ -23,6 +24,10 @@ use graphql_ir::OperationDefinition;
 use graphql_ir::OperationDefinitionName;
 use graphql_ir::Program;
 use graphql_ir::ProvidedVariableMetadata;
+use graphql_ir::Selection;
+use graphql_ir::Transformed;
+use graphql_ir::TransformedValue;
+use graphql_ir::Transformer;
 use graphql_ir::Variable;
 use graphql_ir::VariableDefinition;
 use graphql_ir::VariableName;
@@ -43,6 +48,7 @@ use crate::NoInlineFragmentSpreadMetadata;
 use crate::RelayResolverMetadata;
 use crate::RscSeamMetadata;
 use crate::SERVER_DIRECTIVE;
+use crate::rsc_seam_arguments;
 
 /// Compiler-only references required to hydrate a server operation response.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -106,6 +112,13 @@ impl ModuleProviderBranch {
     }
 }
 
+/// Marks an RSC field in a client fragment's `$handoffNormalization`: codegen
+/// prints the Reader's `rsc$<definitionID>` scalar there, not the root
+/// fragment's normalization, which only the server reads.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct HandoffRscSeamMetadata;
+associated_data_impl!(HandoffRscSeamMetadata);
+
 /// Records on every explicit server query what it hands off to the client
 /// (`serverHandoff`): its client fragments, with the operation variables each
 /// one reads, and the Relay RSC Resolver fields it selects.
@@ -131,6 +144,7 @@ pub(crate) fn generate_server_operation_handoffs(
         program,
         fragments_program,
         edges: Default::default(),
+        handoffs: Default::default(),
     };
 
     for operation in server_operations {
@@ -145,22 +159,44 @@ pub(crate) fn generate_server_operation_handoffs(
         collector.client_fragments.sort_unstable();
         collector.client_fragments.dedup();
         for client_fragment in &mut collector.client_fragments {
-            client_fragment.root_variables =
-                boundary_root_variables(program, fragments_program, &operation, client_fragment);
-            let mut branches: Vec<_> = module_branches(
+            // A handoff normalization keeps its boundary normalization's
+            // `@module` selections; only its RSC fields, which have none, differ.
+            let module_normalization = client_fragment.client_normalization_operation;
+            let normalization = match nested.handoff(client_fragment.client_normalization_operation)
+            {
+                Some(Ok(handoff)) => {
+                    client_fragment.client_normalization_operation = handoff.name.item;
+                    Some(handoff)
+                }
+                Some(Err(location)) => {
+                    errors.push(Diagnostic::error(
+                        ValidationMessage::NoInlineRscField {
+                            fragment_name: client_fragment.fragment,
+                        },
+                        *location,
+                    ));
+                    continue;
+                }
+                None => None,
+            };
+            client_fragment.root_variables = boundary_root_variables(
                 program,
-                client_fragment.client_normalization_operation,
-                module_import_config,
-            )
-            .into_iter()
-            .map(|module| ModuleProviderBranch {
-                document_name: module.key,
-                fragment_name: module.fragment_name,
-                fragment_location: module.fragment_source_location,
-                module_name: module.module_name,
-                module_source_location: module.module_source_location,
-            })
-            .collect();
+                fragments_program,
+                &operation,
+                client_fragment,
+                normalization,
+            );
+            let mut branches: Vec<_> =
+                module_branches(program, module_normalization, module_import_config)
+                    .into_iter()
+                    .map(|module| ModuleProviderBranch {
+                        document_name: module.key,
+                        fragment_name: module.fragment_name,
+                        fragment_location: module.fragment_source_location,
+                        module_name: module.module_name,
+                        module_source_location: module.module_source_location,
+                    })
+                    .collect();
             branches.sort_unstable();
             branches.dedup();
             client_fragment.module_providers = branches;
@@ -176,6 +212,15 @@ pub(crate) fn generate_server_operation_handoffs(
 
     if !errors.is_empty() {
         return Err(errors);
+    }
+    let mut handoff_operations: Vec<_> = nested
+        .handoffs
+        .into_values()
+        .filter_map(|handoff| handoff?.ok())
+        .collect();
+    handoff_operations.sort_unstable_by_key(|operation| operation.name.item);
+    for operation in handoff_operations {
+        next_program.insert_operation(Arc::new(operation));
     }
 
     for operation in &mut next_program.operations {
@@ -259,9 +304,20 @@ struct NestedDocuments<'program> {
     program: &'program Program,
     fragments_program: &'program Program,
     edges: FxHashMap<OperationDefinitionName, Arc<Edges>>,
+    handoffs: FxHashMap<OperationDefinitionName, Option<Result<OperationDefinition, Location>>>,
 }
 
-impl NestedDocuments<'_> {
+impl<'program> NestedDocuments<'program> {
+    /// A base project writes the split operation of its fragment (an RSC root
+    /// fragment, or a `@no_inline` or client fragment).
+    fn base_fragment(&self, name: OperationDefinitionName) -> Option<&'program FragmentDefinition> {
+        let lookup = name.0.lookup();
+        let fragment_name = lookup.strip_suffix("$normalization").unwrap_or(lookup);
+        self.fragments_program
+            .fragment(FragmentDefinitionName(fragment_name.intern()))
+            .map(|fragment| fragment.as_ref())
+    }
+
     /// The split operation's edges, with its projection errors the first
     /// time they are found.
     fn edges(&mut self, name: OperationDefinitionName) -> (Arc<Edges>, Vec<Diagnostic>) {
@@ -272,19 +328,13 @@ impl NestedDocuments<'_> {
         if let Some(operation) = self.program.operation(name) {
             projector.visit_selections(&operation.selections);
         } else {
-            // A base project writes the split operation of its fragment (an
-            // RSC root fragment, or a `@no_inline` or client fragment): its
-            // edges come from the fragment, with its spreads inlined here.
-            let lookup = name.0.lookup();
-            let fragment_name = lookup.strip_suffix("$normalization").unwrap_or(lookup);
-            let fragment = self
-                .fragments_program
-                .fragment(FragmentDefinitionName(fragment_name.intern()))
-                .unwrap_or_else(|| {
-                    panic!(
-                        "should have split operation `{name}` or the fragment it normalizes, which an RSC field or a client boundary names"
-                    )
-                });
+            // Without the split operation, the edges come from the fragment,
+            // with its spreads inlined here.
+            let fragment = self.base_fragment(name).unwrap_or_else(|| {
+                panic!(
+                    "should have split operation `{name}` or the fragment it normalizes, which an RSC field or a client boundary names"
+                )
+            });
             projector.fragments = Some(self.fragments_program);
             projector.visit_selections(&fragment.selections);
         }
@@ -424,6 +474,121 @@ impl Visitor for HandoffCollector<'_> {
     }
 }
 
+impl NestedDocuments<'_> {
+    /// A client boundary's normalization with each RSC field as the Reader's
+    /// `rsc$<definitionID>` scalar, with the field's full public arguments,
+    /// if it selects one: what the server hands off and the client
+    /// publishes. The root fragments' selections stay on the server. An RSC
+    /// field the boundary reaches through a normalization that is its own
+    /// artifact (`@no_inline`, or a base project's) is not supported yet: it
+    /// is an error at that location instead. Found once per split operation.
+    fn handoff(
+        &mut self,
+        name: OperationDefinitionName,
+    ) -> Option<&Result<OperationDefinition, Location>> {
+        if !self.handoffs.contains_key(&name) {
+            let handoff = self.find_handoff(name);
+            self.handoffs.insert(name, handoff);
+        }
+        self.handoffs[&name].as_ref()
+    }
+
+    fn find_handoff(
+        &mut self,
+        name: OperationDefinitionName,
+    ) -> Option<Result<OperationDefinition, Location>> {
+        let program = self.program;
+        let Some(operation) = program.operation(name) else {
+            if !self.reaches_rsc_field(name) {
+                return None;
+            }
+            let fragment = self
+                .base_fragment(name)
+                .expect("should have the fragment whose edges were found");
+            return Some(Err(fragment.name.location));
+        };
+        let mut transform = HandoffSeams {
+            documents: self,
+            unsafe_location: None,
+        };
+        let selections = transform.transform_selections(&operation.selections);
+        if let Some(location) = transform.unsafe_location {
+            return Some(Err(location));
+        }
+        let TransformedValue::Replace(selections) = selections else {
+            return None;
+        };
+        let base = name.0.lookup();
+        let base = base.strip_suffix("$normalization").unwrap_or(base);
+        Some(Ok(OperationDefinition {
+            name: WithLocation::new(
+                operation.name.location,
+                OperationDefinitionName(format!("{base}$handoffNormalization").intern()),
+            ),
+            selections,
+            ..operation.as_ref().clone()
+        }))
+    }
+
+    /// Whether a split operation reaches an RSC field.
+    fn reaches_rsc_field(&mut self, name: OperationDefinitionName) -> bool {
+        !self.edges(name).0.rsc_seams.is_empty()
+    }
+}
+
+struct HandoffSeams<'a, 'program> {
+    documents: &'a mut NestedDocuments<'program>,
+    unsafe_location: Option<Location>,
+}
+
+impl Transformer<'_> for HandoffSeams<'_, '_> {
+    const NAME: &'static str = "HandoffSeams";
+    const VISIT_ARGUMENTS: bool = false;
+    const VISIT_DIRECTIVES: bool = false;
+
+    fn transform_fragment_spread(&mut self, spread: &FragmentSpread) -> Transformed<Selection> {
+        let Some(seam) = RscSeamMetadata::find(&spread.directives) else {
+            if NoInlineFragmentSpreadMetadata::find(&spread.directives).is_some() {
+                if self.unsafe_location.is_none()
+                    && self
+                        .documents
+                        .reaches_rsc_field(OperationDefinitionName(spread.fragment.item.0))
+                {
+                    self.unsafe_location = Some(spread.fragment.location);
+                }
+                return Transformed::Keep;
+            }
+            if ClientComponentBoundaryMetadata::find(&spread.directives).is_some() {
+                return Transformed::Keep;
+            }
+            // This runs before `inline_fragments`: a fragment that reaches an
+            // RSC field is inlined here, so that its seams are lowered too.
+            let program = self.documents.program;
+            let Some(fragment) = program.fragment(spread.fragment.item) else {
+                return Transformed::Keep;
+            };
+            let TransformedValue::Replace(selections) =
+                self.transform_selections(&fragment.selections)
+            else {
+                return Transformed::Keep;
+            };
+            return Transformed::Replace(Selection::InlineFragment(Arc::new(InlineFragment {
+                type_condition: Some(fragment.type_condition),
+                directives: Vec::new(),
+                selections,
+                spread_location: spread.fragment.location,
+            })));
+        };
+        let mut directives = spread.directives.clone();
+        directives.push(HandoffRscSeamMetadata.into());
+        Transformed::Replace(Selection::FragmentSpread(Arc::new(FragmentSpread {
+            arguments: rsc_seam_arguments(spread, seam),
+            directives,
+            ..spread.clone()
+        })))
+    }
+}
+
 /// The operation variables a client boundary's normalization reads, excluding
 /// its own fragment arguments.
 fn boundary_root_variables(
@@ -431,6 +596,8 @@ fn boundary_root_variables(
     fragments_program: &Program,
     operation: &OperationDefinition,
     client_fragment: &ServerOperationClientFragment,
+    // Its client-safe handoff normalization, if it has one.
+    normalization: Option<&OperationDefinition>,
 ) -> Vec<VariableName> {
     let is_defined = |definitions: &[VariableDefinition], name: &VariableName| {
         definitions
@@ -438,8 +605,11 @@ fn boundary_root_variables(
             .any(|definition| definition.name.item == *name)
     };
     let mut root_variables: Vec<VariableName> = if let Some(normalization) =
-        program.operation(client_fragment.client_normalization_operation)
-    {
+        normalization.or_else(|| {
+            program
+                .operation(client_fragment.client_normalization_operation)
+                .map(|operation| operation.as_ref())
+        }) {
         let mut collector = UsedVariableCollector::new(program, fragments_program);
         collector.visit_selections(&normalization.selections);
         collector
@@ -545,7 +715,9 @@ impl Visitor for UsedVariableCollector<'_> {
 
     fn visit_fragment_spread(&mut self, spread: &FragmentSpread) {
         self.default_visit_fragment_spread(spread);
-        if !self.visited_fragments.insert(spread.fragment.item) {
+        if HandoffRscSeamMetadata::find(&spread.directives).is_some()
+            || !self.visited_fragments.insert(spread.fragment.item)
+        {
             return;
         }
         let normalization_operation =
@@ -595,6 +767,12 @@ impl Visitor for UsedVariableCollector<'_> {
 enum ValidationMessage {
     #[error("Server-owned operations do not yet support non-inlined fragment `{fragment_name}`.")]
     NoInlineFragmentUnsupported {
+        fragment_name: FragmentDefinitionName,
+    },
+    #[error(
+        "Relay RSC cannot hand off client fragment `{fragment_name}` yet: it reaches a Relay RSC field through this fragment, whose normalization is its own artifact (`@no_inline`, or a base project's), which Relay RSC does not support yet."
+    )]
+    NoInlineRscField {
         fragment_name: FragmentDefinitionName,
     },
 }

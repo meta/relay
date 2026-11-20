@@ -1,0 +1,68 @@
+//- src/ServerUser.js
+
+// A handed-off client fragment that selects a Relay RSC field and provider-form
+// `@match` data: the handoff still lists the fragment's module providers.
+graphql`query ServerUserQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "clientCard")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  panel: rscPanel
+  nameRenderer @match {
+    ...ClientCard_plainRenderer @module(name: "./PlainRenderer")
+  }
+}`
+
+graphql`fragment ClientCard_plainRenderer on PlainUserNameRenderer {
+  plaintext
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  id
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "flow",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  nameRenderer(supported: [String!]): UserNameRenderer
+}
+
+union UserNameRenderer = PlainUserNameRenderer
+
+type PlainUserNameRenderer {
+  plaintext: String
+  js(module: String!, id: String): JSDependency
+}
+
+scalar JSDependency

@@ -1,0 +1,66 @@
+//- base_src/ClientBadge.js
+
+graphql`fragment ClientBadge_user on User
+  @argumentDefinitions(accent: {type: "String", provider: "AccentProvider.relayprovider"})
+  @no_inline {
+  name @include(if: $showName)
+  profilePicture(size: $size, accent: $accent) {
+    uri
+  }
+}`
+
+//- derived_src/DerivedPage.js
+
+// A base project writes the normalization of its `@no_inline` client
+// fragment, so the derived project has no split operation for it: the
+// handoff's `rootVariables` come from the base fragment, and name the free
+// variable (`size`), the condition (`showName`) and the provided variable.
+graphql`query DerivedPageQuery($size: Int, $showName: Boolean!) @server {
+  me {
+    ...ClientBadge_user @alias(as: "badge")
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {
+    "base_src": "base_project",
+    "derived_src": "derived_project"
+  },
+  "projects": {
+    "base_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    },
+    "derived_project": {
+      "schema": "schema.graphql",
+      "base": "base_project",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  profilePicture(size: Int, accent: String): Image
+}
+
+type Image {
+  uri: String
+}

@@ -1,0 +1,71 @@
+//- base_src/ClientBadge.js
+
+graphql`fragment ClientBadge_user on User @no_inline {
+  pictureLabel(options: {size: $size}, crops: [$crop])
+}`
+
+//- base_src/PictureLabel.js
+
+/**
+ * @relayField User.pictureLabel(options: PictureOptions, crops: [Int]): String
+ * @rootFragment PictureLabel_user
+ */
+graphql`fragment PictureLabel_user on User {
+  name
+}`
+
+export function pictureLabel() {}
+
+//- derived_src/DerivedPage.js
+
+// The base project's `@no_inline` client fragment passes root variables to a
+// Relay Resolver inside an object (`size`) and a list (`crop`): the handoff's
+// `rootVariables` name both, read from the Resolver's arguments.
+graphql`query DerivedPageQuery($size: Int, $crop: Int) @server {
+  me {
+    ...ClientBadge_user @alias(as: "badge")
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {
+    "base_src": "base_project",
+    "derived_src": "derived_project"
+  },
+  "projects": {
+    "base_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    },
+    "derived_project": {
+      "schema": "schema.graphql",
+      "base": "base_project",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}
+
+input PictureOptions {
+  size: Int
+}

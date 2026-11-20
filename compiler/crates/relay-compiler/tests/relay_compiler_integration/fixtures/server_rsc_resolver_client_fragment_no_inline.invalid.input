@@ -1,0 +1,58 @@
+//- src/Page.js
+
+// A client fragment that reaches an RSC field through a `@no_inline` fragment
+// cannot be handed off yet: that fragment's normalization is its own artifact,
+// which Relay RSC does not support yet.
+graphql`query ServerRscNoInlineQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  ...ClientPanel_user
+}`
+
+graphql`fragment ClientPanel_user on User @no_inline {
+  panel: rscPanel
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

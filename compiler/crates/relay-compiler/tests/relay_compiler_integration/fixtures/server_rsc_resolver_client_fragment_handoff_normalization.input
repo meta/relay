@@ -1,0 +1,95 @@
+//- src/Page.js
+
+// A client fragment that selects RSC fields is handed off with a client-safe
+// `$handoffNormalization`: each RSC field is the Reader's `rsc$<definitionID>`
+// scalar with all its public arguments, and the root fragment's selections
+// stay in the server's `$normalization`. Its `rootVariables` are the operation
+// variables that safe normalization reads: `$tone`, bound only to a component
+// argument, and `$showPanel`, a condition; the provided variable's global name
+// too. One level down, the client fragment that an RSC root fragment hands
+// off gets its own.
+graphql`query ServerRscHandoffNormalizationQuery($tone: String, $showPanel: Boolean!) @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+//- src/ClientCard.js
+
+graphql`fragment ClientCard_user on User {
+  name
+  panel: rscPanel(size: 2, tone: $tone) @include(if: $showPanel)
+  ...ClientAccent_user
+}`
+
+graphql`fragment ClientAccent_user on User
+  @argumentDefinitions(accent: {type: "String", provider: "AccentProvider.relayprovider"}) {
+  accented: rscPanel(size: 2, tone: $accent)
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel(size: Int!, tone: String): RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User
+  @argumentDefinitions(size: {type: "Int!"})
+  @server {
+  profilePicture(size: $size) {
+    uri
+  }
+  ...ClientBadge_user @alias(as: "badge") @arguments(size: $size)
+}`
+
+export function RscPanel() {}
+
+//- src/ClientBadge.js
+
+graphql`fragment ClientBadge_user on User
+  @argumentDefinitions(size: {type: "Int!"}) {
+  badge: rscBadge(size: $size)
+}`
+
+//- src/RscBadge.js
+
+/**
+ * @relayField User.rscBadge(size: Int!): RelayRscValue
+ * @rootFragment RscBadge_user
+ */
+graphql`fragment RscBadge_user on User @server {
+  name
+}`
+
+export function RscBadge() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      },
+      "relayRsc": {"mode": "cometjs"}
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  profilePicture(size: Int): Image
+}
+
+type Image {
+  uri: String
+}

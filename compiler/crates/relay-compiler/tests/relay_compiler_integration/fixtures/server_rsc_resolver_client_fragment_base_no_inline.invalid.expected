@@ -1,0 +1,97 @@
+==================================== INPUT ====================================
+//- base_src/ClientPanel.js
+
+graphql`fragment ClientPanel_user on User @no_inline {
+  panel: rscPanel
+}`
+
+//- base_src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+}`
+
+export function RscPanel() {}
+
+//- derived_src/DerivedPage.js
+
+// A local client fragment reaches an RSC field through a base project's
+// `@no_inline` fragment, whose normalization the base project writes: the
+// derived project finds the field from the base fragment and rejects the
+// handoff, as for a local `@no_inline` fragment
+// (`server_rsc_resolver_client_fragment_no_inline.invalid`). Handing that base
+// fragment off directly is rejected too: its normalization is the base
+// project's artifact.
+graphql`query DerivedDirectQuery @server {
+  me {
+    ...ClientPanel_user @alias(as: "panel")
+  }
+}`
+
+graphql`query DerivedPageQuery @server {
+  me {
+    ...ClientCard_user @alias(as: "card")
+  }
+}`
+
+graphql`fragment ClientCard_user on User {
+  name
+  ...ClientPanel_user
+}`
+
+//- relay.config.json
+{
+  "sources": {
+    "base_src": "base_project",
+    "derived_src": "derived_project"
+  },
+  "projects": {
+    "base_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    },
+    "derived_project": {
+      "schema": "schema.graphql",
+      "base": "base_project",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true,
+        "no_inline": {"kind": "enabled"}
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}
+==================================== OUTPUT ===================================
+✖︎ Relay RSC cannot hand off client fragment `ClientPanel_user` yet: it reaches a Relay RSC field through this fragment, whose normalization is its own artifact (`@no_inline`, or a base project's), which Relay RSC does not support yet.
+
+  base_src/ClientPanel.js:2:18
+    2 │ fragment ClientPanel_user on User @no_inline {
+      │          ^^^^^^^^^^^^^^^^
+    3 │   panel: rscPanel
+
+✖︎ Relay RSC cannot hand off client fragment `ClientCard_user` yet: it reaches a Relay RSC field through this fragment, whose normalization is its own artifact (`@no_inline`, or a base project's), which Relay RSC does not support yet.
+
+  base_src/ClientPanel.js:2:18
+    2 │ fragment ClientPanel_user on User @no_inline {
+      │          ^^^^^^^^^^^^^^^^
+    3 │   panel: rscPanel

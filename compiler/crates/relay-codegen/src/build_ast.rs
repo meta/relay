@@ -58,6 +58,7 @@ use relay_transforms::DIRECTIVE_SPLIT_OPERATION;
 use relay_transforms::DeferDirective;
 use relay_transforms::FragmentAliasMetadata;
 use relay_transforms::FragmentDataInjectionMode;
+use relay_transforms::HandoffRscSeamMetadata;
 use relay_transforms::INLINE_DIRECTIVE_NAME;
 use relay_transforms::INTERNAL_METADATA_DIRECTIVE;
 use relay_transforms::InlineDirectiveMetadata;
@@ -1644,8 +1645,17 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
 
     fn build_fragment_spread_selections(&mut self, frag_spread: &FragmentSpread) -> Vec<Primitive> {
         if let Some(seam) = RscSeamMetadata::find(&frag_spread.directives) {
+            // A client fragment's handoff normalization carries the value the
+            // Reader reads, not the root fragment's data.
+            if HandoffRscSeamMetadata::find(&frag_spread.directives).is_some() {
+                return vec![self.build_rsc_seam_reader(frag_spread, seam, Primitive::Null)];
+            }
             return match self.variant {
-                CodegenVariant::Reader => vec![self.build_rsc_seam_reader(frag_spread, seam)],
+                CodegenVariant::Reader => vec![self.build_rsc_seam_reader(
+                    frag_spread,
+                    seam,
+                    Primitive::String(seam.alias),
+                )],
                 CodegenVariant::Normalization => {
                     vec![self.build_rsc_seam_normalization(frag_spread, seam)]
                 }
@@ -1726,10 +1736,11 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         &mut self,
         frag_spread: &FragmentSpread,
         seam: &RscSeamMetadata,
+        alias: Primitive,
     ) -> Primitive {
         let arguments = self.build_public_rsc_seam_arguments(frag_spread, seam);
         Primitive::Key(self.object(object! {
-            alias: Primitive::String(seam.alias),
+            alias: alias,
             args: arguments.map_or(Primitive::SkippableNull, Primitive::Key),
             kind: Primitive::String(CODEGEN_CONSTANTS.scalar_field),
             name: Primitive::String(rsc_field_name(seam.definition_id)),
