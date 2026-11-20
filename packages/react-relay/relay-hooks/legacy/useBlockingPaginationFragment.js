@@ -110,25 +110,23 @@ hook useBlockingPaginationFragment<
   const fragmentIdentifier = getFragmentIdentifier(fragmentNode, fragmentRef);
 
   // Backward pagination
-  const [loadPrevious, hasPrevious, disposeFetchPrevious] = useLoadMore<
-    TVariables,
-    TData,
-  >({
-    componentDisplayName,
-    connectionPathInFragmentData,
-    direction: 'backward',
-    disableStoreUpdates,
-    enableStoreUpdates,
-    fragmentData,
-    fragmentIdentifier,
-    fragmentNode,
-    fragmentRef,
-    paginationMetadata,
-    paginationRequest,
-  });
+  const [loadPrevious, hasPrevious, disposeFetchPrevious] =
+    useLoadMore<TVariables>({
+      componentDisplayName,
+      connectionPathInFragmentData,
+      direction: 'backward',
+      disableStoreUpdates,
+      enableStoreUpdates,
+      fragmentData,
+      fragmentIdentifier,
+      fragmentNode,
+      fragmentRef,
+      paginationMetadata,
+      paginationRequest,
+    });
 
   // Forward pagination
-  const [loadNext, hasNext, disposeFetchNext] = useLoadMore<TVariables, TData>({
+  const [loadNext, hasNext, disposeFetchNext] = useLoadMore<TVariables>({
     componentDisplayName,
     connectionPathInFragmentData,
     direction: 'forward',
