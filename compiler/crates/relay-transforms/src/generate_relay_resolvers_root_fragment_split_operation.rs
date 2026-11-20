@@ -52,7 +52,16 @@ pub fn generate_relay_resolvers_root_fragment_split_operation(
 ) -> DiagnosticsResult<Program> {
     let mut operations = vec![];
     for fragment in program.fragments() {
-        if IsResolverRootFragment::find(&fragment.directives).is_some() {
+        if IsResolverRootFragment::find(&fragment.directives).is_some()
+            // A Relay RSC root fragment's normalization operation is the one
+            // RSC lowering wrote, whose variables cannot shadow the root
+            // variables that the fragments it spreads read.
+            && program
+                .operation(OperationDefinitionName(
+                    get_normalization_operation_name(fragment.name.item.0).intern(),
+                ))
+                .is_none()
+        {
             let mut directives = vec![
                 SplitOperationMetadata {
                     location: fragment.name.location,

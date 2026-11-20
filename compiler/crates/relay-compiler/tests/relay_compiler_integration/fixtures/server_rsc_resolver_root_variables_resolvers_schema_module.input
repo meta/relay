@@ -1,0 +1,48 @@
+//- src/Page.js
+
+// A Relay RSC Resolver field's root fragment declares an argument, in a
+// project with a resolvers schema module (which writes a normalization
+// operation for every Resolver root fragment). The field's normalization
+// operation is the RSC one, whose variables are prefixed with the root
+// fragment's name, so they cannot shadow an operation variable.
+graphql`query ServerPageQuery @server {
+  me {
+    panel(size: 2)
+  }
+}`
+
+//- src/Panel.js
+
+/**
+ * @relayField User.panel: RelayRscValue
+ * @rootFragment Panel_user
+ */
+graphql`fragment Panel_user on User
+  @argumentDefinitions(size: {type: "Int"})
+  @server {
+  picture(size: $size)
+}`
+
+export function Panel() {}
+
+//- relay.config.json
+{
+  "language": "javascript",
+  "jsModuleFormat": "commonjs",
+  "schema": "schema.graphql",
+  "featureFlags": {
+    "enable_relay_rsc": true,
+    "enable_exec_time_resolvers_directive": true
+  },
+  "resolversSchemaModule": {}
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  picture(size: Int): String
+}

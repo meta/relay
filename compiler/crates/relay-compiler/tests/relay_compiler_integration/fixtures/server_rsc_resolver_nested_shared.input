@@ -1,0 +1,79 @@
+//- src/Page.js
+
+// Two RSC fields whose root fragments both select a third RSC field and hand
+// off the same client fragment: the server query's handoff lists each
+// descriptor and each client boundary once.
+graphql`query ServerRscNestedSharedQuery @server {
+  me {
+    left: rscLeft
+    right: rscRight
+  }
+}`
+
+//- src/RscLeft.js
+
+/**
+ * @relayField User.rscLeft: RelayRscValue
+ * @rootFragment RscLeft_user
+ */
+graphql`fragment RscLeft_user on User @server {
+  name
+  shared: rscShared
+}`
+
+export function RscLeft() {}
+
+//- src/RscRight.js
+
+/**
+ * @relayField User.rscRight: RelayRscValue
+ * @rootFragment RscRight_user
+ */
+graphql`fragment RscRight_user on User @server {
+  shared: rscShared
+}`
+
+export function RscRight() {}
+
+//- src/RscShared.js
+
+/**
+ * @relayField User.rscShared: RelayRscValue
+ * @rootFragment RscShared_user
+ */
+graphql`fragment RscShared_user on User @server {
+  ...ClientBadge_user @alias(as: "badge")
+}`
+
+export function RscShared() {}
+
+//- src/ClientBadge.js
+
+graphql`fragment ClientBadge_user on User {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

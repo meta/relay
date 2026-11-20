@@ -228,6 +228,7 @@ pub use root_variables::VariableMapEntry;
 pub use rsc_resolver_fields::RscSeamMetadata;
 pub(crate) use rsc_resolver_fields::lower_rsc_resolver_fields;
 pub use rsc_resolver_fields::rsc_fragment_prop_name;
+pub use rsc_resolver_fields::rsc_root_variable_name;
 pub use rsc_resolver_fields::rsc_seam_arguments;
 pub use server_documents::SERVER_DIRECTIVE;
 pub use server_documents::SERVER_DIRECTIVE_FOR_TYPEGEN;

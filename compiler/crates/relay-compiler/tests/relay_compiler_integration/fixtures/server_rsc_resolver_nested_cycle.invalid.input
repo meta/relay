@@ -1,0 +1,66 @@
+//- src/Page.js
+
+// RSC fields whose root fragments select each other form a fragment cycle,
+// which the compiler rejects before it derives the server query's handoff.
+graphql`query ServerRscNestedCycleQuery @server {
+  me {
+    outer: rscOuter
+  }
+}`
+
+//- src/RscOuter.js
+
+/**
+ * @relayField User.rscOuter: RelayRscValue
+ * @rootFragment RscOuter_user
+ */
+graphql`fragment RscOuter_user on User @server {
+  name
+  inner: rscInner
+}`
+
+export function RscOuter() {}
+
+//- src/RscInner.js
+
+/**
+ * @relayField User.rscInner: RelayRscValue
+ * @rootFragment RscInner_user
+ */
+graphql`fragment RscInner_user on User @server {
+  outer: rscOuter
+  ...ClientBadge_user @alias(as: "badge")
+}`
+
+export function RscInner() {}
+
+//- src/ClientBadge.js
+
+graphql`fragment ClientBadge_user on User {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

@@ -54,8 +54,8 @@ use schema::Type;
 use schema::TypeReference;
 
 use crate::NO_INLINE_DIRECTIVE_NAME;
-use crate::RawResponseGenerationMode;
 use crate::SplitOperationMetadata;
+use crate::apply_fragment_arguments::format_local_variable;
 use crate::fragment_prop_name;
 use crate::generate_relay_resolvers_model_fragments::get_resolver_source_hash;
 use crate::get_resolver_fragment_dependency_name;
@@ -221,6 +221,12 @@ pub(crate) fn lower_rsc_resolver_fields(
     }
 }
 
+/// The name a root fragment's own variable has in the root fragment's split
+/// operation, and in the arguments a server operation passes it.
+pub fn rsc_root_variable_name(fragment_name: FragmentDefinitionName, name: StringKey) -> StringKey {
+    format_local_variable(fragment_name, name)
+}
+
 /// The prop an RSC component receives its root fragment under. Projects without
 /// the `Module_propName` naming convention may use the whole fragment name.
 pub fn rsc_fragment_prop_name(fragment_name: FragmentDefinitionName) -> StringKey {
@@ -295,7 +301,7 @@ impl<'program> RscResolverFieldTransform<'program> {
             has_dynamic_module_provider,
             document_name: None,
             document_is_server: false,
-            root_variables: InferVariablesVisitor::new(program),
+            root_variables: InferVariablesVisitor::new_server_read(program),
             split_operations: Default::default(),
             errors: Vec::new(),
         }
@@ -428,14 +434,18 @@ impl<'program> RscResolverFieldTransform<'program> {
             );
             return Transformed::Keep;
         }
-        if !self
+        let mut root_variables: Vec<_> = self
             .root_variables
             .infer_fragment_variables(fragment)
-            .is_empty()
-        {
+            .into_keys()
+            .map(|name| format!("${name}"))
+            .collect();
+        if !root_variables.is_empty() {
+            root_variables.sort();
             self.error(
                 format!(
-                    "Resolver-authored RSC root fragment `{fragment_name}` cannot read free root variables; declare public field and fragment arguments instead."
+                    "Resolver-authored RSC root fragment `{fragment_name}` cannot read free root variables ({}); declare public field and fragment arguments instead.",
+                    root_variables.join(", ")
                 ),
                 fragment.name.location,
             );
@@ -568,24 +578,29 @@ impl<'program> RscResolverFieldTransform<'program> {
             .or_insert_with(|| {
                 let mut parent_documents = FxHashSet::default();
                 parent_documents.insert(document_name);
+                // The root fragment's own variables are prefixed in its split
+                // operation, so they cannot shadow an operation variable read
+                // by a fragment it spreads (a client fragment it hands off).
+                let (variable_definitions, arguments) =
+                    pass_through_fragment_variables(fragment, |name| {
+                        VariableName(rsc_root_variable_name(fragment.name.item, name.0))
+                    });
                 (
                     SplitOperationMetadata {
                         derived_from: Some(fragment.name.item),
                         location: fragment.name.location,
                         parent_documents,
-                        raw_response_type_generation_mode: Some(
-                            RawResponseGenerationMode::AllFieldsOptional,
-                        ),
+                        raw_response_type_generation_mode: None,
                     },
                     OperationDefinition {
                         name: WithLocation::new(fragment.name.location, normalization_operation),
                         type_: fragment.type_condition,
                         kind: OperationKind::Query,
-                        variable_definitions: fragment.variable_definitions.clone(),
+                        variable_definitions,
                         directives: Vec::new(),
                         selections: vec![Selection::FragmentSpread(Arc::new(FragmentSpread {
                             fragment: fragment.name,
-                            arguments: pass_through_fragment_variables(fragment, |name| name).1,
+                            arguments,
                             directives: Vec::new(),
                             signature: Some(fragment.into()),
                         }))],
@@ -650,7 +665,7 @@ impl Transformer<'_> for RscResolverFieldTransform<'_> {
     }
 }
 
-fn is_rsc_value_field(schema: &SDLSchema, field: &Field) -> bool {
+pub(crate) fn is_rsc_value_field(schema: &SDLSchema, field: &Field) -> bool {
     field
         .type_
         .inner()

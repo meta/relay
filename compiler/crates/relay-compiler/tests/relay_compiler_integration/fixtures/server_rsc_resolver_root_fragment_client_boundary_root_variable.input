@@ -1,0 +1,62 @@
+//- src/Page.js
+
+// An RSC root fragment that only hands off a client fragment reads nothing on
+// the server, so the root variable that client fragment reads (`$size`) is
+// not one of the root fragment's free root variables. The server query
+// supplies it: the nested boundary's `rootVariables` name it, and the
+// query's `$size` counts as used, though only the nested boundary reads it.
+graphql`query ServerRscBoundaryRootVariableQuery($size: Int) @server {
+  me {
+    panel: rscPanel
+  }
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  ...ClientPicture_user @alias(as: "picture")
+}`
+
+export function RscPanel() {}
+
+//- src/ClientPicture.js
+
+graphql`fragment ClientPicture_user on User {
+  profilePicture(size: $size) {
+    uri
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  profilePicture(size: Int): Image
+}
+
+type Image {
+  uri: String
+}

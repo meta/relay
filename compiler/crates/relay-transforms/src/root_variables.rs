@@ -16,6 +16,7 @@ use graphql_ir::FragmentDefinitionNameMap;
 use graphql_ir::FragmentSpread;
 use graphql_ir::OperationDefinition;
 use graphql_ir::Program;
+use graphql_ir::ScalarField;
 use graphql_ir::ValidationMessage;
 use graphql_ir::Value;
 use graphql_ir::Variable;
@@ -26,7 +27,10 @@ use schema::Type;
 use schema::TypeReference;
 
 use super::RelayResolverMetadata;
+use crate::ClientComponentBoundaryMetadata;
+use crate::get_resolver_fragment_dependency_name;
 use crate::no_inline::NO_INLINE_DIRECTIVE_NAME;
+use crate::rsc_resolver_fields::is_rsc_value_field;
 
 pub type VariableMap = HashMap<VariableName, Variable>;
 pub enum VariableMapEntry {
@@ -43,6 +47,7 @@ pub struct InferVariablesVisitor<'program> {
     /// each reachable fragment only has to be checked once.
     pub visited_fragments: Visited,
     program: &'program Program,
+    server_read: bool,
 }
 
 impl<'program> InferVariablesVisitor<'program> {
@@ -50,6 +55,16 @@ impl<'program> InferVariablesVisitor<'program> {
         Self {
             visited_fragments: Default::default(),
             program,
+            server_read: false,
+        }
+    }
+
+    /// The root variables the server reads: the data of a client component
+    /// boundary, and the variables it reads, are the client's.
+    pub fn new_server_read(program: &'program Program) -> Self {
+        Self {
+            server_read: true,
+            ..Self::new(program)
         }
     }
 
@@ -68,6 +83,7 @@ impl<'program> InferVariablesVisitor<'program> {
             &mut self.visited_fragments,
             Default::default(),
             &transitive_local_variables,
+            self.server_read,
         );
         visitor.visit_operation(operation);
         (visitor.variable_map, visitor.errors)
@@ -82,6 +98,7 @@ impl<'program> InferVariablesVisitor<'program> {
             &mut self.visited_fragments,
             Default::default(),
             &transitive_local_variables,
+            self.server_read,
         );
         visitor.infer_fragment_variables(fragment)
     }
@@ -95,6 +112,7 @@ struct VariablesVisitor<'a, 'b> {
     transitive_local_variables: &'b HashSet<VariableName>,
     cycle_detected: bool,
     errors: Vec<Diagnostic>,
+    server_read: bool,
 }
 
 impl<'a, 'b> VariablesVisitor<'a, 'b> {
@@ -103,8 +121,10 @@ impl<'a, 'b> VariablesVisitor<'a, 'b> {
         visited_fragments: &'a mut Visited,
         local_variables: HashSet<VariableName>,
         transitive_local_variables: &'b HashSet<VariableName>,
+        server_read: bool,
     ) -> Self {
         Self {
+            server_read,
             variable_map: Default::default(),
             visited_fragments,
             program,
@@ -168,6 +188,7 @@ impl VariablesVisitor<'_, '_> {
                 transitive_local_variables
                     .as_ref()
                     .unwrap_or(self.transitive_local_variables),
+                self.server_read,
             );
             visitor.visit_fragment(fragment);
             let result = visitor.variable_map;
@@ -282,11 +303,29 @@ impl Visitor for VariablesVisitor<'_, '_> {
             }
         }
 
+        if self.server_read && ClientComponentBoundaryMetadata::find(&spread.directives).is_some() {
+            return;
+        }
         // Merge any root variables referenced by the spread fragment
         // into this (parent) fragment's arguments.
         let referenced_fragment_variables = self.infer_fragment_variables(fragment);
         for (_, variable) in referenced_fragment_variables.into_iter() {
             self.record_root_variable_usage(&variable.name, &variable.type_);
+        }
+    }
+
+    /// Until it is lowered, a Relay RSC field reads the root variables of its
+    /// root fragment, which the client fragments it hands off read.
+    fn visit_scalar_field(&mut self, field: &ScalarField) {
+        self.default_visit_scalar_field(field);
+        let schema_field = self.program.schema.field(field.definition.item);
+        if let Some(fragment) = get_resolver_fragment_dependency_name(schema_field)
+            .filter(|_| is_rsc_value_field(&self.program.schema, schema_field))
+            .and_then(|name| self.program.fragment(name))
+        {
+            for (_, variable) in self.infer_fragment_variables(fragment) {
+                self.record_root_variable_usage(&variable.name, &variable.type_);
+            }
         }
     }
 

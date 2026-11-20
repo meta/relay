@@ -1,0 +1,94 @@
+//- base_src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+  inner: rscInner
+}`
+
+export function RscPanel() {}
+
+//- base_src/RscInner.js
+
+/**
+ * @relayField User.rscInner: RelayRscValue
+ * @rootFragment RscInner_user
+ */
+graphql`fragment RscInner_user on User @server {
+  name
+  deepest: rscDeepest
+}`
+
+export function RscInner() {}
+
+//- base_src/RscDeepest.js
+
+/**
+ * @relayField User.rscDeepest: RelayRscValue
+ * @rootFragment RscDeepest_user
+ */
+graphql`fragment RscDeepest_user on User @server {
+  id
+}`
+
+export function RscDeepest() {}
+
+//- base_src/BasePage.js
+
+graphql`query BasePageQuery @server {
+  me {
+    panel: rscPanel
+  }
+}`
+
+//- derived_src/DerivedPage.js
+
+// The RSC field's root fragment comes from the base project, which writes its
+// normalization artifact, so the derived project has no split operation for
+// it. The derived server query still lists the RSC fields below it, at depth 1
+// (`rscInner`) and 2 (`rscDeepest`), found from the base fragments.
+graphql`query DerivedPageQuery @server {
+  me {
+    panel: rscPanel
+  }
+}`
+
+//- relay.config.json
+{
+  "sources": {
+    "base_src": "base_project",
+    "derived_src": "derived_project"
+  },
+  "projects": {
+    "base_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    },
+    "derived_project": {
+      "schema": "schema.graphql",
+      "base": "base_project",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

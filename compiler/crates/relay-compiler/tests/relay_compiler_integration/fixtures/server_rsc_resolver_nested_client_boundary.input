@@ -1,0 +1,55 @@
+//- src/Page.js
+
+// A client fragment that an RSC field's root fragment hands off is a client
+// boundary of the server query: `serverHandoff.clientFragments` lists it, so
+// the server hands its data off when the field's component reads the root
+// fragment, one level below the query.
+graphql`query ServerRscNestedBoundaryQuery @server {
+  me {
+    panel: rscPanel
+  }
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  name
+  ...ClientBadge_user @alias(as: "badge")
+}`
+
+export function RscPanel() {}
+
+//- src/ClientBadge.js
+
+graphql`fragment ClientBadge_user on User {
+  name
+}`
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+}

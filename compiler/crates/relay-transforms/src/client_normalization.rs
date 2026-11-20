@@ -28,6 +28,8 @@ use graphql_ir::VariableDefinition;
 use graphql_ir::VariableName;
 use graphql_ir::Visitor;
 use graphql_ir::associated_data_impl;
+use intern::Lookup;
+use intern::string_key::Intern;
 use intern::string_key::StringKey;
 use relay_config::ModuleImportConfig;
 use relay_config::Surface;
@@ -125,10 +127,16 @@ pub(crate) fn generate_server_operation_handoffs(
     let mut next_program = program.clone();
     let mut handoffs = FxHashMap::default();
     let mut errors = Vec::new();
+    let mut nested = NestedDocuments {
+        program,
+        fragments_program,
+        edges: Default::default(),
+    };
 
     for operation in server_operations {
         let mut collector = HandoffCollector::new(program);
         collector.visit_selections(&operation.selections);
+        nested.close_over(&mut collector);
         if !collector.errors.is_empty() {
             errors.append(&mut collector.errors);
             continue;
@@ -236,8 +244,95 @@ impl Visitor for BranchFinder<'_> {
     }
 }
 
+/// What one split operation selects directly: the RSC fields and the client
+/// boundaries in an RSC field's root fragment (S→C).
+struct Edges {
+    rsc_seams: Vec<RscSeamMetadata>,
+    client_fragments: Vec<ServerOperationClientFragment>,
+}
+
+/// The documents a server operation hands off below its own RSC fields, at any
+/// depth. Each split operation's edges are found once for all server
+/// operations.
+struct NestedDocuments<'program> {
+    program: &'program Program,
+    fragments_program: &'program Program,
+    edges: FxHashMap<OperationDefinitionName, Arc<Edges>>,
+}
+
+impl NestedDocuments<'_> {
+    /// The split operation's edges, with its projection errors the first
+    /// time they are found.
+    fn edges(&mut self, name: OperationDefinitionName) -> (Arc<Edges>, Vec<Diagnostic>) {
+        if let Some(edges) = self.edges.get(&name) {
+            return (Arc::clone(edges), Vec::new());
+        }
+        let mut projector = HandoffCollector::new(self.program);
+        if let Some(operation) = self.program.operation(name) {
+            projector.visit_selections(&operation.selections);
+        } else {
+            // A base project writes the split operation of its fragment (an
+            // RSC root fragment, or a `@no_inline` fragment): its edges come
+            // from the fragment, with its spreads inlined here.
+            let lookup = name.0.lookup();
+            let fragment_name = lookup.strip_suffix("$normalization").unwrap_or(lookup);
+            let fragment = self
+                .fragments_program
+                .fragment(FragmentDefinitionName(fragment_name.intern()))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "should have split operation `{name}` or the fragment it normalizes, which an RSC field names"
+                    )
+                });
+            projector.fragments = Some(self.fragments_program);
+            projector.visit_selections(&fragment.selections);
+        }
+        let edges = Arc::new(Edges {
+            rsc_seams: projector.rsc_seams,
+            client_fragments: projector.client_fragments,
+        });
+        self.edges.insert(name, Arc::clone(&edges));
+        (edges, projector.errors)
+    }
+
+    /// Adds every RSC field reachable from the ones the operation selects,
+    /// with the client boundaries their root fragments hand off, visiting
+    /// each split operation once. The first occurrence of each RSC field is
+    /// kept.
+    fn close_over(&mut self, projector: &mut HandoffCollector<'_>) {
+        let mut seen = FxHashSet::default();
+        projector
+            .rsc_seams
+            .retain(|seam| seen.insert(seam.definition_id));
+        let mut pending: Vec<_> = projector
+            .rsc_seams
+            .iter()
+            .map(|seam| seam.normalization_operation)
+            .collect();
+        let mut visited = FxHashSet::default();
+        while let Some(name) = pending.pop() {
+            if !visited.insert(name) {
+                continue;
+            }
+            let (edges, errors) = self.edges(name);
+            projector.errors.extend(errors);
+            for seam in &edges.rsc_seams {
+                if seen.insert(seam.definition_id) {
+                    pending.push(seam.normalization_operation);
+                    projector.rsc_seams.push(seam.clone());
+                }
+            }
+            projector
+                .client_fragments
+                .extend(edges.client_fragments.iter().cloned());
+        }
+    }
+}
+
 struct HandoffCollector<'program> {
     program: &'program Program,
+    /// Where to find a spread fragment that is not inlined yet.
+    fragments: Option<&'program Program>,
     client_fragments: Vec<ServerOperationClientFragment>,
     rsc_seams: Vec<RscSeamMetadata>,
     visited_fragments: FxHashSet<FragmentDefinitionName>,
@@ -248,6 +343,7 @@ impl<'program> HandoffCollector<'program> {
     fn new(program: &'program Program) -> Self {
         Self {
             program,
+            fragments: None,
             client_fragments: Vec::new(),
             rsc_seams: Vec::new(),
             visited_fragments: FxHashSet::default(),
@@ -263,13 +359,7 @@ impl Visitor for HandoffCollector<'_> {
 
     fn visit_fragment_spread(&mut self, spread: &FragmentSpread) {
         if let Some(seam) = RscSeamMetadata::find(&spread.directives) {
-            if !self
-                .rsc_seams
-                .iter()
-                .any(|existing| existing.definition_id == seam.definition_id)
-            {
-                self.rsc_seams.push(seam.clone());
-            }
+            self.rsc_seams.push(seam.clone());
             return;
         }
 
@@ -287,6 +377,14 @@ impl Visitor for HandoffCollector<'_> {
         if !self.visited_fragments.insert(spread.fragment.item) {
             return;
         }
+        if let Some(fragment) = self
+            .fragments
+            .and_then(|fragments| fragments.fragment(spread.fragment.item))
+        {
+            self.visit_selections(&fragment.selections);
+            return;
+        }
+
         // A server-owned `@no_inline` fragment's selections live in its
         // normalization operation, which a base project does not provide.
         let program = self.program;

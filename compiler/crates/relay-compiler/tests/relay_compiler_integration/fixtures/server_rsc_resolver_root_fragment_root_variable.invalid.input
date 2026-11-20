@@ -1,0 +1,61 @@
+//- src/Page.js
+
+// An RSC root fragment that reads a root variable through a server fragment it
+// spreads is rejected, and the error names the variable; one a client fragment it hands off reads is not
+// the root fragment's (`server_rsc_resolver_root_fragment_client_boundary_root_variable`).
+graphql`query ServerRscRootVariableQuery($size: Int) @server {
+  me {
+    profilePicture(size: $size) {
+      uri
+    }
+    panel: rscPanel
+  }
+}`
+
+//- src/RscPanel.js
+
+/**
+ * @relayField User.rscPanel: RelayRscValue
+ * @rootFragment RscPanel_user
+ */
+graphql`fragment RscPanel_user on User @server {
+  ...ServerPicture_user
+}`
+
+graphql`fragment ServerPicture_user on User @server {
+  profilePicture(size: $size) {
+    uri
+  }
+}`
+
+export function RscPanel() {}
+
+//- relay.config.json
+{
+  "sources": {"src": "test_project"},
+  "projects": {
+    "test_project": {
+      "schema": "schema.graphql",
+      "language": "javascript",
+      "jsModuleFormat": "commonjs",
+      "featureFlags": {
+        "enable_relay_rsc": true
+      }
+    }
+  }
+}
+
+//- schema.graphql
+type Query {
+  me: User
+}
+
+type User {
+  id: ID!
+  name: String
+  profilePicture(size: Int): Image
+}
+
+type Image {
+  uri: String
+}

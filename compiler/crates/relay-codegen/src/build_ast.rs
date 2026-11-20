@@ -91,6 +91,7 @@ use relay_transforms::relay_resolvers::get_resolver_info;
 use relay_transforms::relay_resolvers::resolver_import_alias;
 use relay_transforms::remove_directive;
 use relay_transforms::rsc_fragment_prop_name;
+use relay_transforms::rsc_root_variable_name;
 use relay_transforms::rsc_seam_arguments;
 use relay_transforms::runs_at_exec_time;
 use relay_transforms::runs_at_exec_time_while_provider;
@@ -1741,9 +1742,17 @@ impl<'schema, 'builder, 'config> CodegenBuilder<'schema, 'builder, 'config> {
         frag_spread: &FragmentSpread,
         seam: &RscSeamMetadata,
     ) -> Option<AstKey> {
+        // Named as the root fragment's split operation declares them.
         let arguments: Vec<_> = rsc_seam_arguments(frag_spread, seam)
             .into_iter()
             .filter(|argument| !seam.is_component_argument(argument.name.item))
+            .map(|mut argument| {
+                argument.name.item = ArgumentName(rsc_root_variable_name(
+                    seam.fragment_name,
+                    argument.name.item.0,
+                ));
+                argument
+            })
             .collect();
         self.build_arguments(&arguments)
     }
