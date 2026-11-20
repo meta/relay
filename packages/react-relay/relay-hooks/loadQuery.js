@@ -67,7 +67,11 @@ function getDefaultFetchPolicy(request: ConcreteRequest): FetchPolicy {
 let fetchKey = 100001;
 
 export type QueryType<T> =
-  T extends Query<infer V extends Variables, infer D, infer RR extends ?{...}>
+  T extends Query<
+    infer V extends Variables,
+    infer D,
+    infer RR extends ?{...} | void,
+  >
     ? {
         variables: V,
         response: D,

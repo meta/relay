@@ -53,7 +53,7 @@ const initialNullQueryReferenceState: NullQueryReference = {
 function requestIsLiveQuery<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} = void,
+  TRawResponse extends ?{...} | void = void,
   TQuery extends OperationType = {
     response: TData,
     variables: TVariables,
@@ -73,7 +73,7 @@ function requestIsLiveQuery<
 export type UseQueryLoaderHookReturnType<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} = void,
+  TRawResponse extends ?{...} | void = void,
 > = [
   ?PreloadedQuery<{
     response: TData,
@@ -87,7 +87,7 @@ export type UseQueryLoaderHookReturnType<
 declare hook useQueryLoader<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} = void,
+  TRawResponse extends ?{...} | void = void,
 >(
   preloadableRequest: Query<TVariables, TData, TRawResponse>,
 ): UseQueryLoaderHookReturnType<TVariables, TData>;
@@ -95,7 +95,7 @@ declare hook useQueryLoader<
 declare hook useQueryLoader<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} = void,
+  TRawResponse extends ?{...} | void = void,
 >(
   preloadableRequest: Query<TVariables, TData, TRawResponse>,
   initialQueryReference: ?PreloadedQuery<{
@@ -113,7 +113,7 @@ declare hook useQueryLoader<TQuery extends OperationType>(
 hook useQueryLoader<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} = void,
+  TRawResponse extends ?{...} | void = void,
 >(
   preloadableRequest: Query<TVariables, TData, TRawResponse>,
   initialQueryReference?: ?PreloadedQuery<{
@@ -136,7 +136,7 @@ hook useQueryLoader<
 hook useQueryLoader_CURRENT<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} = void,
+  TRawResponse extends ?{...} | void = void,
 >(
   preloadableRequest: Query<TVariables, TData, TRawResponse>,
   initialQueryReference?: ?PreloadedQuery<{
