@@ -477,6 +477,7 @@ describe('getPromiseForActiveRequest', () => {
       };
       subscription = fetchQuery(environment, query).subscribe(observer);
     });
+    // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
     it('returns a promise that rejects when error occurs', () => {
       expect.assertions(5);
       const promise = getPromiseForActiveRequest(environment, query.request);
@@ -502,6 +503,7 @@ describe('getPromiseForActiveRequest', () => {
       });
     });
 
+    // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
     it('returns a promise that resolves when the request is unsubcribed (canceled)', () => {
       expect.assertions(4);
       const promise = getPromiseForActiveRequest(environment, query.request);
@@ -526,6 +528,7 @@ describe('getPromiseForActiveRequest', () => {
       });
     });
 
+    // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
     it('calling getPromiseForActiveRequest does not prevent the request from being unsubscribed (canceled)', () => {
       expect.assertions(6);
       const promise = getPromiseForActiveRequest(environment, query.request);
@@ -558,6 +561,7 @@ describe('getPromiseForActiveRequest', () => {
     });
 
     describe("when `next` hasn't been called", () => {
+      // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
       it('returns a promise that resolves when the next call to `next` occurs', () => {
         expect.assertions(4);
         const promise = getPromiseForActiveRequest(environment, query.request);
@@ -582,6 +586,7 @@ describe('getPromiseForActiveRequest', () => {
         });
       });
 
+      // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
       it('returns a promise that resolves when the request completes', () => {
         expect.assertions(4);
         const promise = getPromiseForActiveRequest(environment, query.request);
@@ -617,6 +622,7 @@ describe('getPromiseForActiveRequest', () => {
         expect(observer.next).toHaveBeenCalledTimes(1);
       });
 
+      // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
       it('returns a promise that resolves when the next call to `next` occurs', () => {
         expect.assertions(5);
         const promise = getPromiseForActiveRequest(environment, query.request);
@@ -642,6 +648,7 @@ describe('getPromiseForActiveRequest', () => {
         });
       });
 
+      // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
       it('returns a promise that resolves when the next call to `next` occurs when next has been called more than once', () => {
         expect.assertions(6);
 
@@ -672,6 +679,7 @@ describe('getPromiseForActiveRequest', () => {
         });
       });
 
+      // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
       it('returns a promise that resolves when the request completes', () => {
         expect.assertions(5);
         const promise = getPromiseForActiveRequest(environment, query.request);
@@ -760,6 +768,7 @@ describe('getPromiseForActiveRequest', () => {
       fetchQuery(environment, query).subscribe(observer);
     });
 
+    // $FlowFixMe[incompatible-type] Returns a promise on some paths and nothing on others
     it('returns null if module loads before final payload', () => {
       expect.assertions(5);
       const promise = getPromiseForActiveRequest(environment, query.request);
