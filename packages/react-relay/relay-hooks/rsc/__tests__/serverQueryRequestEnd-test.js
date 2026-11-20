@@ -15,6 +15,7 @@ import type {GraphQLResponse} from 'relay-runtime/network/RelayNetworkTypes';
 import type {Sink} from 'relay-runtime/network/RelayObservable';
 
 const {getRelayHandoff} = require('../RelayHandoff');
+const {startServerExecution} = require('../RelayServerExecution');
 const serverQuery = require('../serverQuery');
 const {readServerFragment} = require('../useServerFragment');
 const ModuleQuery = require('./__generated__/RelayServerHandoffTestModuleQuery.graphql');
@@ -127,6 +128,42 @@ function abortController() {
 }
 
 describe('serverQuery ends with the request', () => {
+  it('cancels the request when a payload delivered while subscribing fails it', async () => {
+    let disposals = 0;
+    const environment = new Environment({
+      isServer: true,
+      network: Network.create(() =>
+        Observable.create((sink: Sink<GraphQLResponse>) => {
+          sink.next({data: {me: {__typename: 'User', id: '4', name: 'Zuck'}}});
+          return () => {
+            disposals++;
+          };
+        }),
+      ),
+      store: new Store(new RecordSource()),
+    });
+    const operation = createOperationDescriptor(Query, {});
+    const ends: Array<?string> = [];
+    const {first} = startServerExecution(environment, operation, null, {
+      caller: 'test',
+      dedupe: false,
+      execute: () => environment.execute({operation}),
+      onEnd: error => {
+        ends.push(error?.message);
+      },
+      onPayload: () => {
+        throw new Error('The payload failed.');
+      },
+    });
+    const failure = first.then(
+      () => null,
+      (error: Error) => error.message,
+    );
+    expect(disposals).toBe(1);
+    expect(ends).toEqual(['The payload failed.']);
+    expect(await failure).toBe('The payload failed.');
+  });
+
   it('in plain Relay, a final payload ends the active request before the network completes', async () => {
     const transport = network();
     const environment = new Environment({
