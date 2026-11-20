@@ -444,6 +444,16 @@ class QueryResourceImpl {
       }
     }
 
+    // The cache entry this call populated for `cacheIdentifier`, if any.
+    // Used by the `next`/`error` callbacks below to distinguish "entry not
+    // yet created" (synchronous observable that fires during `.subscribe()`,
+    // before the post-subscribe creation path at the bottom runs) from "entry
+    // was created and is no longer the one cached under `cacheIdentifier`":
+    // it was disposed (StrictMode / navigation / suspended-and-discarded), in
+    // which case we must NOT resurrect it, or disposed and replaced by the
+    // entry of a newer fetch, which this fetch must NOT overwrite.
+    let ownCacheEntry: ?QueryResourceCacheEntry = null;
+
     // NOTE: If this value is false, we will cache a promise for this
     // query, which means we will suspend here at this query root.
     // If it's true, we will cache the query resource and allow rendering to
@@ -459,6 +469,7 @@ class QueryResourceImpl {
         this._clearCacheEntry,
       );
       this._cache.set(cacheIdentifier, cacheEntry);
+      ownCacheEntry = cacheEntry;
     }
 
     if (shouldFetch) {
@@ -486,13 +497,47 @@ class QueryResourceImpl {
           }
         },
         next: () => {
-          const cacheEntry = this._getOrCreateCacheEntry(
-            cacheIdentifier,
-            operation,
-            queryAvailability,
-            queryResult,
-            networkSubscription,
-          );
+          // Do not resurrect a cache entry that has already been
+          // disposed. This can happen when a fetch is in flight during
+          // React Strict Mode's mount/unmount/mount cycle (or Offscreen
+          // / fast refresh): `prepareWithIdentifier` creates the entry,
+          // the strict-mode effect cleanup in `useLazyLoadQueryNode`
+          // disposes it, and `forceUpdate` produces a *new* entry with
+          // a different cacheBreaker. If we resurrected the original
+          // entry here, it would re-enter the LRU with no permanent
+          // retain (no useEffect ever attached to it), survive the
+          // component's eventual unmount, and be reused by a later
+          // mount that computes the same cacheIdentifier — pointing at
+          // records the GC has since reclaimed.
+          //
+          // The store still receives the data via normalization; any
+          // *live* cache entry sharing this fetch (deduped through
+          // `fetchQuery`) receives its own `next` and updates its value
+          // correctly. Dropping the update on a disposed entry is the
+          // right behavior.
+          //
+          // We must still create the entry on the *first* `next` if
+          // the observable fires synchronously inside `.subscribe()`
+          // (e.g. cached/mocked transports): in that case the
+          // post-subscribe creation path below hasn't run yet, and no
+          // entry has ever existed for this fetch — there is nothing
+          // to resurrect.
+          let cacheEntry = this._cache.get(cacheIdentifier);
+          if (ownCacheEntry != null && cacheEntry !== ownCacheEntry) {
+            // Still wake a render suspended on this fetch's promise.
+            resolveNetworkPromise();
+            return;
+          }
+          if (cacheEntry == null) {
+            cacheEntry = this._getOrCreateCacheEntry(
+              cacheIdentifier,
+              operation,
+              queryAvailability,
+              queryResult,
+              networkSubscription,
+            );
+            ownCacheEntry = cacheEntry;
+          }
           cacheEntry.processedPayloadsCount += 1;
           cacheEntry.setValue(queryResult);
           resolveNetworkPromise();
@@ -504,13 +549,25 @@ class QueryResourceImpl {
           }
         },
         error: error => {
-          const cacheEntry = this._getOrCreateCacheEntry(
-            cacheIdentifier,
-            operation,
-            queryAvailability,
-            error,
-            networkSubscription,
-          );
+          // See the comment on `next` above: do not resurrect a
+          // disposed cache entry, but do create the entry on a
+          // first-time synchronous fire.
+          let cacheEntry = this._cache.get(cacheIdentifier);
+          if (ownCacheEntry != null && cacheEntry !== ownCacheEntry) {
+            // Still wake a render suspended on this fetch's promise.
+            resolveNetworkPromise();
+            return;
+          }
+          if (cacheEntry == null) {
+            cacheEntry = this._getOrCreateCacheEntry(
+              cacheIdentifier,
+              operation,
+              queryAvailability,
+              error,
+              networkSubscription,
+            );
+            ownCacheEntry = cacheEntry;
+          }
 
           // If, this is the first thing we receive for the query,
           // before any other payload handled is error, we will cache and
@@ -569,6 +626,7 @@ class QueryResourceImpl {
           this._clearCacheEntry,
         );
         this._cache.set(cacheIdentifier, cacheEntry);
+        ownCacheEntry = cacheEntry;
       }
     } else {
       const observerComplete = observer?.complete;
