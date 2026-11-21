@@ -21,6 +21,8 @@ munge_underscores=true
 
 format.bracket_spacing=false
 
+experimental.undefined_type=true
+
 [lints]
 untyped-type-import=error
 
