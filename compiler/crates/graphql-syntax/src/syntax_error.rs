@@ -57,6 +57,8 @@ pub enum SyntaxError {
     ExpectedNonEmptyList,
     #[error("Invalid floating point value")]
     InvalidFloat,
+    #[error("Float literal is outside the finite range of a 64-bit floating point value")]
+    NonFiniteFloat,
     #[error("Invalid integer value")]
     InvalidInteger,
     #[error("Invalid number value, expected an int or float")]
