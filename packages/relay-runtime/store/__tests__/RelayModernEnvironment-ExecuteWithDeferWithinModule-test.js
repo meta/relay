@@ -175,7 +175,7 @@ function createOperationLoader() {
     load: jest.fn(moduleName => {
       let entry = cache.get(moduleName);
       if (entry == null) {
-        let resolveFn = (_x: NormalizationSplitOperation) => undefined;
+        let resolveFn = (_x: NormalizationSplitOperation): void => undefined;
         const promise = new Promise(resolve_ => {
           resolveFn = resolve_;
         });

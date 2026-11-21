@@ -111,7 +111,7 @@ class RelayOptimisticRecordSource implements MutableRecordSource {
       if (record === undefined) {
         delete merged[dataID];
       } else {
-        merged[dataID] = RelayModernRecord.toJSON<null | void>(record);
+        merged[dataID] = RelayModernRecord.toJSON<null | undefined>(record);
       }
     });
     return merged;

@@ -95,7 +95,9 @@ class RelayRecordSourceOverlay implements RecordSource {
     const json: {...RecordSourceJSON} = {};
     const ids = this.getRecordIDs();
     for (let ii = 0; ii < ids.length; ii++) {
-      json[ids[ii]] = RelayModernRecord.toJSON<null | void>(this.get(ids[ii]));
+      json[ids[ii]] = RelayModernRecord.toJSON<null | undefined>(
+        this.get(ids[ii]),
+      );
     }
     return json;
   }

@@ -116,13 +116,13 @@ type Action =
     };
 
 type RefetchState = {
-  fetchPolicy: FetchPolicy | void,
+  fetchPolicy: FetchPolicy | undefined,
   mirroredEnvironment: IEnvironment,
   mirroredFragmentIdentifier: string,
   onComplete: ((v: Error | null) => void) | void,
   refetchEnvironment?: ?IEnvironment,
   refetchQuery: OperationDescriptor | null,
-  renderPolicy: RenderPolicy | void,
+  renderPolicy: RenderPolicy | undefined,
 };
 
 type DebugIDandTypename = {

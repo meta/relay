@@ -589,7 +589,9 @@ describe.each([true, false])(
           jest.fn(),
         );
 
-        operationLoader.load.mockImplementation(() => Promise.resolve());
+        operationLoader.load.mockImplementation(() =>
+          Promise.resolve(undefined),
+        );
         environment.mock.resolve(QueryOperation1.request.node, {
           data: {
             node: {

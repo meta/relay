@@ -258,13 +258,13 @@ type ExtractThinQueryParams<T, TEnvironmentProviderOptions> = [
   : [readonly t: T] extends [
         readonly t: PreloadedQuery<infer TQuery extends OperationType> | void,
       ]
-    ? ThinQueryParams<TQuery, TEnvironmentProviderOptions> | void
+    ? ThinQueryParams<TQuery, TEnvironmentProviderOptions> | undefined
     : [readonly t: T] extends [
           readonly t: PreloadedQuery<
             infer TQuery extends OperationType,
           > | null | void,
         ]
-      ? ThinQueryParams<TQuery, TEnvironmentProviderOptions> | null | void
+      ? ThinQueryParams<TQuery, TEnvironmentProviderOptions> | null | undefined
       : empty;
 
 export type ExtractQueryTypes<

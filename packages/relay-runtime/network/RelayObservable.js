@@ -454,7 +454,7 @@ class RelayObservable<out T> implements Subscribable<T> {
    * NOTE: The source Observable is *NOT* canceled when the returned Promise
    * resolves. The Observable is always run to completion.
    */
-  toPromise(): Promise<T | void> {
+  toPromise(): Promise<T | undefined> {
     return new Promise((resolve, reject) => {
       let resolved = false;
       this.subscribe({

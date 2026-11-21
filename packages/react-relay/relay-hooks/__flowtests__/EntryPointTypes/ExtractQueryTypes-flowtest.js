@@ -63,11 +63,11 @@ ExpectedRequiredQuery as ActualRequiredQueryType;
 
 type ActualOptionalQueryType = ExtractQueryTypes<
   EnvironmentProviderOptions,
-  {root: PreloadedQuery<RootQuery> | void},
+  {root: PreloadedQuery<RootQuery> | undefined},
 >;
 
 type ExpectedOptionalQueryType = {
-  root: ThinQueryParams<RootQuery, EnvironmentProviderOptions> | void,
+  root: ThinQueryParams<RootQuery, EnvironmentProviderOptions> | undefined,
 };
 
 declare const ActualOptionalQuery: ActualOptionalQueryType;
@@ -77,11 +77,11 @@ ExpectedOptionalQuery as ActualOptionalQueryType;
 
 type ActualNullableQueryType = ExtractQueryTypes<
   EnvironmentProviderOptions,
-  {root: PreloadedQuery<RootQuery> | void},
+  {root: PreloadedQuery<RootQuery> | undefined},
 >;
 
 type ExpectedNullableQueryType = {
-  root: ThinQueryParams<RootQuery, EnvironmentProviderOptions> | void,
+  root: ThinQueryParams<RootQuery, EnvironmentProviderOptions> | undefined,
 };
 
 declare const ActualNullableQuery: ActualNullableQueryType;

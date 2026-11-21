@@ -48,7 +48,7 @@ function mockGetStorageKey(
 // record each field they are asked about and substitute nothing.
 const missingFieldNames: Array<string> = [];
 
-function recordMissingField(field: {readonly name: string, ...}): void {
+function recordMissingField(field: {readonly name: string, ...}): undefined {
   missingFieldNames.push(field.name);
 }
 

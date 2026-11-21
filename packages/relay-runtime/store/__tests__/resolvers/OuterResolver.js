@@ -20,7 +20,7 @@ const {readFragment} = require('relay-runtime/store/ResolverFragments');
  * @relayField Query.outer: Int
  * @rootFragment OuterResolver
  */
-function outer(rootKey: OuterResolver$key): number | null | void {
+function outer(rootKey: OuterResolver$key): number | null | undefined {
   const data = readFragment(
     graphql`
       fragment OuterResolver on Query {

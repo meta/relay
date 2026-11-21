@@ -20,7 +20,7 @@ export type WillFireOptions = {
 
 type API = Readonly<{
   disallowMessages: () => void,
-  expectMessageWillFire: (v0: string, v1: void | WillFireOptions) => void,
+  expectMessageWillFire: (v0: string, v1: undefined | WillFireOptions) => void,
   expectMessage: <T>(v0: string, v1: () => T) => T,
   expectMessageMany: <T>(v0: Array<string>, v1: () => T) => T,
 }>;

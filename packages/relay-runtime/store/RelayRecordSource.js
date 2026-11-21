@@ -38,7 +38,7 @@ class RelayRecordSource implements MutableRecordSource {
     if (records != null) {
       Object.keys(records).forEach(key => {
         const object = records[key];
-        const record = RelayModernRecord.fromObject<null | void>(object);
+        const record = RelayModernRecord.fromObject<null | undefined>(object);
         this._records.set(key, record);
       });
     }
@@ -98,7 +98,7 @@ class RelayRecordSource implements MutableRecordSource {
       ) {
         continue;
       }
-      obj[key] = RelayModernRecord.toJSON<null | void>(record);
+      obj[key] = RelayModernRecord.toJSON<null | undefined>(record);
     }
     return obj;
   }

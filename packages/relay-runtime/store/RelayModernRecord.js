@@ -205,7 +205,7 @@ function getType(record: Record): string {
 function getErrors(
   record: Record,
   storageKey: StorageKey,
-): ReadonlyArray<TRelayFieldError> | void {
+): ReadonlyArray<TRelayFieldError> | undefined {
   return record[ERRORS_KEY]?.[storageKey];
 }
 

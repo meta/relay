@@ -140,7 +140,7 @@ describe('execute() multiple queries with overlapping @module-s', () => {
     };
     operationLoader = {
       load: jest.fn(moduleName => {
-        return Promise.resolve();
+        return Promise.resolve(undefined);
       }),
       get: jest.fn<[unknown], ?NormalizationRootNode>(),
     };
