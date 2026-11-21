@@ -120,10 +120,10 @@ describe('when using queuePendingOperation, queueOperationResolver and preloadQu
     renderAndAssert(SUSPENDED);
   });
 
-  it('suspends if only queueOperationResolver and preloadQuery have been called', () => {
+  it('renders synchronously when queueOperationResolver is called before preloadQuery', () => {
     callQueueOperationResolver();
     callPreloadQuery();
-    renderAndAssert(SUSPENDED);
+    renderAndAssert(RENDERED);
   });
 
   it('suspends if only preloadQuery have been called', () => {
