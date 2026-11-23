@@ -54,7 +54,7 @@ type PreloadedQuery<
 declare hook usePreloadedQuery<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} | void = void,
+  TRawResponse extends ?{...} | void = undefined,
 >(
   gqlQuery:
     | Query<TVariables, TData, TRawResponse>
@@ -68,7 +68,7 @@ declare hook usePreloadedQuery<
 declare hook usePreloadedQuery<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} | void = void,
+  TRawResponse extends ?{...} | void = undefined,
 >(
   gqlQuery:
     | Query<TVariables, TData, TRawResponse>
@@ -82,7 +82,7 @@ declare hook usePreloadedQuery<
 hook usePreloadedQuery<
   TVariables extends Variables,
   TData,
-  TRawResponse extends ?{...} | void = void,
+  TRawResponse extends ?{...} | void = undefined,
   TPreloadedQuery extends ?PreloadedQuery<
     TVariables,
     TData,

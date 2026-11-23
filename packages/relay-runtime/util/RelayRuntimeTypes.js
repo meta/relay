@@ -128,13 +128,13 @@ declare export opaque type UpdatableFragment<
 declare export opaque type Query<
   in TVariables extends Variables,
   out TData,
-  TRawResponse = void,
+  TRawResponse = undefined,
 >: Operation<TVariables, TData, TRawResponse>;
 
 declare export opaque type ServerQuery<
   in TVariables extends Variables,
   out TData,
-  TRawResponse = void,
+  TRawResponse = undefined,
 >: ServerRequest;
 
 /**
@@ -143,7 +143,7 @@ declare export opaque type ServerQuery<
 declare export opaque type ClientQuery<
   in TVariables extends Variables,
   out TData,
-  TRawResponse = void,
+  TRawResponse = undefined,
 >: ClientRequest;
 
 /**
@@ -164,7 +164,7 @@ declare export opaque type Mutation<
 declare export opaque type GraphQLSubscription<
   in TVariables extends Variables,
   out TData,
-  TRawResponse = void,
+  TRawResponse = undefined,
 >: Operation<TVariables, TData, TRawResponse>;
 
 /**
