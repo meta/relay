@@ -38,6 +38,10 @@ const warning = require('warning');
 
 export type StorageKey = Exclude<string, typeof ERRORS_KEY>;
 
+// Leaf indexes refer into the flat __refs array. Keeping references flat lets
+// existing availability checks and reference marking visit every leaf record.
+export type LinkedRecordListShape = Array<?(number | LinkedRecordListShape)>;
+
 type RelayFieldErrors = {[key: StorageKey]: ReadonlyArray<TRelayFieldError>};
 
 export type RecordJSON = {
@@ -331,6 +335,16 @@ function hasLinkedRecordIDs(record: Record, storageKey: StorageKey): boolean {
   );
 }
 
+function getLinkedRecordListShape(
+  record: Record,
+  storageKey: StorageKey,
+): ?LinkedRecordListShape {
+  const links = record[storageKey];
+  return links != null && typeof links === 'object'
+    ? (links.__listShape as any)
+    : undefined;
+}
+
 /**
  * @public
  *
@@ -601,10 +615,14 @@ function setLinkedRecordIDs(
   record: Record,
   storageKey: StorageKey,
   linkedIDs: Array<?DataID>,
+  listShape?: LinkedRecordListShape,
 ): void {
   // See perf note above for why we aren't using computed property access.
-  const links: {[key: string]: Array<?DataID>} = {};
+  const links: {[key: string]: Array<?DataID> | LinkedRecordListShape} = {};
   links[REFS_KEY] = linkedIDs;
+  if (listShape != null) {
+    links.__listShape = listShape;
+  }
   record[storageKey] = links;
 }
 
@@ -933,6 +951,7 @@ module.exports = {
   getInvalidationEpoch,
   getLinkedRecordID,
   getLinkedRecordIDs,
+  getLinkedRecordListShape,
   getResolverLinkedRecordID,
   getResolverLinkedRecordIDs,
   getType,

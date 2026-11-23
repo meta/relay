@@ -33,6 +33,7 @@ import type {
 } from '../util/ReaderNode';
 import type {ConcreteRequest} from '../util/RelayConcreteNode';
 import type {DataID, Variables} from '../util/RelayRuntimeTypes';
+import type {LinkedRecordListShape} from './RelayModernRecord';
 import type {
   ClientEdgeTraversalInfo,
   DataIDSet,
@@ -1514,6 +1515,19 @@ class RelayReader {
       );
     }
     const linkedIDs = RelayModernRecord.getLinkedRecordIDs(record, storageKey);
+    const listShape = RelayModernRecord.getLinkedRecordListShape(
+      record,
+      storageKey,
+    );
+    if (linkedIDs != null && listShape != null) {
+      return this._readNestedLinkedIds(
+        field,
+        linkedIDs,
+        listShape,
+        record,
+        data,
+      );
+    }
     if (
       linkedIDs === null ||
       (RelayFeatureFlags.ENABLE_NONCOMPLIANT_ERROR_HANDLING_ON_LISTS &&
@@ -1587,6 +1601,74 @@ class RelayReader {
     this._prependPreviousErrors(prevErrors, fieldName);
     data[fieldName] = linkedArray;
     return linkedArray;
+  }
+
+  _readNestedLinkedIds(
+    field: ReaderLinkedField,
+    linkedIDs: ReadonlyArray<?DataID>,
+    listShape: LinkedRecordListShape,
+    record: Record,
+    data: SelectorData,
+  ): unknown {
+    const fieldName = field.alias ?? field.name;
+    const readList = (
+      shape: LinkedRecordListShape,
+      previous: unknown,
+    ): Array<unknown> => {
+      invariant(
+        previous == null || Array.isArray(previous),
+        'RelayReader(): Expected nested data for field `%s` on record `%s` to be an array.',
+        fieldName,
+        RelayModernRecord.getDataID(record),
+      );
+      const previousItems = previous ?? [];
+      return shape.map((item, index) => {
+        if (item == null) {
+          if (item === undefined) {
+            this._markDataAsMissing(String(index));
+          }
+          return item;
+        }
+        const linkedID = typeof item === 'number' ? linkedIDs[item] : null;
+        if (!Array.isArray(item) && linkedID == null) {
+          if (linkedID === undefined) {
+            this._markDataAsMissing(String(index));
+          }
+          return linkedID;
+        }
+        const prevErrors = this._fieldErrors;
+        this._fieldErrors = null;
+        let value;
+        if (Array.isArray(item)) {
+          value = readList(item, previousItems[index]);
+        } else {
+          invariant(linkedID != null, 'Expected a nested linked record ID.');
+          const previousItem = previousItems[index];
+          invariant(
+            previousItem == null ||
+              (typeof previousItem === 'object' &&
+                !Array.isArray(previousItem)),
+            'RelayReader(): Expected nested leaf data for field `%s` to be an object.',
+            fieldName,
+          );
+          value = this._traverse(
+            field,
+            linkedID,
+            // Like the flat-list reader, reuse data built by overlapping selections.
+            // $FlowFixMe[incompatible-variance]
+            previousItem as ?SelectorData,
+          );
+        }
+        this._prependPreviousErrors(prevErrors, index);
+        return value;
+      });
+    };
+    const prevErrors = this._fieldErrors;
+    this._fieldErrors = null;
+    const value = readList(listShape, data[fieldName]);
+    this._prependPreviousErrors(prevErrors, fieldName);
+    data[fieldName] = value;
+    return value;
   }
 
   /**
