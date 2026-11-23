@@ -27,6 +27,8 @@ directive @fetchable(field_name: String!) on OBJECT
 directive @client_polling(interval: Int) on QUERY
 
 type Query {
+  actorMatrix: [[Actor]]
+  userMatrix: [[User]]
   checkinSearchQuery(query: CheckinSearchInput): CheckinSearchResult
   defaultSettings: Settings
   route(waypoints: [WayPoint!]!): Route
