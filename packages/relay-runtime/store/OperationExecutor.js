@@ -1775,11 +1775,15 @@ class Executor<TMutation extends MutationParameters> {
   _updateOperationTracker(
     updatedOwners: ?ReadonlyArray<RequestDescriptor>,
   ): void {
-    if (updatedOwners != null && updatedOwners.length > 0) {
-      this._operationTracker.update(
-        this._operation.request,
-        new Set(updatedOwners),
-      );
+    const owners = updatedOwners == null ? [] : [...updatedOwners];
+    // A query that is entirely @defer has an empty initial payload, which
+    // updates no owner. Link the operation itself while chunks are pending, or
+    // readers of the deferred fragments would not suspend.
+    if (this._incrementalPayloadsPending && this._state !== 'completed') {
+      owners.push(this._operation.request);
+    }
+    if (owners.length > 0) {
+      this._operationTracker.update(this._operation.request, new Set(owners));
     }
   }
 

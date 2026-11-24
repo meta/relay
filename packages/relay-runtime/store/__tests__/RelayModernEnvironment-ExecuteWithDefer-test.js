@@ -1148,6 +1148,55 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         expect(callback).toBeCalledTimes(1);
       });
 
+      it('marks a fully deferred query as pending until its deferred data arrives', () => {
+        const fullyDeferredQuery = graphql`
+          query RelayModernEnvironmentExecuteWithDeferTestFullyDeferredQuery {
+            ...RelayModernEnvironmentExecuteWithDeferTestFullyDeferredFragment
+              @defer(label: "Deferred")
+          }
+        `;
+        graphql`
+          fragment RelayModernEnvironmentExecuteWithDeferTestFullyDeferredFragment on Query {
+            me {
+              name
+            }
+          }
+        `;
+        const fullyDeferredOperation = createOperationDescriptor(
+          fullyDeferredQuery,
+          {},
+        );
+        const tracker = environment.getOperationTracker();
+
+        environment
+          .execute({operation: fullyDeferredOperation})
+          .subscribe(callbacks);
+        dataSource.next({data: {}});
+        jest.runAllTimers();
+
+        expect(
+          tracker.getPendingOperationsAffectingOwner(
+            fullyDeferredOperation.request,
+          ),
+        ).not.toBe(null);
+
+        dataSource.next({
+          data: {me: {id: '1', __typename: 'User', name: 'joe'}},
+          label:
+            'RelayModernEnvironmentExecuteWithDeferTestFullyDeferredQuery$defer$Deferred',
+          path: [],
+          extensions: {is_final: true} as PayloadExtensions,
+        });
+        dataSource.complete();
+        jest.runAllTimers();
+
+        expect(
+          tracker.getPendingOperationsAffectingOwner(
+            fullyDeferredOperation.request,
+          ),
+        ).toBe(null);
+      });
+
       it('does not warn when a queued nested @defer chunk completes inside its parent', () => {
         const nestedQuery = graphql`
           query RelayModernEnvironmentExecuteWithDeferTestQueuedNestedQuery(
