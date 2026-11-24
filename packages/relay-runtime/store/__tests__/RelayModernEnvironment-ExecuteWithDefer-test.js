@@ -1148,6 +1148,73 @@ describe.each(['RelayModernEnvironment', 'MultiActorEnvironment'])(
         expect(callback).toBeCalledTimes(1);
       });
 
+      it('does not warn when a queued nested @defer chunk completes inside its parent', () => {
+        const nestedQuery = graphql`
+          query RelayModernEnvironmentExecuteWithDeferTestQueuedNestedQuery(
+            $id: ID!
+          ) {
+            node(id: $id) {
+              ...RelayModernEnvironmentExecuteWithDeferTestQueuedOuterFragment
+                @dangerously_unaliased_fixme
+                @defer(label: "Outer")
+            }
+          }
+        `;
+        graphql`
+          fragment RelayModernEnvironmentExecuteWithDeferTestQueuedOuterFragment on User {
+            id
+            ...RelayModernEnvironmentExecuteWithDeferTestQueuedInnerFragment
+              @defer(label: "Inner")
+          }
+        `;
+        graphql`
+          fragment RelayModernEnvironmentExecuteWithDeferTestQueuedInnerFragment on User {
+            name
+          }
+        `;
+        const nestedOperation = createOperationDescriptor(nestedQuery, {
+          id: '1',
+        });
+        const outerLabel =
+          'RelayModernEnvironmentExecuteWithDeferTestQueuedNestedQuery$defer$Outer';
+        const innerLabel =
+          'RelayModernEnvironmentExecuteWithDeferTestQueuedOuterFragment$defer$Inner';
+
+        environment.execute({operation: nestedOperation}).subscribe(callbacks);
+        dataSource.next({data: {node: {id: '1', __typename: 'User'}}});
+        // Both chunks arrive in one batch. The inner chunk is queued until
+        // the outer chunk announces it, and is final.
+        dataSource.next([
+          {
+            data: {id: '1', __typename: 'User'},
+            label: outerLabel,
+            path: ['node'],
+          },
+          {
+            data: {id: '1', __typename: 'User', name: 'joe'},
+            label: innerLabel,
+            path: ['node'],
+            extensions: {is_final: true} as PayloadExtensions,
+          },
+        ]);
+        jest.runAllTimers();
+
+        expect(error).not.toBeCalled();
+        const innerSnapshot = environment.lookup(
+          createReaderSelector(
+            graphql`
+              fragment RelayModernEnvironmentExecuteWithDeferTestQueuedReadFragment on User {
+                name
+              }
+            `,
+            '1',
+            {},
+            nestedOperation.request,
+          ),
+        );
+        expect(innerSnapshot.data).toEqual({name: 'joe'});
+      });
+
       it('warns if executed in non-streaming mode and processes deferred selections', () => {
         const initialSnapshot = environment.lookup(selector);
         const callback = jest.fn<[Snapshot], void>();

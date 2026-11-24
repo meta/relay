@@ -1085,7 +1085,7 @@ class Executor<TMutation extends MutationParameters> {
           this._actorIdentifier = prevActorIdentifier;
         });
 
-        if (this._isClientPayload || this._state === 'loading_final') {
+        if (this._isClientPayload || isFinal) {
           // The query has defer/stream selections that are enabled, but either
           // the server indicated that this is a "final" payload: no incremental
           // payloads will be delivered, then warn that the query was (likely)
