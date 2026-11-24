@@ -87,4 +87,28 @@ describe('RelayNetwork', () => {
       expect(fetch.mock.calls[1][1]).toEqual({[PROVIDED_VARIABLE_NAME]: 1});
     });
   });
+
+  describe('polling', () => {
+    it('passes the cache config metadata to the fetch function', () => {
+      const fetch = jest.fn(
+        (
+          _params: RequestParameters,
+          _variables: Variables,
+          _cacheConfig: CacheConfig,
+        ): GraphQLResponse => ({data: {}}),
+      );
+      const params = createRequestParameters(() => 0);
+
+      const subscription = RelayNetwork.create(fetch)
+        .execute(params, {}, {poll: 1000, metadata: {background: true}})
+        .subscribe({});
+      subscription.unsubscribe();
+
+      expect(fetch.mock.calls.length).toBe(1);
+      expect(fetch.mock.calls[0][2]).toEqual({
+        force: true,
+        metadata: {background: true},
+      });
+    });
+  });
 });
