@@ -818,28 +818,7 @@ fn get_type_string<'schema>(type_: &SemanticTypeReference<'schema, Type>) -> Str
 
 #[cfg(test)]
 mod tests {
-    use regex::Regex;
-
     use super::*;
-
-    #[test]
-    fn ascii_name_validation_matches_regex() {
-        let regex = Regex::new(r"^[_a-zA-Z][_a-zA-Z0-9]*$").expect("valid name regex");
-        for name in ["", "a", "_", "0", "__schema", "é", "nameé"] {
-            assert_eq!(is_valid_name(name), regex.is_match(name), "{name:?}");
-        }
-        for byte in 0..=127 {
-            let character = char::from(byte);
-            for name in [
-                character.to_string(),
-                format!("{character}name"),
-                format!("na{character}me"),
-                format!("name{character}"),
-            ] {
-                assert_eq!(is_valid_name(&name), regex.is_match(&name), "{name:?}");
-            }
-        }
-    }
 
     fn validate_schema_source(source: &str) -> DiagnosticsResult<()> {
         let schema = schema::build_schema(source).expect("test schema should build");

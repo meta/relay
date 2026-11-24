@@ -2424,7 +2424,6 @@ dependencies = [
  "graphql-cli",
  "intern",
  "rayon",
- "regex",
  "schema",
  "serde",
  "thiserror 2.0.21",
