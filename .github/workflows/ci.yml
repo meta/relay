@@ -210,8 +210,29 @@ jobs:
           # compiler/rust-toolchain.toml which would otherwise take precedence.
           RUSTUP_TOOLCHAIN: nightly-2026-07-05
 
+  # Computes the version number for releases of the `main` branch: the number of
+  # commits on `main`. Always runs (so jobs that depend on it are never skipped),
+  # but only does work for pushes to `main`.
+  main-version:
+    name: Compute main version number
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.count.outputs.number }}
+    steps:
+      - uses: actions/checkout@v6
+        if: github.event_name == 'push' && github.repository == 'meta/relay' && github.ref == 'refs/heads/main'
+        with:
+          # Full history is needed to count commits, but only the commit
+          # objects: a treeless clone takes seconds instead of many minutes.
+          fetch-depth: 0
+          filter: tree:0
+      - id: count
+        if: github.event_name == 'push' && github.repository == 'meta/relay' && github.ref == 'refs/heads/main'
+        run: echo "number=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+
   build-compiler:
     name: Build Rust Compiler (${{ matrix.target.os }})
+    needs: [main-version]
     strategy:
       matrix:
         target:
@@ -263,6 +284,7 @@ jobs:
         run: yarn gulp setCompilerMainVersion
         env:
           RELEASE_COMMIT_SHA: ${{ github.sha }}
+          RELEASE_COMMIT_NUMBER: ${{ needs.main-version.outputs.number }}
       - name: Install packages
         if: matrix.target.os == 'ubuntu-latest' && matrix.target.packages
         run: sudo apt install ${{ matrix.target.packages }} -y
@@ -298,7 +320,7 @@ jobs:
     name: Publish to NPM
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.repository == 'meta/relay' && (github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')))
-    needs: [js-tests, js-lint, typecheck, build-tests, build-compiler, e2e-tests]
+    needs: [js-tests, js-lint, typecheck, build-tests, build-compiler, e2e-tests, main-version]
     environment: npm-publish
     permissions:
       contents: read   # Required for actions/checkout
@@ -350,6 +372,7 @@ jobs:
         run: yarn gulp mainrelease
         env:
           RELEASE_COMMIT_SHA: ${{ github.sha }}
+          RELEASE_COMMIT_NUMBER: ${{ needs.main-version.outputs.number }}
 
       - name: Build release version
         if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
