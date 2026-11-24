@@ -23,11 +23,11 @@ fnv = "1.0"
 graphql-cli = { path = "../graphql-cli" }
 intern = { path = "../intern" }
 rayon = "1.11.0"
-regex = "1.13.1"
 schema = { path = "../schema" }
 serde = { version = "1.0.229", features = ["derive", "rc"] }
 thiserror = "2.0.21"
 
 [dev-dependencies]
 fixture-tests = { path = "../fixture-tests" }
+regex = "1.13.1"
 tokio = { version = "1.54.1", features = ["full", "test-util", "tracing"] }

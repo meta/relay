@@ -26,7 +26,6 @@ use intern::Lookup;
 use intern::string_key::Intern;
 use intern::string_key::StringKey;
 use rayon::prelude::*;
-use regex::Regex;
 use schema::DirectiveValue;
 use schema::EnumID;
 use schema::Field;
@@ -57,8 +56,6 @@ static INTROSPECTION_TYPES: LazyLock<FnvHashSet<StringKey>> = LazyLock::new(|| {
 static QUERY: LazyLock<StringKey> = LazyLock::new(|| "Query".intern());
 static SUBSCRIPTION: LazyLock<StringKey> = LazyLock::new(|| "Subscription".intern());
 static MUTATION: LazyLock<StringKey> = LazyLock::new(|| "Mutation".intern());
-static TYPE_NAME_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[_a-zA-Z][_a-zA-Z0-9]*$").unwrap());
 static SEMANTIC_NON_NULL_DIRECTIVE: LazyLock<DirectiveName> =
     LazyLock::new(|| DirectiveName("semanticNonNull".intern()));
 
@@ -650,7 +647,7 @@ impl<'schema> ValidationContext<'schema> {
             }
         }
 
-        if !TYPE_NAME_REGEX.is_match(name) {
+        if !is_valid_name(name) {
             self.report_diagnostic(Diagnostic::error(
                 SchemaValidationError::InvalidName(name.to_string()),
                 location,
@@ -746,6 +743,14 @@ impl<'schema> ValidationContext<'schema> {
     }
 }
 
+fn is_valid_name(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    bytes
+        .next()
+        .is_some_and(|byte| byte == b'_' || byte.is_ascii_alphabetic())
+        && bytes.all(|byte| byte == b'_' || byte.is_ascii_alphanumeric())
+}
+
 fn is_named_type(type_: &Type) -> bool {
     type_.is_enum()
         || type_.is_input_type()
@@ -813,7 +818,28 @@ fn get_type_string<'schema>(type_: &SemanticTypeReference<'schema, Type>) -> Str
 
 #[cfg(test)]
 mod tests {
+    use regex::Regex;
+
     use super::*;
+
+    #[test]
+    fn ascii_name_validation_matches_regex() {
+        let regex = Regex::new(r"^[_a-zA-Z][_a-zA-Z0-9]*$").expect("valid name regex");
+        for name in ["", "a", "_", "0", "__schema", "é", "nameé"] {
+            assert_eq!(is_valid_name(name), regex.is_match(name), "{name:?}");
+        }
+        for byte in 0..=127 {
+            let character = char::from(byte);
+            for name in [
+                character.to_string(),
+                format!("{character}name"),
+                format!("na{character}me"),
+                format!("name{character}"),
+            ] {
+                assert_eq!(is_valid_name(&name), regex.is_match(&name), "{name:?}");
+            }
+        }
+    }
 
     fn validate_schema_source(source: &str) -> DiagnosticsResult<()> {
         let schema = schema::build_schema(source).expect("test schema should build");
