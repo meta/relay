@@ -2592,22 +2592,22 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::FloatLiteral => {
-                let value = source.parse::<f64>();
-                match value {
-                    Ok(value) => Ok(ConstantValue::Float(FloatNode {
-                        token,
-                        value: FloatValue::new(value),
-                        source_value: source.intern(),
-                    })),
-                    Err(_) => {
-                        let error = Diagnostic::error(
-                            SyntaxError::InvalidFloat,
-                            Location::new(self.source_location, token.span),
-                        );
-                        self.record_error(error);
-                        Err(())
+                let error = match source.parse::<f64>() {
+                    Ok(value) if value.is_finite() => {
+                        return Ok(ConstantValue::Float(FloatNode {
+                            token,
+                            value: FloatValue::new(value),
+                            source_value: source.intern(),
+                        }));
                     }
-                }
+                    Ok(_) => SyntaxError::NonFiniteFloat,
+                    Err(_) => SyntaxError::InvalidFloat,
+                };
+                self.record_error(Diagnostic::error(
+                    error,
+                    Location::new(self.source_location, token.span),
+                ));
+                Err(())
             }
             TokenKind::Identifier => Ok(match source {
                 "true" => ConstantValue::Boolean(BooleanNode { token, value: true }),

@@ -1,0 +1,12 @@
+# expected-to-throw
+query LargestFiniteFloat {
+    node(id: 1.7976931348623157e308) {
+        id
+    }
+}
+
+query FloatOutOfRange {
+    node(id: 1e400) {
+        id
+    }
+}
