@@ -249,6 +249,10 @@ pub struct ProcessPersistConfig {
     /// Arguments passed to the executable.
     #[serde(default)]
     pub args: Vec<String>,
+
+    /// Whether to retain the query text in the generated artifact alongside the persisted ID.
+    #[serde(default)]
+    pub include_query_text: bool,
 }
 
 /// Configuration for how the Relay Compiler should persist GraphQL queries.
@@ -270,7 +274,7 @@ pub enum PersistConfig {
 impl PersistConfig {
     pub fn include_query_text(&self) -> bool {
         match self {
-            PersistConfig::Process(_) => false,
+            PersistConfig::Process(process_config) => process_config.include_query_text,
             PersistConfig::Remote(remote_config) => remote_config.include_query_text,
             PersistConfig::Local(local_config) => local_config.include_query_text,
         }
@@ -972,5 +976,14 @@ mod tests {
             .expect("process config should parse");
         assert!(!config.include_query_text());
         assert!(!config.include_schema_text());
+    }
+
+    #[test]
+    fn process_persist_config_accepts_include_query_text() {
+        let config =
+            parse_persist_config(r#"{"command": "/path/to/persister", "includeQueryText": true}"#)
+                .expect("process config should parse");
+        assert!(matches!(config, PersistConfig::Process(_)));
+        assert!(config.include_query_text());
     }
 }

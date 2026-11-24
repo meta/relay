@@ -130,6 +130,7 @@ impl ProcessPersister {
             config: ProcessPersistConfig {
                 command: "unused-in-test".into(),
                 args: Vec::new(),
+                include_query_text: false,
             },
             state: Mutex::new(ProcessState::Running(Box::new(ProcessConnection {
                 child: None,

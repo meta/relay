@@ -1232,6 +1232,11 @@
         "command": {
           "description": "Executable to start directly, without a shell.",
           "type": "string"
+        },
+        "includeQueryText": {
+          "description": "Whether to retain the query text in the generated artifact alongside the persisted ID.",
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false,
