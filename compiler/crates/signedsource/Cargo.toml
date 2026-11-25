@@ -10,5 +10,5 @@ license = "MIT"
 
 [dependencies]
 hex = { version = "0.4.3", features = ["alloc"] }
-md-5 = "0.10"
+md-5 = "0.10.6"
 regex = "1.13.1"

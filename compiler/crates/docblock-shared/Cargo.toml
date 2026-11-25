@@ -12,5 +12,5 @@ license = "MIT"
 common = { path = "../common" }
 hex = { version = "0.4.3", features = ["alloc"] }
 intern = { path = "../intern" }
-md-5 = "0.10"
+md-5 = "0.10.6"
 serde = { version = "1.0.229", features = ["derive", "rc"] }

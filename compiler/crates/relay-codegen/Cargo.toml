@@ -49,7 +49,7 @@ graphql-syntax = { path = "../graphql-syntax" }
 hex = { version = "0.4.3", features = ["alloc"] }
 indexmap = { version = "2.14.2", features = ["arbitrary", "rayon", "serde"] }
 intern = { path = "../intern" }
-md-5 = "0.10"
+md-5 = "0.10.6"
 relay-config = { path = "../relay-config" }
 relay-schema = { path = "../relay-schema" }
 relay-transforms = { path = "../relay-transforms" }
