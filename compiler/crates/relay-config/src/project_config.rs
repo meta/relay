@@ -236,6 +236,7 @@ pub struct LocalPersistConfig {
 /// `{"type":"persist","text":"...","relativePath":"...","overrideSchema":null,"previousId":null}`.
 /// `text` is the GraphQL operation, and `relativePath` is its generated artifact path.
 /// `overrideSchema` and `previousId` are strings when available, otherwise `null`.
+/// `schemaText` is present only when `includeSchemaText` is enabled.
 /// The process writes `{"type":"persisted","id":"..."}` to stdout in reply.
 /// After all operations succeed, the compiler sends `{"type":"finalize"}` and
 /// expects `{"type":"finalized"}`. Each request receives one response line;
@@ -253,6 +254,12 @@ pub struct ProcessPersistConfig {
     /// Whether to retain the query text in the generated artifact alongside the persisted ID.
     #[serde(default)]
     pub include_query_text: bool,
+
+    /// Whether to send the project's server SDL as `schemaText` with each persist request.
+    /// Client schema extensions are excluded. Requires `schema` or `schemaDir`,
+    /// not `schemaCompact`, and a worker that accepts `schemaText`.
+    #[serde(default)]
+    pub include_schema_text: bool,
 }
 
 /// Configuration for how the Relay Compiler should persist GraphQL queries.
@@ -281,10 +288,9 @@ impl PersistConfig {
     }
 
     /// Whether the project's schema should be sent with each persist request.
-    /// Only the remote variant has anywhere to send it.
     pub fn include_schema_text(&self) -> bool {
         match self {
-            PersistConfig::Process(_) => false,
+            PersistConfig::Process(process_config) => process_config.include_schema_text,
             PersistConfig::Remote(remote_config) => remote_config.include_schema_text,
             PersistConfig::Local(_) => false,
         }
@@ -985,5 +991,15 @@ mod tests {
                 .expect("process config should parse");
         assert!(matches!(config, PersistConfig::Process(_)));
         assert!(config.include_query_text());
+    }
+
+    #[test]
+    fn process_persist_config_accepts_include_schema_text() {
+        let config =
+            parse_persist_config(r#"{"command": "/path/to/persister", "includeSchemaText": true}"#)
+                .expect("process config should parse");
+        assert!(matches!(config, PersistConfig::Process(_)));
+        assert!(config.include_schema_text());
+        assert!(!config.include_query_text());
     }
 }

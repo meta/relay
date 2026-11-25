@@ -59,6 +59,8 @@ enum ProcessRequest<'a> {
         override_schema: Option<&'a str>,
         #[serde(rename = "previousId")]
         previous_id: Option<&'a str>,
+        #[serde(rename = "schemaText", skip_serializing_if = "Option::is_none")]
+        schema_text: Option<&'a str>,
     },
     #[serde(rename = "finalize")]
     Finalize,
@@ -131,6 +133,7 @@ impl ProcessPersister {
                 command: "unused-in-test".into(),
                 args: Vec::new(),
                 include_query_text: false,
+                include_schema_text: false,
             },
             state: Mutex::new(ProcessState::Running(Box::new(ProcessConnection {
                 child: None,
@@ -215,6 +218,15 @@ impl OperationPersister for ProcessPersister {
         artifact: ArtifactForPersister,
         previous_id: Option<PersistId>,
     ) -> PersistResult<PersistId> {
+        let schema_text = if self.config.include_schema_text {
+            let text = artifact.schema_text.as_ref().ok_or_else(|| PersistError::ErrorResponse {
+                message: "`persistConfig.includeSchemaText` is set, but this project produced no schema text to send as `schemaText`. Use `schema` or `schemaDir` instead of `schemaCompact`.".to_owned(),
+            })?;
+            Some(text.as_str())
+        } else {
+            None
+        };
+
         let mut state = self.state.lock().await;
         let response = self
             .connection(&mut state)?
@@ -223,6 +235,7 @@ impl OperationPersister for ProcessPersister {
                 relative_path: &artifact.relative_path,
                 override_schema: artifact.override_schema.as_deref(),
                 previous_id: previous_id.as_deref(),
+                schema_text,
             })
             .await?;
 
@@ -284,10 +297,20 @@ mod tests {
 
     #[tokio::test]
     async fn sends_previous_id_and_finalizes_over_one_connection() {
+        assert_process_exchange(false).await;
+    }
+
+    #[tokio::test]
+    async fn sends_schema_text_only_when_requested() {
+        assert_process_exchange(true).await;
+    }
+
+    async fn assert_process_exchange(include_schema_text: bool) {
         let (client, worker) = duplex(4096);
         let (client_output, client_input) = split(client);
         let (worker_input, worker_output) = split(worker);
-        let persister = ProcessPersister::with_io(client_input, client_output);
+        let mut persister = ProcessPersister::with_io(client_input, client_output);
+        persister.config.include_schema_text = include_schema_text;
 
         let worker = tokio::spawn(async move {
             let mut input = BufReader::new(worker_input);
@@ -299,16 +322,17 @@ mod tests {
                 .await
                 .expect("read persist request");
             let request: Value = serde_json::from_str(&line).expect("valid persist request");
-            assert_eq!(
-                request,
-                serde_json::json!({
-                    "type": "persist",
-                    "text": "query TestQuery { me { id } }",
-                    "relativePath": "src/__generated__/TestQuery.graphql.js",
-                    "overrideSchema": "test-schema",
-                    "previousId": "cached-id"
-                })
-            );
+            let mut expected = serde_json::json!({
+                "type": "persist",
+                "text": "query TestQuery { me { id } }",
+                "relativePath": "src/__generated__/TestQuery.graphql.js",
+                "overrideSchema": "test-schema",
+                "previousId": "cached-id"
+            });
+            if include_schema_text {
+                expected["schemaText"] = serde_json::json!("type Query { me: User }");
+            }
+            assert_eq!(request, expected);
             output
                 .write_all(b"{\"type\":\"persisted\",\"id\":\"worker-id\"}\n")
                 .await
@@ -336,6 +360,28 @@ mod tests {
         assert_eq!(id, "worker-id");
         persister.finalize().await.expect("finalize succeeds");
         worker.await.expect("worker succeeds");
+    }
+
+    #[tokio::test]
+    async fn rejects_missing_schema_text_before_starting_worker() {
+        let persister = ProcessPersister::new(ProcessPersistConfig {
+            command: "unused-in-test".into(),
+            args: Vec::new(),
+            include_query_text: false,
+            include_schema_text: true,
+        });
+        let mut artifact = artifact();
+        artifact.schema_text = None;
+
+        let error = persister
+            .persist_artifact(artifact)
+            .await
+            .expect_err("missing server SDL must fail");
+        assert!(error.to_string().contains("schemaCompact"));
+        assert!(matches!(
+            *persister.state.lock().await,
+            ProcessState::NotStarted
+        ));
     }
 
     #[tokio::test]

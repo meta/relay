@@ -1218,7 +1218,7 @@
       ]
     },
     "ProcessPersistConfig": {
-      "description": "Configuration for a persistent process that exchanges one JSON object per line.\n\nFor each operation, the compiler writes a request to the process's stdin:\n`{\"type\":\"persist\",\"text\":\"...\",\"relativePath\":\"...\",\"overrideSchema\":null,\"previousId\":null}`.\n`text` is the GraphQL operation, and `relativePath` is its generated artifact path.\n`overrideSchema` and `previousId` are strings when available, otherwise `null`.\nThe process writes `{\"type\":\"persisted\",\"id\":\"...\"}` to stdout in reply.\nAfter all operations succeed, the compiler sends `{\"type\":\"finalize\"}` and\nexpects `{\"type\":\"finalized\"}`. Each request receives one response line;\nprocess diagnostics should go to stderr rather than stdout.",
+      "description": "Configuration for a persistent process that exchanges one JSON object per line.\n\nFor each operation, the compiler writes a request to the process's stdin:\n`{\"type\":\"persist\",\"text\":\"...\",\"relativePath\":\"...\",\"overrideSchema\":null,\"previousId\":null}`.\n`text` is the GraphQL operation, and `relativePath` is its generated artifact path.\n`overrideSchema` and `previousId` are strings when available, otherwise `null`.\n`schemaText` is present only when `includeSchemaText` is enabled.\nThe process writes `{\"type\":\"persisted\",\"id\":\"...\"}` to stdout in reply.\nAfter all operations succeed, the compiler sends `{\"type\":\"finalize\"}` and\nexpects `{\"type\":\"finalized\"}`. Each request receives one response line;\nprocess diagnostics should go to stderr rather than stdout.",
       "type": "object",
       "properties": {
         "args": {
@@ -1235,6 +1235,11 @@
         },
         "includeQueryText": {
           "description": "Whether to retain the query text in the generated artifact alongside the persisted ID.",
+          "type": "boolean",
+          "default": false
+        },
+        "includeSchemaText": {
+          "description": "Whether to send the project's server SDL as `schemaText` with each persist request.\nClient schema extensions are excluded. Requires `schema` or `schemaDir`,\nnot `schemaCompact`, and a worker that accepts `schemaText`.",
           "type": "boolean",
           "default": false
         }
