@@ -6956,9 +6956,9 @@ ignore@^5.2.0:
   integrity sha512-CmxgYGiEPCLhfLnpPp1MoRmifwEIOgjcHXxOBjv7mY96c+eWScsOP9c112ZyLdWHi0FxHjI+4uVhKYp/gcdRmQ==
 
 image-size@^2.0.2:
-  version "2.0.2"
-  resolved "https://registry.yarnpkg.com/image-size/-/image-size-2.0.2.tgz#84a7b43704db5736f364bf0d1b029821299b4bdc"
-  integrity sha512-IRqXKlaXwgSMAMtpNzZa1ZAe8m+Sa1770Dhk8VkSsP9LS+iHD62Zd8FQKs8fbPiagBE7BzoFX23cxFnwshpV6w==
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/image-size/-/image-size-2.2.0.tgz#7a1844448e48deee63aa92054860567175000fdd"
+  integrity sha512-93QTtmEv0UD26RTJfmxQvWzhlauWO1TizNPjCumqzlACXYmI7TlwRWWT2+M4at7kZwnj+WkMOW9XKI76eX0dWw==
 
 immediate@^3.2.3:
   version "3.3.0"
