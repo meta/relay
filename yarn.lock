@@ -2086,9 +2086,9 @@ base@^0.11.1:
     pascalcase "^0.1.1"
 
 baseline-browser-mapping@^2.9.0:
-  version "2.9.19"
-  resolved "https://registry.yarnpkg.com/baseline-browser-mapping/-/baseline-browser-mapping-2.9.19.tgz#3e508c43c46d961eb4d7d2e5b8d1dd0f9ee4f488"
-  integrity sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==
+  version "2.11.40"
+  resolved "https://registry.yarnpkg.com/baseline-browser-mapping/-/baseline-browser-mapping-2.11.40.tgz#a7ca6570664b554a87e62572e39b45b9623d1206"
+  integrity sha512-WJhaQ3kW5+5BpOduI64ewvykhCyK/IHHG5jCIzivmW2nkYPRowUjs0DbBXY4CAr1LLrN7QEzZGL9727aXH9sJA==
 
 binary-extensions@^2.0.0:
   version "2.2.0"
@@ -3269,7 +3269,6 @@ eslint-plugin-react@^7.37.5:
 
 "eslint-plugin-relay-internal@link:./packages/eslint-plugin-relay-internal":
   version "0.0.0"
-  uid ""
 
 eslint-plugin-relay@1.8.3:
   version "1.8.3"
