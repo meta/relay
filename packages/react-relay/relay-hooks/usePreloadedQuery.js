@@ -145,11 +145,17 @@ hook usePreloadedQuery<
 
       const fallbackFetchObservable = fetchQuery(environment, operation);
       let fetchObservable;
-      if (source != null && environment === preloadedQuery.environment) {
+      if (
+        source != null &&
+        environment === preloadedQuery.environment &&
+        !preloadedQuery.isDisposed
+      ) {
         // If the source observable exists and the environments match, reuse
         // the source observable.
         // If the source observable happens to be empty, we need to fall back
         // and re-execute and de-dupe the query (at render time).
+        // A released query's source replays a response whose data may have
+        // been garbage collected, so it is not reused.
         fetchObservable = source.ifEmpty(fallbackFetchObservable);
       } else if (environment !== preloadedQuery.environment) {
         // If a call to loadQuery is made with a particular environment, and that

@@ -180,6 +180,7 @@ hook useQueryLoader_EXPERIMENTAL<
         if (undisposedQueryReference === currentQueryReference) {
           continue;
         }
+        undisposedQueryReferences.delete(undisposedQueryReference);
         if (undisposedQueryReference.kind !== 'NullQueryReference') {
           if (requestIsLiveQuery(preloadableRequest)) {
             undisposedQueryReference.dispose &&
@@ -195,7 +196,21 @@ hook useQueryLoader_EXPERIMENTAL<
   );
 
   const cleanupTimerRef = useRef<?ReturnType<typeof setTimeout>>(null);
+  const releasedWhileHiddenRef = useRef(false);
   useEffect(() => {
+    if (releasedWhileHiddenRef.current) {
+      // The cleanup timer released the committed query while the component
+      // was hidden, so its data may have been collected. Load it again.
+      releasedWhileHiddenRef.current = false;
+      if (queryReference.kind !== 'NullQueryReference') {
+        queryLoaderCallback(queryReference.variables, {
+          fetchPolicy: queryReference.fetchPolicy,
+          networkCacheConfig: queryReference.networkCacheConfig,
+        });
+      }
+      return;
+    }
+
     // When a new queryReference is committed, we iterate over all
     // query references in undisposedQueryReferences and dispose all of
     // the refs that aren't the currently committed one. This ensures
@@ -222,10 +237,12 @@ hook useQueryLoader_EXPERIMENTAL<
     }
     return () => {
       cleanupTimerRef.current = setTimeout(() => {
+        cleanupTimerRef.current = null;
+        releasedWhileHiddenRef.current = true;
         disposeAllRemainingQueryReferences(preloadableRequest, null);
       }, CLEANUP_TIMEOUT);
     };
-  }, [preloadableRequest, queryReference]);
+  }, [preloadableRequest, queryReference, queryLoaderCallback]);
 
   useInsertionEffect(() => {
     // We use an insertion effect to ensure that we cleanup the final query
